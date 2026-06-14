@@ -4,6 +4,14 @@
 
 export const CHANGELOG = [
   {
+    version: '2.4.0',
+    date: '2026-06-14',
+    entries: [
+      { type: 'new',      text: 'Wein-Filter: nach Farbe (Rot/Weiß/Rosé/Schaum), Geschmack, Jahrgang und Land filtern — alle kombinierbar.' },
+      { type: 'improved', text: 'Weinkarten zeigen jetzt Farbe, Geschmack, Land und Preis direkt in der Übersicht an.' },
+    ],
+  },
+  {
     version: '2.3.0',
     date: '2026-06-14',
     entries: [

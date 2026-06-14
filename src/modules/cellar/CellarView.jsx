@@ -11,6 +11,20 @@ import SubTabs from '../../components/SubTabs'
 import SelectionBar from '../../components/SelectionBar'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
+const COLOR_OPTIONS = [
+  { id: 'rot', label: '🍷 Rot' },
+  { id: 'weiß', label: '🥂 Weiß' },
+  { id: 'rosé', label: '🌸 Rosé' },
+  { id: 'schaum', label: '🍾 Schaum' },
+]
+const SWEETNESS_OPTIONS = [
+  { id: 'trocken', label: 'Trocken' },
+  { id: 'halbtrocken', label: 'Halbtrocken' },
+  { id: 'lieblich', label: 'Lieblich' },
+  { id: 'süß', label: 'Süß' },
+  { id: 'brut', label: 'Brut' },
+  { id: 'extra brut', label: 'Extra Brut' },
+]
 
 export default function CellarView() {
   const { racks, bottles, drinkOne, removeBottle,
@@ -31,13 +45,44 @@ export default function CellarView() {
   const [alcoholFilter, setAlcoholFilter] = useState('all') // all | alc | free
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
+  const [showFilters, setShowFilters] = useState(false)
+  const [colorFilter, setColorFilter] = useState([])
+  const [sweetnessFilter, setSweetnessFilter] = useState([])
+  const [countryFilter, setCountryFilter] = useState([])
+  const [vintageFilter, setVintageFilter] = useState('all') // all | 2020+ | 2015-2019 | older
 
   const activeRack = racks.find(r => r.id === activeRackId) || racks[0]
+
+  const availableCountries = useMemo(() => {
+    const set = new Set(bottles.map(b => b.country).filter(Boolean))
+    return [...set].sort()
+  }, [bottles])
+
+  const activeFilterCount = (colorFilter.length > 0 ? 1 : 0) +
+    (sweetnessFilter.length > 0 ? 1 : 0) +
+    (countryFilter.length > 0 ? 1 : 0) +
+    (vintageFilter !== 'all' ? 1 : 0) +
+    (alcoholFilter !== 'all' ? 1 : 0)
+
+  function toggleArrayFilter(arr, setArr, val) {
+    setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
+  }
+
+  function clearAllFilters() {
+    setColorFilter([]); setSweetnessFilter([]); setCountryFilter([])
+    setVintageFilter('all'); setAlcoholFilter('all')
+  }
 
   const filtered = useMemo(() => {
     let arr = bottles
     if (alcoholFilter === 'alc')  arr = arr.filter(b => !b.alcoholFree)
     if (alcoholFilter === 'free') arr = arr.filter(b => b.alcoholFree)
+    if (colorFilter.length > 0)     arr = arr.filter(b => colorFilter.includes(b.color))
+    if (sweetnessFilter.length > 0) arr = arr.filter(b => sweetnessFilter.includes(b.sweetness))
+    if (countryFilter.length > 0)   arr = arr.filter(b => countryFilter.includes(b.country))
+    if (vintageFilter === '2020+')      arr = arr.filter(b => b.vintage >= 2020)
+    if (vintageFilter === '2015-2019')  arr = arr.filter(b => b.vintage >= 2015 && b.vintage <= 2019)
+    if (vintageFilter === 'older')      arr = arr.filter(b => b.vintage > 0 && b.vintage < 2015)
     if (tab === 'ablauf') {
       const y = new Date().getFullYear()
       return arr.filter(b => {
@@ -54,9 +99,8 @@ export default function CellarView() {
       return arr.filter(b => b.rackId === activeRack.id && b.count > 0)
                 .sort((a,b) => a.slot.localeCompare(b.slot))
     }
-    // Standard "Alle": ausverkaufte ausblenden – diese leben in der Historie
     return arr.filter(b => b.count > 0).sort((a,b) => a.drinkUntil - b.drinkUntil)
-  }, [bottles, tab, activeRack, alcoholFilter])
+  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter])
 
   // Weintagebuch: bewertet ODER mind. 1× getrunken (egal ob noch Bestand)
   const memories = useMemo(() => {
@@ -161,17 +205,100 @@ export default function CellarView() {
       />
 
       {tab !== 'tagebuch' && (
-        <div className="flex gap-1.5 px-4 pb-2">
-          {[
-            { id: 'all',  label: 'Alle' },
-            { id: 'alc',  label: '🍷 Mit Alkohol' },
-            { id: 'free', label: '🚫 Alkoholfrei' },
-          ].map(f => (
-            <button key={f.id} onClick={() => setAlcoholFilter(f.id)}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                alcoholFilter === f.id ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-              }`}>{f.label}</button>
-          ))}
+        <div className="px-4 pb-2 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setShowFilters(f => !f)}
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                activeFilterCount > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+              }`}>
+              🔍 Filter {activeFilterCount > 0 && <span className="bg-white/30 text-[10px] px-1.5 rounded-full">{activeFilterCount}</span>}
+            </button>
+            {activeFilterCount > 0 && (
+              <button onClick={clearAllFilters}
+                className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 underline">Alle zurücksetzen</button>
+            )}
+            <span className="ml-auto text-[10px] text-gray-400 font-medium">{filtered.length} Weine</span>
+          </div>
+
+          {showFilters && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm space-y-3">
+              {/* Farbe */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Farbe</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {COLOR_OPTIONS.map(c => (
+                    <button key={c.id} onClick={() => toggleArrayFilter(colorFilter, setColorFilter, c.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        colorFilter.includes(c.id) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                      }`}>{c.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Geschmack */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Geschmack</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SWEETNESS_OPTIONS.map(s => (
+                    <button key={s.id} onClick={() => toggleArrayFilter(sweetnessFilter, setSweetnessFilter, s.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        sweetnessFilter.includes(s.id) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                      }`}>{s.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Jahrgang */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Jahrgang</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: 'all', label: 'Alle' },
+                    { id: '2020+', label: '2020+' },
+                    { id: '2015-2019', label: '2015–2019' },
+                    { id: 'older', label: 'Älter' },
+                  ].map(v => (
+                    <button key={v.id} onClick={() => setVintageFilter(v.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        vintageFilter === v.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                      }`}>{v.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Land */}
+              {availableCountries.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Land</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {availableCountries.map(c => (
+                      <button key={c} onClick={() => toggleArrayFilter(countryFilter, setCountryFilter, c)}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          countryFilter.includes(c) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                        }`}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Alkohol */}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Alkohol</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { id: 'all', label: 'Alle' },
+                    { id: 'alc', label: '🍷 Mit Alkohol' },
+                    { id: 'free', label: '🚫 Alkoholfrei' },
+                  ].map(f => (
+                    <button key={f.id} onClick={() => setAlcoholFilter(f.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        alcoholFilter === f.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                      }`}>{f.label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -313,21 +440,31 @@ export default function CellarView() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-gray-800 dark:text-gray-100 truncate">{b.name}</span>
-                        <span className="text-xs text-gray-400">{b.vintage}</span>
+                        <span className="text-xs text-gray-400">{b.vintage || ''}</span>
                         {b.rating > 0 && <span className="text-xs">{'⭐'.repeat(b.rating)}</span>}
                         {b.alcoholFree && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded">🚫 0%</span>}
                         {b.archived && <span className="text-[10px] font-bold bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 px-1.5 py-0.5 rounded">📦 Archiv</span>}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {b.winery && <span>{b.winery} · </span>}{b.region}{b.grape && <span> · {b.grape}</span>}
+                        {[b.winery, b.region, b.country, b.grape].filter(Boolean).join(' · ')}
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {b.color && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          b.color === 'rot' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
+                          b.color === 'weiß' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
+                          b.color === 'rosé' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' :
+                          'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                        }`}>{b.color}</span>}
+                        {b.sweetness && <span className="text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{b.sweetness}</span>}
+                        {b.priceEur != null && <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">{b.priceEur.toFixed(0)} €</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
                           {r?.emoji} {r?.label || '—'} · {b.row && b.col ? `R${b.row}/S${b.col}` : b.slot || '—'}
                         </span>
-                        <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">{b.count}× Bestand</span>
+                        <span className="text-[10px] font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">{b.count}×</span>
                         <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${status.cls}`}>{status.label}</span>
-                        {b.restock && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">+ nachkaufen</span>}
+                        {b.restock && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-300">+ nachkaufen</span>}
                       </div>
                     </div>
                   </div>
