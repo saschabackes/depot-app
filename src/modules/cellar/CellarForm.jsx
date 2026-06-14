@@ -84,7 +84,9 @@ export default function CellarForm({ prefilled, onClose }) {
   const startRackId = prefilled?.rackId || lastUsedRack?.rackId || racks[0]?.id
   const startSlot = prefilled?.slot || lastUsedRack?.slot || racks.find(r => r.id === startRackId)?.slots[0] || ''
   const [count, setCount] = useState(1)
-  const [locations, setLocations] = useState([{ rackId: startRackId, slot: startSlot }])
+  const startRack = racks.find(r => r.id === startRackId)
+  const hasGrid = startRack?.rows > 0 && startRack?.cols > 0
+  const [locations, setLocations] = useState([{ rackId: startRackId, slot: hasGrid ? '' : startSlot, row: null, col: null }])
 
   const [bulkMode, setBulkMode] = useState(false)
   const [hint, setHint] = useState('')
@@ -110,7 +112,8 @@ export default function CellarForm({ prefilled, onClose }) {
       if (i !== idx) return loc
       if (field === 'rackId') {
         const rack = racks.find(r => r.id === value)
-        return { rackId: value, slot: rack?.slots[0] || '' }
+        const isGrid = rack?.rows > 0 && rack?.cols > 0
+        return { rackId: value, slot: isGrid ? '' : (rack?.slots[0] || ''), row: null, col: null }
       }
       return { ...loc, [field]: value }
     }))
@@ -221,7 +224,7 @@ export default function CellarForm({ prefilled, onClose }) {
         name, winery, vintage, region, country, grape, color, wineType, sweetness, classification,
         drinkFrom, drinkUntil, note, photoData, barcode,
         retailer, priceEur, purchaseDate, link,
-        locations: locations.map(l => ({ rackId: l.rackId, slot: l.slot, count: 1 })),
+        locations: locations.map(l => ({ rackId: l.rackId, slot: l.slot, row: l.row, col: l.col, count: 1 })),
       })
     }
     if (pendingId) removePending(pendingId)
@@ -386,6 +389,8 @@ export default function CellarForm({ prefilled, onClose }) {
 
             {locations.map((loc, idx) => {
               const rack = racks.find(r => r.id === loc.rackId)
+              const isGrid = rack?.rows > 0 && rack?.cols > 0
+              const occupied = isGrid ? bottles.filter(b => b.rackId === rack.id && b.row != null && b.col != null && b.count > 0) : []
               return (
                 <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 space-y-2">
                   {count > 1 && (
@@ -401,7 +406,49 @@ export default function CellarForm({ prefilled, onClose }) {
                       >{r.emoji} {r.label}</button>
                     ))}
                   </div>
-                  {rack && rack.slots.length > 0 && (
+                  {isGrid ? (
+                    <div>
+                      <p className="text-[10px] text-gray-400 mb-1">
+                        Position wählen{loc.row && loc.col ? `: Reihe ${loc.row}, Spalte ${loc.col}` : ''}
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="border-collapse">
+                          <tbody>
+                            {Array.from({ length: rack.rows }, (_, ri) => (
+                              <tr key={ri}>
+                                <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
+                                {Array.from({ length: rack.cols }, (_, ci) => {
+                                  const r1 = ri + 1, c1 = ci + 1
+                                  const here = occupied.filter(b => b.row === r1 && b.col === c1)
+                                  const total = here.reduce((s, b) => s + b.count, 0)
+                                  const selected = loc.row === r1 && loc.col === c1
+                                  return (
+                                    <td key={ci}
+                                      onClick={() => setLocations(prev => prev.map((l, i) => i === idx ? { ...l, row: r1, col: c1 } : l))}
+                                      className={`w-9 h-9 text-center border text-[11px] cursor-pointer transition-colors ${
+                                        selected
+                                          ? 'bg-primary-600 text-white border-primary-600 font-bold'
+                                          : total > 0
+                                            ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-gray-200 dark:border-gray-600'
+                                            : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                                      }`}>
+                                      {selected ? '🍷' : total > 0 ? total : ''}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                            <tr>
+                              <td />
+                              {Array.from({ length: rack.cols }, (_, ci) => (
+                                <td key={ci} className="text-[9px] text-gray-400 text-center">{ci + 1}</td>
+                              ))}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : rack && rack.slots.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {rack.slots.map(s => (
                         <button key={s} type="button" onClick={() => updateLocation(idx, 'slot', s)}

@@ -67,7 +67,9 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
         <Fact icon="🍇" label="Rebsorte" value={bottle.grape || '—'} />
         <Fact icon="📅" label="Trinkfenster" value={`${bottle.drinkFrom}–${effUntil}`}
           sub={effUntil !== bottle.drinkUntil ? `nominal bis ${bottle.drinkUntil}` : status.label} />
-        <Fact icon={rack?.emoji || '📦'} label={rack?.label || '—'} value={bottle.slot || '—'} sub={`${bottle.count}× Bestand · ${drunken}× getrunken`} />
+        <Fact icon={rack?.emoji || '📦'} label={rack?.label || '—'}
+          value={bottle.row && bottle.col ? `R${bottle.row}/S${bottle.col}` : bottle.slot || '—'}
+          sub={`${bottle.count}× Bestand · ${drunken}× getrunken`} />
       </div>
 
       {/* Trinkfenster-Status + Lagerqualität */}
@@ -374,7 +376,10 @@ function EditSheet({ bottle, onClose, onSave }) {
   const [alcoholFree, setAlcoholFree] = useState(!!bottle.alcoholFree)
   const [rackId, setRackId] = useState(bottle.rackId || racks[0]?.id)
   const [slot, setSlot]     = useState(bottle.slot || '')
+  const [gridRow, setGridRow] = useState(bottle.row ?? null)
+  const [gridCol, setGridCol] = useState(bottle.col ?? null)
   const selectedRack = racks.find(r => r.id === rackId)
+  const isGrid = selectedRack?.rows > 0 && selectedRack?.cols > 0
 
   function toggle(arr, set, v) { set(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]) }
 
@@ -443,14 +448,51 @@ function EditSheet({ bottle, onClose, onSave }) {
             <div className="flex flex-wrap gap-1.5">
               {racks.map(r => (
                 <button key={r.id} type="button"
-                  onClick={() => { setRackId(r.id); setSlot(r.slots?.[0] || '') }}
+                  onClick={() => { setRackId(r.id); setSlot(r.slots?.[0] || ''); setGridRow(null); setGridCol(null) }}
                   className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
                     rackId === r.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}
                 >{r.emoji} {r.label}</button>
               ))}
             </div>
-            {selectedRack?.slots?.length > 0 && (
+            {isGrid ? (
+              <div className="mt-2">
+                <p className="text-[10px] text-gray-400 mb-1">
+                  Position{gridRow && gridCol ? `: Reihe ${gridRow}, Spalte ${gridCol}` : ' wählen'}
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="border-collapse">
+                    <tbody>
+                      {Array.from({ length: selectedRack.rows }, (_, ri) => (
+                        <tr key={ri}>
+                          <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
+                          {Array.from({ length: selectedRack.cols }, (_, ci) => {
+                            const r1 = ri + 1, c1 = ci + 1
+                            const selected = gridRow === r1 && gridCol === c1
+                            return (
+                              <td key={ci} onClick={() => { setGridRow(r1); setGridCol(c1) }}
+                                className={`w-9 h-9 text-center border text-[11px] cursor-pointer transition-colors ${
+                                  selected
+                                    ? 'bg-primary-600 text-white border-primary-600 font-bold'
+                                    : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                                }`}>
+                                {selected ? '🍷' : ''}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                      <tr>
+                        <td />
+                        {Array.from({ length: selectedRack.cols }, (_, ci) => (
+                          <td key={ci} className="text-[9px] text-gray-400 text-center">{ci + 1}</td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : selectedRack?.slots?.length > 0 ? (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {selectedRack.slots.map(s => (
                   <button key={s} type="button" onClick={() => setSlot(s)}
@@ -459,8 +501,7 @@ function EditSheet({ bottle, onClose, onSave }) {
                     }`}>{s}</button>
                 ))}
               </div>
-            )}
-            {(!selectedRack?.slots || selectedRack.slots.length === 0) && (
+            ) : (
               <input className="input text-sm mt-2" placeholder="Fach / Slot" value={slot} onChange={e => setSlot(e.target.value)} />
             )}
           </div>
@@ -497,7 +538,7 @@ function EditSheet({ bottle, onClose, onSave }) {
           <div className="flex gap-2 pt-2 pb-4">
             <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
             <button
-              onClick={() => onSave({ name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer, priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings, rackId, slot })}
+              onClick={() => onSave({ name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer, priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings, rackId, slot: isGrid ? '' : slot, row: isGrid ? gridRow : null, col: isGrid ? gridCol : null })}
               className="btn-primary flex-1">Speichern</button>
           </div>
         </div>

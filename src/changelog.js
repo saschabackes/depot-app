@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '2.3.0',
+    date: '2026-06-14',
+    entries: [
+      { type: 'new',      text: 'Gitteransicht für Weinregale: Reihe × Spalte Positionen konfigurieren und Flaschen gezielt platzieren.' },
+    ],
+  },
+  {
     version: '2.2.0',
     date: '2026-06-14',
     entries: [

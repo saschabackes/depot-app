@@ -11,7 +11,7 @@ const COND_KEYS = [
 const EMOJI_OPTIONS = ['🍷','🛋️','🔻','🧊','🏠','🍾','🗄️','📦']
 
 export default function RackSettings({ onClose }) {
-  const { racks, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions } = useCellar()
+  const { racks, bottles, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions, setRackGrid } = useCellar()
   const [newLabel, setNewLabel] = useState('')
   const [newEmoji, setNewEmoji] = useState('🍷')
 
@@ -76,6 +76,57 @@ export default function RackSettings({ onClose }) {
                     const l = prompt('Bezeichnung des Fachs', String(r.slots.length + 1))
                     if (l) addSlot(r.id, l)
                   }} className="text-xs text-primary-600 font-semibold px-2 py-0.5">+ Fach</button>
+                </div>
+
+                <div className="mt-3">
+                  <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Gitteransicht (Reihen × Spalten)</p>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" max="20" className="input py-1 text-sm w-16 text-center"
+                      placeholder="0" value={r.rows || ''}
+                      onChange={e => setRackGrid(r.id, Math.max(0, Math.min(20, Number(e.target.value) || 0)), r.cols || 0)} />
+                    <span className="text-gray-400 text-sm">×</span>
+                    <input type="number" min="0" max="20" className="input py-1 text-sm w-16 text-center"
+                      placeholder="0" value={r.cols || ''}
+                      onChange={e => setRackGrid(r.id, r.rows || 0, Math.max(0, Math.min(20, Number(e.target.value) || 0)))} />
+                    <span className="text-[11px] text-gray-400 ml-1">
+                      {r.rows > 0 && r.cols > 0
+                        ? `= ${r.rows * r.cols} Plätze`
+                        : 'Deaktiviert'}
+                    </span>
+                  </div>
+                  {r.rows > 0 && r.cols > 0 && (() => {
+                    const occupied = bottles.filter(b => b.rackId === r.id && b.row != null && b.col != null && b.count > 0)
+                    return (
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="border-collapse">
+                          <tbody>
+                            {Array.from({ length: r.rows }, (_, ri) => (
+                              <tr key={ri}>
+                                <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
+                                {Array.from({ length: r.cols }, (_, ci) => {
+                                  const here = occupied.filter(b => b.row === ri + 1 && b.col === ci + 1)
+                                  const total = here.reduce((s, b) => s + b.count, 0)
+                                  return (
+                                    <td key={ci} className={`w-7 h-7 text-center border border-gray-200 dark:border-gray-600 text-[10px] ${
+                                      total > 0 ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold' : 'text-gray-300 dark:text-gray-600'
+                                    }`}>
+                                      {total > 0 ? total : '·'}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                            <tr>
+                              <td />
+                              {Array.from({ length: r.cols }, (_, ci) => (
+                                <td key={ci} className="text-[9px] text-gray-400 text-center">{ci + 1}</td>
+                              ))}
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 <div className="flex items-center justify-between mt-3 mb-1">

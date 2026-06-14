@@ -80,6 +80,8 @@ function rackToJS(row) {
     label:      row.label,
     emoji:      row.emoji ?? '🍷',
     slots:      row.slots ?? [],
+    rows:       row.rows ?? 0,
+    cols:       row.cols ?? 0,
     conditions: row.conditions ?? { ...DEFAULT_CONDITIONS },
     sortOrder:  row.sort_order ?? 0,
   }
@@ -104,6 +106,8 @@ function bottleToJS(row) {
     drinkUntil:     row.drink_until,
     rackId:         row.rack_id ?? '',
     slot:           row.slot ?? '',
+    row:            row.row ?? null,
+    col:            row.col ?? null,
     count:          row.count ?? 1,
     priceEur:       row.price_eur,
     retailer:       row.retailer ?? '',
@@ -142,6 +146,8 @@ function bottleToDB(data) {
     drink_until:     data.drinkUntil ?? null,
     rack_id:         data.rackId ?? null,
     slot:            data.slot ?? '',
+    row:             data.row ?? null,
+    col:             data.col ?? null,
     count:           data.count ?? 1,
     price_eur:       data.priceEur ?? null,
     retailer:        data.retailer ?? '',
@@ -307,12 +313,16 @@ export const useCellar = create(
       // ── Racks ──────────────────────────────────────────────────────────────
       addRack(label, emoji='🍷') {
         const h = getHousehold()
-        const r = { id: uid('r'), label, emoji, slots: ['1','2','3'], conditions: { ...DEFAULT_CONDITIONS }, sortOrder: get().racks.length }
+        const r = { id: uid('r'), label, emoji, slots: ['1','2','3'], rows: 0, cols: 0, conditions: { ...DEFAULT_CONDITIONS }, sortOrder: get().racks.length }
         set(s => ({ racks: [...s.racks, r] }))
         if (h) supabase.from('cellar_racks').insert([{
-          id: r.id, household_id: h.id, label, emoji, slots: r.slots, conditions: r.conditions, sort_order: r.sortOrder,
+          id: r.id, household_id: h.id, label, emoji, slots: r.slots, rows: 0, cols: 0, conditions: r.conditions, sort_order: r.sortOrder,
         }]).then(({ error }) => { if (error) console.error('addRack:', error) })
         return r.id
+      },
+      setRackGrid(id, rows, cols) {
+        set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, rows, cols } : r) }))
+        supabase.from('cellar_racks').update({ rows, cols }).eq('id', id).then(() => {})
       },
       setRackConditions(id, conditions) {
         set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, conditions: { ...(r.conditions || DEFAULT_CONDITIONS), ...conditions } } : r) }))
@@ -403,17 +413,17 @@ export const useCellar = create(
         }
         const locations = data.locations && data.locations.length > 0
           ? data.locations
-          : [{ rackId: data.rackId, slot: data.slot || '', count: Math.max(1, Number(data.count) || 1) }]
+          : [{ rackId: data.rackId, slot: data.slot || '', row: data.row ?? null, col: data.col ?? null, count: Math.max(1, Number(data.count) || 1) }]
         const grouped = {}
         locations.forEach(loc => {
-          const key = `${loc.rackId}__${loc.slot}`
-          if (!grouped[key]) grouped[key] = { rackId: loc.rackId, slot: loc.slot, count: 0 }
+          const key = `${loc.rackId}__${loc.slot}__${loc.row ?? ''}_${loc.col ?? ''}`
+          if (!grouped[key]) grouped[key] = { rackId: loc.rackId, slot: loc.slot, row: loc.row ?? null, col: loc.col ?? null, count: 0 }
           grouped[key].count += (loc.count || 1)
         })
         const ids = []
         const entries = Object.values(grouped)
         entries.forEach(loc => {
-          const b = { ...base, id: uid('b'), rackId: loc.rackId, slot: loc.slot, count: loc.count }
+          const b = { ...base, id: uid('b'), rackId: loc.rackId, slot: loc.slot, row: loc.row, col: loc.col, count: loc.count }
           ids.push(b.id)
           set(s => ({
             bottles: [...s.bottles, b],
@@ -454,6 +464,8 @@ export const useCellar = create(
         if ('drinkUntil' in patch)     dbPatch.drink_until = patch.drinkUntil
         if ('rackId' in patch)         dbPatch.rack_id = patch.rackId
         if ('slot' in patch)           dbPatch.slot = patch.slot
+        if ('row' in patch)            dbPatch.row = patch.row
+        if ('col' in patch)            dbPatch.col = patch.col
         if ('count' in patch)          dbPatch.count = patch.count
         if ('priceEur' in patch)       dbPatch.price_eur = patch.priceEur
         if ('retailer' in patch)       dbPatch.retailer = patch.retailer
