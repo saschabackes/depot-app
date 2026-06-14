@@ -45,11 +45,12 @@ export default function CellarView() {
   const [alcoholFilter, setAlcoholFilter] = useState('all') // all | alc | free
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
-  const [showFilters, setShowFilters] = useState(false)
-  const [colorFilter, setColorFilter] = useState([])
-  const [sweetnessFilter, setSweetnessFilter] = useState([])
-  const [countryFilter, setCountryFilter] = useState([])
-  const [vintageFilter, setVintageFilter] = useState('all') // all | 2020+ | 2015-2019 | older
+  const [search, setSearch] = useState('')
+  const [colorFilter, setColorFilter] = useState('all')
+  const [sweetnessFilter, setSweetnessFilter] = useState('all')
+  const [countryFilter, setCountryFilter] = useState('all')
+  const [vintageFilter, setVintageFilter] = useState('all')
+  const [sort, setSort] = useState('name') // name | vintage | price
 
   const activeRack = racks.find(r => r.id === activeRackId) || racks[0]
 
@@ -58,31 +59,28 @@ export default function CellarView() {
     return [...set].sort()
   }, [bottles])
 
-  const activeFilterCount = (colorFilter.length > 0 ? 1 : 0) +
-    (sweetnessFilter.length > 0 ? 1 : 0) +
-    (countryFilter.length > 0 ? 1 : 0) +
-    (vintageFilter !== 'all' ? 1 : 0) +
-    (alcoholFilter !== 'all' ? 1 : 0)
+  const availableSweetness = useMemo(() => {
+    const set = new Set(bottles.map(b => b.sweetness).filter(Boolean))
+    return SWEETNESS_OPTIONS.filter(s => set.has(s.id))
+  }, [bottles])
 
-  function toggleArrayFilter(arr, setArr, val) {
-    setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])
-  }
-
-  function clearAllFilters() {
-    setColorFilter([]); setSweetnessFilter([]); setCountryFilter([])
-    setVintageFilter('all'); setAlcoholFilter('all')
-  }
+  const availableVintages = useMemo(() => {
+    const set = new Set(bottles.map(b => b.vintage).filter(v => v > 0))
+    return [...set].sort((a, b) => b - a)
+  }, [bottles])
 
   const filtered = useMemo(() => {
     let arr = bottles
     if (alcoholFilter === 'alc')  arr = arr.filter(b => !b.alcoholFree)
     if (alcoholFilter === 'free') arr = arr.filter(b => b.alcoholFree)
-    if (colorFilter.length > 0)     arr = arr.filter(b => colorFilter.includes(b.color))
-    if (sweetnessFilter.length > 0) arr = arr.filter(b => sweetnessFilter.includes(b.sweetness))
-    if (countryFilter.length > 0)   arr = arr.filter(b => countryFilter.includes(b.country))
-    if (vintageFilter === '2020+')      arr = arr.filter(b => b.vintage >= 2020)
-    if (vintageFilter === '2015-2019')  arr = arr.filter(b => b.vintage >= 2015 && b.vintage <= 2019)
-    if (vintageFilter === 'older')      arr = arr.filter(b => b.vintage > 0 && b.vintage < 2015)
+    if (colorFilter !== 'all')       arr = arr.filter(b => b.color === colorFilter)
+    if (sweetnessFilter !== 'all')   arr = arr.filter(b => b.sweetness === sweetnessFilter)
+    if (countryFilter !== 'all')     arr = arr.filter(b => b.country === countryFilter)
+    if (vintageFilter !== 'all')     arr = arr.filter(b => b.vintage === parseInt(vintageFilter))
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      arr = arr.filter(b => b.name.toLowerCase().includes(q) || b.winery?.toLowerCase().includes(q) || b.grape?.toLowerCase().includes(q))
+    }
     if (tab === 'ablauf') {
       const y = new Date().getFullYear()
       return arr.filter(b => {
@@ -99,8 +97,12 @@ export default function CellarView() {
       return arr.filter(b => b.rackId === activeRack.id && b.count > 0)
                 .sort((a,b) => a.slot.localeCompare(b.slot))
     }
-    return arr.filter(b => b.count > 0).sort((a,b) => a.drinkUntil - b.drinkUntil)
-  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter])
+    let result = arr.filter(b => b.count > 0)
+    if (sort === 'vintage') result = result.sort((a,b) => (b.vintage || 0) - (a.vintage || 0))
+    else if (sort === 'price') result = result.sort((a,b) => (b.priceEur || 0) - (a.priceEur || 0))
+    else result = result.sort((a,b) => a.name.localeCompare(b.name, 'de'))
+    return result
+  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort])
 
   // Weintagebuch: bewertet ODER mind. 1× getrunken (egal ob noch Bestand)
   const memories = useMemo(() => {
@@ -204,102 +206,91 @@ export default function CellarView() {
         onChange={setTab}
       />
 
+      {/* Suchfeld + Filter (nicht im Tagebuch-Tab) */}
       {tab !== 'tagebuch' && (
-        <div className="px-4 pb-2 space-y-2">
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => setShowFilters(f => !f)}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-                activeFilterCount > 0 ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-              }`}>
-              🔍 Filter {activeFilterCount > 0 && <span className="bg-white/30 text-[10px] px-1.5 rounded-full">{activeFilterCount}</span>}
-            </button>
-            {activeFilterCount > 0 && (
-              <button onClick={clearAllFilters}
-                className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 underline">Alle zurücksetzen</button>
-            )}
-            <span className="ml-auto text-[10px] text-gray-400 font-medium">{filtered.length} Weine</span>
+        <>
+          {/* Suchfeld */}
+          <div className="px-4 pt-2 pb-1.5 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" strokeLinecap="round"/>
+              </svg>
+              <input
+                type="search"
+                className="input pl-9 py-2 bg-gray-50 dark:bg-gray-900/40 text-sm"
+                placeholder="Wein, Weingut oder Rebsorte suchen…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
           </div>
 
-          {showFilters && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm space-y-3">
-              {/* Farbe */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Farbe</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {COLOR_OPTIONS.map(c => (
-                    <button key={c.id} onClick={() => toggleArrayFilter(colorFilter, setColorFilter, c.id)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        colorFilter.includes(c.id) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}>{c.label}</button>
-                  ))}
-                </div>
-              </div>
+          {/* Farbe */}
+          <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+            {[{ id: 'all', label: 'Alle' }, ...COLOR_OPTIONS].map(c => (
+              <button key={c.id} onClick={() => setColorFilter(f => f === c.id ? 'all' : c.id)}
+                className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  colorFilter === c.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>{c.label}</button>
+            ))}
+            <div className="flex-none border-l border-gray-200 dark:border-gray-700 mx-1" />
+            <button onClick={() => setSort(s => s === 'name' ? 'vintage' : s === 'vintage' ? 'price' : 'name')}
+              className="flex-none flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M3 6h18M7 12h10M11 18h2" strokeLinecap="round"/>
+              </svg>
+              {sort === 'name' ? 'A–Z' : sort === 'vintage' ? 'Jahrgang' : 'Preis'}
+            </button>
+          </div>
 
-              {/* Geschmack */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Geschmack</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {SWEETNESS_OPTIONS.map(s => (
-                    <button key={s.id} onClick={() => toggleArrayFilter(sweetnessFilter, setSweetnessFilter, s.id)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        sweetnessFilter.includes(s.id) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}>{s.label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Jahrgang */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Jahrgang</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: 'all', label: 'Alle' },
-                    { id: '2020+', label: '2020+' },
-                    { id: '2015-2019', label: '2015–2019' },
-                    { id: 'older', label: 'Älter' },
-                  ].map(v => (
-                    <button key={v.id} onClick={() => setVintageFilter(v.id)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        vintageFilter === v.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}>{v.label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Land */}
-              {availableCountries.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Land</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {availableCountries.map(c => (
-                      <button key={c} onClick={() => toggleArrayFilter(countryFilter, setCountryFilter, c)}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          countryFilter.includes(c) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                        }`}>{c}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Alkohol */}
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1.5">Alkohol</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: 'all', label: 'Alle' },
-                    { id: 'alc', label: '🍷 Mit Alkohol' },
-                    { id: 'free', label: '🚫 Alkoholfrei' },
-                  ].map(f => (
-                    <button key={f.id} onClick={() => setAlcoholFilter(f.id)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        alcoholFilter === f.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}>{f.label}</button>
-                  ))}
-                </div>
-              </div>
+          {/* Geschmack (nur wenn Daten vorhanden) */}
+          {availableSweetness.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+              <button onClick={() => setSweetnessFilter('all')}
+                className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  sweetnessFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>Alle</button>
+              {availableSweetness.map(s => (
+                <button key={s.id} onClick={() => setSweetnessFilter(f => f === s.id ? 'all' : s.id)}
+                  className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    sweetnessFilter === s.id ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}>{s.label}</button>
+              ))}
             </div>
           )}
-        </div>
+
+          {/* Jahrgang (nur wenn Daten vorhanden) */}
+          {availableVintages.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+              <button onClick={() => setVintageFilter('all')}
+                className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  vintageFilter === 'all' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>Alle Jahrgänge</button>
+              {availableVintages.map(v => (
+                <button key={v} onClick={() => setVintageFilter(f => f === String(v) ? 'all' : String(v))}
+                  className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    vintageFilter === String(v) ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}>{v}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Land (nur wenn Daten vorhanden) */}
+          {availableCountries.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
+              <button onClick={() => setCountryFilter('all')}
+                className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  countryFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>Alle Länder</button>
+              {availableCountries.map(c => (
+                <button key={c} onClick={() => setCountryFilter(f => f === c ? 'all' : c)}
+                  className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    countryFilter === c ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                  }`}>{c}</button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {tab === 'tagebuch' && (
