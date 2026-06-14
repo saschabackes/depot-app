@@ -4,7 +4,7 @@ import { useCellar } from './store'
 import { TARGETS, autoMapColumns, looksLikeHeader, rowToWine } from './excelMapping'
 
 export default function ExcelImport({ onClose, onImported }) {
-  const { racks, addPendingBatch } = useCellar()
+  const { racks, addPendingBatch, addRack, setRackGrid, addBottle } = useCellar()
   const [step, setStep] = useState('pick')   // pick | sheet | map | confirm
   const [error, setError] = useState('')
   const [wb, setWb] = useState(null)
@@ -70,9 +70,46 @@ export default function ExcelImport({ onClose, onImported }) {
 
   function doImport() {
     const wines = dataRows.map(r => rowToWine(r, mapping)).filter(w => w.name)
-    const n = addPendingBatch(wines)
+
+    const withGrid = wines.filter(w => w.row > 0 && w.col > 0)
+    const withoutGrid = wines.filter(w => !(w.row > 0 && w.col > 0))
+
+    if (withGrid.length > 0) {
+      const groups = {}
+      withGrid.forEach(w => {
+        const key = (w.rackLabel || 'Import-Regal').trim()
+        if (!groups[key]) groups[key] = []
+        groups[key].push(w)
+      })
+
+      Object.entries(groups).forEach(([label, items]) => {
+        const maxRow = Math.max(...items.map(w => w.row))
+        const maxCol = Math.max(...items.map(w => w.col))
+
+        let rack = racks.find(r => r.label.toLowerCase().trim() === label.toLowerCase())
+        let rackId
+        if (rack) {
+          rackId = rack.id
+          if (!(rack.rows >= maxRow && rack.cols >= maxCol)) {
+            setRackGrid(rackId, Math.max(rack.rows || 0, maxRow), Math.max(rack.cols || 0, maxCol))
+          }
+        } else {
+          rackId = addRack(label, '🍷')
+          setRackGrid(rackId, maxRow, maxCol)
+        }
+
+        items.forEach(w => {
+          addBottle({ ...w, rackId, slot: '', row: w.row, col: w.col, count: w.count || 1 })
+        })
+      })
+    }
+
+    if (withoutGrid.length > 0) {
+      addPendingBatch(withoutGrid)
+    }
+
     onClose()
-    if (onImported) onImported(n)
+    if (withoutGrid.length > 0 && onImported) onImported(withoutGrid.length)
   }
 
   return (
@@ -167,6 +204,8 @@ export default function ExcelImport({ onClose, onImported }) {
                         {w.alcoholFree && ' · 🚫 alkoholfrei'}
                         {w.count > 1 && ` · ${w.count}×`}
                         {w.priceEur != null && ` · ${w.priceEur} €`}
+                        {w.row > 0 && w.col > 0 && ` · 📍 R${w.row}/S${w.col}`}
+                        {w.rackLabel && ` · 🗄️ ${w.rackLabel}`}
                       </p>
                     </div>
                   ))}
@@ -174,10 +213,17 @@ export default function ExcelImport({ onClose, onImported }) {
               </div>
 
               {/* Hinweis: Lagerort wird im Einräumen-Schritt zugewiesen */}
-              <div className="bg-primary-50 dark:bg-primary-900/20 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-primary-700 dark:text-primary-300">
-                  📦 Lagerorte werden im nächsten Schritt zugewiesen — dort kannst du jede Flasche einem Regal und Fach zuordnen.
-                </p>
+              <div className="bg-primary-50 dark:bg-primary-900/20 rounded-xl px-3 py-2.5 space-y-1">
+                {preview.some(w => w.row > 0 && w.col > 0) ? (
+                  <p className="text-xs text-primary-700 dark:text-primary-300">
+                    📍 Reihen/Spalten erkannt — Regale werden automatisch mit Gitter angelegt und Flaschen direkt positioniert.
+                    {preview.some(w => !(w.row > 0 && w.col > 0)) && ' Flaschen ohne Position landen im Einräumen-Schritt.'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-primary-700 dark:text-primary-300">
+                    📦 Lagerorte werden im nächsten Schritt zugewiesen — dort kannst du jede Flasche einem Regal und Fach zuordnen.
+                  </p>
+                )}
               </div>
             </div>
           )}

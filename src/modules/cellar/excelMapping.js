@@ -21,8 +21,10 @@ export const TARGETS = [
   { id: 'count',      label: 'Anzahl Flaschen' },
   { id: 'priceEur',   label: 'Preis (€)' },
   { id: 'rating',     label: 'Bewertung (1–5)' },
-  { id: 'rackLabel',  label: 'Regal (Name/Reihe)' },
-  { id: 'slot',       label: 'Fach (Spalte/Position)' },
+  { id: 'rackLabel',  label: 'Regal (Name)' },
+  { id: 'slot',       label: 'Fach (Text-Position)' },
+  { id: 'row',        label: 'Reihe (Gitter)' },
+  { id: 'col',        label: 'Spalte (Gitter)' },
   { id: 'note',       label: 'Notiz / Besonderes' },
 ]
 
@@ -46,8 +48,10 @@ const HEADER_HINTS = [
   [/^(anzahl|menge|qty|quantity|flaschen|bottles|count|stück)$/i,        'count'],
   [/^(preis|price|€|eur|kosten|cost)$/i,                                 'priceEur'],
   [/^(rating|bewertung|punkte|score|sterne|stars)$/i,                    'rating'],
-  [/^(regal|rack|lager|standort|location|shelf|reihe)$/i,               'rackLabel'],
-  [/^(fach|slot|platz|position|spalte)$/i,                               'slot'],
+  [/^(regal|rack|lager|standort|location|shelf)$/i,                      'rackLabel'],
+  [/^(fach|slot|platz)$/i,                                               'slot'],
+  [/^(reihe|row|zeile|line)$/i,                                          'row'],
+  [/^(spalte|col(umn)?|position|platz)$/i,                               'col'],
   [/^(notiz(en)?|note|notes|kommentar|comment|remark|besonder(e|es|s)|bemerkung)$/i, 'note'],
 ]
 
@@ -212,7 +216,7 @@ export function rowToWine(row, mapping) {
     else if (m.target === 'country')    out.country = normalizeCountry(raw)
     else if (m.target === 'sweetness')  out.sweetness = normalizeSweetness(raw)
     else if (m.target === 'alcoholFree') out.alcoholFree = normalizeBool(raw)
-    else if (m.target === 'vintage' || m.target === 'drinkFrom' || m.target === 'drinkUntil' || m.target === 'count' || m.target === 'rating') {
+    else if (m.target === 'vintage' || m.target === 'drinkFrom' || m.target === 'drinkUntil' || m.target === 'count' || m.target === 'rating' || m.target === 'row' || m.target === 'col') {
       const n = parseInt(String(raw).replace(/\D+/g, ''), 10)
       if (!isNaN(n)) out[m.target] = n
     }
