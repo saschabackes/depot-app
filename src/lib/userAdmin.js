@@ -31,3 +31,4 @@ export const superBackup        = ()             => callAdmin('superBackup',    
 export const superStats         = ()             => callAdmin('superStats',         null)
 export const superUserActivity  = (targetId)     => callAdmin('superUserActivity',  null, { targetId })
 export const superUserApiUsage  = (targetId)     => callAdmin('superUserApiUsage',  null, { targetId })
+export const superActivityOverview = ()          => callAdmin('superActivityOverview', null)

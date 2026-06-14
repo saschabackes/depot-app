@@ -217,6 +217,76 @@ exports.handler = async function(event) {
       return ok({ calls: usage, summary: summary, total: usage.length })
     }
 
+    // Plattform-Aktivitätsübersicht (aggregiert, skalierbar)
+    if (action === 'superActivityOverview') {
+      var now = new Date()
+      var d7  = new Date(now); d7.setDate(d7.getDate() - 7)
+      var d30 = new Date(now); d30.setDate(d30.getDate() - 30)
+
+      // Aktive Nutzer (distinct user_id) letzte 7 und 30 Tage
+      var active7Res = await fetch(
+        sbUrl + '/rest/v1/rpc/count_active_users',
+        { method: 'POST', headers: dbH, body: JSON.stringify({ since_date: d7.toISOString() }) }
+      )
+      var active30Res = await fetch(
+        sbUrl + '/rest/v1/rpc/count_active_users',
+        { method: 'POST', headers: dbH, body: JSON.stringify({ since_date: d30.toISOString() }) }
+      )
+      var active7  = active7Res.ok  ? await active7Res.json().catch(function() { return 0 })  : 0
+      var active30 = active30Res.ok ? await active30Res.json().catch(function() { return 0 }) : 0
+
+      // Fallback: wenn RPC nicht existiert, via PostgREST direkt zählen
+      if (!active7Res.ok || !active30Res.ok) {
+        var fb7 = await fetch(
+          sbUrl + '/rest/v1/activity_log?created_at=gte.' + d7.toISOString() + '&select=user_id',
+          { headers: dbH }
+        )
+        var fb30 = await fetch(
+          sbUrl + '/rest/v1/activity_log?created_at=gte.' + d30.toISOString() + '&select=user_id',
+          { headers: dbH }
+        )
+        var fb7data  = fb7.ok  ? await fb7.json().catch(function() { return [] })  : []
+        var fb30data = fb30.ok ? await fb30.json().catch(function() { return [] }) : []
+        var unique7  = {}; fb7data.forEach(function(r) { if (r.user_id) unique7[r.user_id] = true })
+        var unique30 = {}; fb30data.forEach(function(r) { if (r.user_id) unique30[r.user_id] = true })
+        active7  = Object.keys(unique7).length
+        active30 = Object.keys(unique30).length
+      }
+
+      // Top-10 aktivste Nutzer (letzte 30 Tage)
+      var topRes = await fetch(
+        sbUrl + '/rest/v1/activity_log?created_at=gte.' + d30.toISOString() + '&select=user_id,user_name',
+        { headers: dbH }
+      )
+      var topData = topRes.ok ? await topRes.json().catch(function() { return [] }) : []
+      var userCounts = {}
+      var userNames  = {}
+      topData.forEach(function(r) {
+        if (!r.user_id) return
+        userCounts[r.user_id] = (userCounts[r.user_id] || 0) + 1
+        if (r.user_name) userNames[r.user_id] = r.user_name
+      })
+      var topUsers = Object.keys(userCounts)
+        .map(function(uid) { return { userId: uid, name: userNames[uid] || 'Unbekannt', count: userCounts[uid] } })
+        .sort(function(a, b) { return b.count - a.count })
+        .slice(0, 10)
+
+      // Letzte 30 Aktionen plattformweit
+      var feedRes = await fetch(
+        sbUrl + '/rest/v1/activity_log?select=action,target_name,user_name,created_at&order=created_at.desc&limit=30',
+        { headers: dbH }
+      )
+      var feed = feedRes.ok ? await feedRes.json().catch(function() { return [] }) : []
+
+      return ok({
+        active7: active7,
+        active30: active30,
+        totalUsers: 0,
+        topUsers: topUsers,
+        feed: feed,
+      })
+    }
+
     return err('Unbekannte Super-Aktion: ' + action)
   }
 
