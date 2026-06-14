@@ -278,6 +278,13 @@ export const useFreezer = create(
         if (emoji) patch.emoji = emoji
         supabase.from('freezer_storages').update(patch).eq('id', id).then(() => {})
       },
+      reorderStorages(reordered) {
+        const updated = reordered.map((s, i) => ({ ...s, sortOrder: i }))
+        set({ storages: updated })
+        Promise.all(updated.map(s =>
+          supabase.from('freezer_storages').update({ sort_order: s.sortOrder }).eq('id', s.id)
+        )).catch(e => console.error('reorderStorages:', e))
+      },
       removeStorage(id) {
         set(st => ({
           storages: st.storages.filter(s => s.id !== id),

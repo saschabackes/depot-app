@@ -898,6 +898,14 @@ const useStore = create((set, get) => ({
       .then(({ error }) => { if (error) console.error('deleteLocation:', error) })
   },
 
+  reorderLocations(reordered) {
+    const updated = reordered.map((l, i) => ({ ...l, sortOrder: i }))
+    set({ locations: updated })
+    Promise.all(updated.map(l =>
+      supabase.from('storage_locations').update({ sort_order: l.sortOrder }).eq('id', l.id)
+    )).catch(e => console.error('reorderLocations:', e))
+  },
+
   // ── Kategorien ────────────────────────────────────────────────────────
 
   addCategory(data) {

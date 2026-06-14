@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useFreezer, CATEGORIES } from './store'
+import AutocompleteInput from '../../components/AutocompleteInput'
 import FreezerForm from './FreezerForm'
 import FreezerSetup from './FreezerSetup'
 import QuickAddBar from './QuickAddBar'
@@ -183,7 +184,7 @@ export default function FreezerView() {
         <ExcelImport onClose={() => setShowImport(false)} />
       )}
       {editingItem && (
-        <FreezerEditSheet item={editingItem} storages={storages} onClose={() => setEditingItem(null)}
+        <FreezerEditSheet item={editingItem} storages={storages} items={items} onClose={() => setEditingItem(null)}
           onSave={(patch) => { updateItem(editingItem.id, patch); setEditingItem(null) }} />
       )}
 
@@ -257,7 +258,9 @@ function ItemRow({ item, onConsume, onRemove, onRestock, onEdit, location, selec
   )
 }
 
-function FreezerEditSheet({ item, storages, onClose, onSave }) {
+function FreezerEditSheet({ item, storages, items, onClose, onSave }) {
+  const nameSuggestions = useMemo(() => [...new Set(items.map(i => i.name).filter(Boolean))].sort(), [items])
+  const portionSizeSuggestions = useMemo(() => [...new Set(items.map(i => i.portionSize).filter(Boolean))].sort(), [items])
   const [name, setName] = useState(item.name)
   const [category, setCategory] = useState(item.category)
   const [storageId, setStorageId] = useState(item.storageId)
@@ -281,7 +284,7 @@ function FreezerEditSheet({ item, storages, onClose, onSave }) {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div>
             <label className="label">Name</label>
-            <input className="input text-sm" value={name} onChange={e => setName(e.target.value)} />
+            <AutocompleteInput className="input text-sm" value={name} onChange={setName} suggestions={nameSuggestions} />
           </div>
           <div>
             <label className="label">Kategorie</label>
@@ -301,7 +304,7 @@ function FreezerEditSheet({ item, storages, onClose, onSave }) {
             </div>
             <div>
               <label className="label">Portionsgröße</label>
-              <input className="input text-sm" value={portionSize} onChange={e => setPortionSize(e.target.value)} />
+              <AutocompleteInput className="input text-sm" value={portionSize} onChange={setPortionSize} suggestions={portionSizeSuggestions} />
             </div>
           </div>
           <div>

@@ -4,6 +4,16 @@
 
 export const CHANGELOG = [
   {
+    version: '2.2.0',
+    date: '2026-06-14',
+    entries: [
+      { type: 'new',      text: 'Lagerorte sortieren: Reihenfolge der Lagerorte in allen Modulen (Gewürze, TK, Wein) manuell per Pfeiltasten festlegen.' },
+      { type: 'new',      text: 'Autocomplete: Bei der Eingabe von Namen, Herstellern, Weingütern, Regionen und Rebsorten werden vorhandene Einträge vorgeschlagen.' },
+      { type: 'new',      text: 'Plattform-Aktivitätsübersicht: Im Betreiber-Bereich Nutzungsstatistiken und Live-Feed einsehen.' },
+      { type: 'fixed',    text: 'Captcha-Fehler beim Login behoben – Turnstile-Widget wird jetzt zuverlässig geladen.' },
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-06-13',
     entries: [

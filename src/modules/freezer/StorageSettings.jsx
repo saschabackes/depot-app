@@ -4,7 +4,7 @@ import { useFreezer } from './store'
 const EMOJI_OPTIONS = ['🏠','🔻','❄️','🧊','📦','🏚️','🏬','🚪']
 
 export default function StorageSettings({ onClose }) {
-  const { storages, addStorage, renameStorage, removeStorage, addCompartment, renameCompartment, removeCompartment } = useFreezer()
+  const { storages, addStorage, renameStorage, removeStorage, reorderStorages, addCompartment, renameCompartment, removeCompartment } = useFreezer()
   const [newStorageLabel, setNewStorageLabel] = useState('')
   const [newStorageEmoji, setNewStorageEmoji] = useState('📦')
 
@@ -13,6 +13,14 @@ export default function StorageSettings({ onClose }) {
     if (!l) return
     addStorage(l, newStorageEmoji)
     setNewStorageLabel(''); setNewStorageEmoji('📦')
+  }
+
+  function move(idx, dir) {
+    const next = [...storages]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    reorderStorages(next)
   }
 
   return (
@@ -28,9 +36,17 @@ export default function StorageSettings({ onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {storages.map(s => (
+          {storages.map((s, idx) => (
             <div key={s.id} className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-3">
               <div className="flex items-center gap-2 mb-2">
+                {storages.length > 1 && (
+                  <div className="flex flex-col flex-none">
+                    <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                      className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                    <button onClick={() => move(idx, 1)} disabled={idx === storages.length - 1}
+                      className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                  </div>
+                )}
                 <select value={s.emoji} onChange={e => renameStorage(s.id, s.label, e.target.value)}
                   className="bg-transparent text-xl">
                   {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}

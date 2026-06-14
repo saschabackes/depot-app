@@ -11,9 +11,17 @@ const COND_KEYS = [
 const EMOJI_OPTIONS = ['🍷','🛋️','🔻','🧊','🏠','🍾','🗄️','📦']
 
 export default function RackSettings({ onClose }) {
-  const { racks, addRack, renameRack, removeRack, addSlot, renameSlot, removeSlot, setRackConditions } = useCellar()
+  const { racks, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions } = useCellar()
   const [newLabel, setNewLabel] = useState('')
   const [newEmoji, setNewEmoji] = useState('🍷')
+
+  function move(idx, dir) {
+    const next = [...racks]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    reorderRacks(next)
+  }
 
   return (
     <>
@@ -28,12 +36,20 @@ export default function RackSettings({ onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {racks.map(r => {
+          {racks.map((r, idx) => {
             const score = qualityScore(r.conditions)
             const ql = qualityLabel(score)
             return (
               <div key={r.id} className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-3">
                 <div className="flex items-center gap-2 mb-2">
+                  {racks.length > 1 && (
+                    <div className="flex flex-col flex-none">
+                      <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                        className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                      <button onClick={() => move(idx, 1)} disabled={idx === racks.length - 1}
+                        className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                    </div>
+                  )}
                   <select value={r.emoji} onChange={e => renameRack(r.id, r.label, e.target.value)} className="bg-transparent text-xl">
                     {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
                   </select>

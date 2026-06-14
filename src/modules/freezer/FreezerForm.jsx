@@ -1,8 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useFreezer, CATEGORIES, FREEZER_SHELF_LIFE, autoCategory } from './store'
+import AutocompleteInput from '../../components/AutocompleteInput'
 
 export default function FreezerForm({ prefilled, onClose }) {
-  const { storages, addItem, removePending, lastUsedCompartment } = useFreezer()
+  const { storages, items, addItem, removePending, lastUsedCompartment } = useFreezer()
+  const nameSuggestions = useMemo(() => [...new Set(items.map(i => i.name).filter(Boolean))].sort(), [items])
+  const portionSizeSuggestions = useMemo(() => [...new Set(items.map(i => i.portionSize).filter(Boolean))].sort(), [items])
   const startStorageId = prefilled?.storageId
     || lastUsedCompartment?.storageId
     || storages[0]?.id
@@ -81,8 +84,8 @@ export default function FreezerForm({ prefilled, onClose }) {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div>
             <label className="label">Was?</label>
-            <input className="input py-2.5 text-sm" placeholder="z.B. Hähnchenbrust, Lasagne, Fischstäbchen"
-              value={name} onChange={e => handleNameChange(e.target.value)} autoFocus />
+            <AutocompleteInput className="input py-2.5 text-sm" placeholder="z.B. Hähnchenbrust, Lasagne, Fischstäbchen"
+              value={name} onChange={handleNameChange} suggestions={nameSuggestions} autoFocus />
           </div>
 
           <div>
@@ -114,8 +117,8 @@ export default function FreezerForm({ prefilled, onClose }) {
             </div>
             <div>
               <label className="label">Portionsgröße</label>
-              <input className="input py-2.5 text-sm" placeholder="z.B. 150 g / Stück / Glas"
-                value={portionSize} onChange={e => setPortionSize(e.target.value)} />
+              <AutocompleteInput className="input py-2.5 text-sm" placeholder="z.B. 150 g / Stück / Glas"
+                value={portionSize} onChange={setPortionSize} suggestions={portionSizeSuggestions} />
             </div>
           </div>
 

@@ -325,6 +325,13 @@ export const useCellar = create(
         if (emoji) patch.emoji = emoji
         supabase.from('cellar_racks').update(patch).eq('id', id).then(() => {})
       },
+      reorderRacks(reordered) {
+        const updated = reordered.map((r, i) => ({ ...r, sortOrder: i }))
+        set({ racks: updated })
+        Promise.all(updated.map(r =>
+          supabase.from('cellar_racks').update({ sort_order: r.sortOrder }).eq('id', r.id)
+        )).catch(e => console.error('reorderRacks:', e))
+      },
       removeRack(id) {
         set(s => ({
           racks: s.racks.filter(r => r.id !== id),

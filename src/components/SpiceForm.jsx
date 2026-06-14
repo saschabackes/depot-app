@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import useStore from '../store/useStore'
 import { COMMON_SPICES, PACKAGING_TYPES, PACKAGING_COLORS } from '../data/spices'
 import BarcodeScanner from './BarcodeScanner'
 import { searchProductImages } from '../utils/productLookup'
+import AutocompleteInput from './AutocompleteInput'
 import FillBar, { FILL_LABELS } from './FillBar'
 
 const DEFAULT_FORM = {
@@ -22,7 +23,8 @@ const DEFAULT_FORM = {
 }
 
 export default function SpiceForm({ spice, prefill, onClose }) {
-  const { addSpice, updateSpice, locations, categories } = useStore()
+  const { addSpice, updateSpice, locations, categories, spices } = useStore()
+  const brandSuggestions = useMemo(() => [...new Set(spices.map(s => s.brand).filter(Boolean))].sort(), [spices])
   const isEdit = !!spice
 
   const [form, setForm] = useState(() => spice ? {
@@ -317,12 +319,12 @@ export default function SpiceForm({ spice, prefill, onClose }) {
 
             <div className="col-span-2">
               <label className="label">Hersteller / Marke</label>
-              <input
-                type="text"
+              <AutocompleteInput
                 className="input"
                 placeholder="z.B. Ostmann, Edora, Fuchs…"
                 value={form.brand}
-                onChange={e => set('brand', e.target.value)}
+                onChange={v => set('brand', v)}
+                suggestions={brandSuggestions}
               />
             </div>
           </div>

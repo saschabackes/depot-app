@@ -52,7 +52,7 @@ export default function SpiceSettings({ onClose }) {
 // ── Lagerorte ─────────────────────────────────────────────────────────────────
 
 function LocationsSection() {
-  const { locations, spices, addLocation, updateLocation, deleteLocation } = useStore()
+  const { locations, spices, addLocation, updateLocation, deleteLocation, reorderLocations } = useStore()
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [editingId, setEditingId] = useState(null)
@@ -65,6 +65,14 @@ function LocationsSection() {
     addLocation({ name: newName.trim(), description: newDesc.trim(), sortOrder: locations.length })
     setNewName('')
     setNewDesc('')
+  }
+
+  function move(idx, dir) {
+    const next = [...locations]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    reorderLocations(next)
   }
 
   function startEdit(loc) {
@@ -136,15 +144,31 @@ function LocationsSection() {
                   {count === 0 ? 'Keine Gewürze' : `${count} Gewürz${count !== 1 ? 'e' : ''}`}
                 </div>
               </div>
-              <div className="flex gap-1 flex-none">
+              <div className="flex gap-0.5 flex-none">
+                {locations.length > 1 && (
+                  <div className="flex flex-col">
+                    <button onClick={() => move(locations.indexOf(loc), -1)} disabled={locations.indexOf(loc) === 0}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-20 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <button onClick={() => move(locations.indexOf(loc), 1)} disabled={locations.indexOf(loc) === locations.length - 1}
+                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 disabled:opacity-20 transition-colors">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                )}
                 <button onClick={() => startEdit(loc)}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:bg-gray-700 text-gray-400 transition-colors">
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
                 <button onClick={() => handleDelete(loc)}
-                  className="p-1.5 rounded-lg hover:bg-red-50 dark:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
+                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>

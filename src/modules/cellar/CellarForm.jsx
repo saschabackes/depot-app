@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useCellar } from './store'
 import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker } from './wineConstants'
+import AutocompleteInput from '../../components/AutocompleteInput'
 
 const COLORS = [
   { id: 'rot',    label: '🍷 Rot' },
@@ -51,7 +52,10 @@ function Section({ title, children, defaultOpen = true }) {
 }
 
 export default function CellarForm({ prefilled, onClose }) {
-  const { racks, addBottle, restockBottle, removePending, lastUsedRack } = useCellar()
+  const { racks, bottles, addBottle, restockBottle, removePending, lastUsedRack } = useCellar()
+  const winerySuggestions = useMemo(() => [...new Set(bottles.map(b => b.winery).filter(Boolean))].sort(), [bottles])
+  const regionSuggestions = useMemo(() => [...new Set(bottles.map(b => b.region).filter(Boolean))].sort(), [bottles])
+  const grapeSuggestions  = useMemo(() => [...new Set(bottles.map(b => b.grape).filter(Boolean))].sort(), [bottles])
   const pendingId = prefilled?.pendingId || null
   const fromBottleId = prefilled?.fromBottleId || null
 
@@ -306,7 +310,7 @@ export default function CellarForm({ prefilled, onClose }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Weingut</label>
-                <input className="input py-2.5 text-sm" value={winery} onChange={e => setWinery(e.target.value)} />
+                <AutocompleteInput className="input py-2.5 text-sm" value={winery} onChange={setWinery} suggestions={winerySuggestions} />
               </div>
               <div>
                 <label className="label">Jahrgang</label>
@@ -321,11 +325,11 @@ export default function CellarForm({ prefilled, onClose }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Region</label>
-                <input className="input py-2.5 text-sm" value={region} onChange={e => setRegion(e.target.value)} />
+                <AutocompleteInput className="input py-2.5 text-sm" value={region} onChange={setRegion} suggestions={regionSuggestions} />
               </div>
               <div>
                 <label className="label">Rebsorte</label>
-                <input className="input py-2.5 text-sm" value={grape} onChange={e => setGrape(e.target.value)} />
+                <AutocompleteInput className="input py-2.5 text-sm" value={grape} onChange={setGrape} suggestions={grapeSuggestions} />
               </div>
             </div>
 
