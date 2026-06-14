@@ -106,8 +106,8 @@ function bottleToJS(row) {
     drinkUntil:     row.drink_until,
     rackId:         row.rack_id ?? '',
     slot:           row.slot ?? '',
-    row:            row.row ?? null,
-    col:            row.col ?? null,
+    row:            row.grid_row ?? null,
+    col:            row.grid_col ?? null,
     count:          row.count ?? 1,
     priceEur:       row.price_eur,
     retailer:       row.retailer ?? '',
@@ -146,8 +146,8 @@ function bottleToDB(data) {
     drink_until:     data.drinkUntil ?? null,
     rack_id:         data.rackId ?? null,
     slot:            data.slot ?? '',
-    row:             data.row ?? null,
-    col:             data.col ?? null,
+    grid_row:        data.row ?? null,
+    grid_col:        data.col ?? null,
     count:           data.count ?? 1,
     price_eur:       data.priceEur ?? null,
     retailer:        data.retailer ?? '',
@@ -464,8 +464,8 @@ export const useCellar = create(
         if ('drinkUntil' in patch)     dbPatch.drink_until = patch.drinkUntil
         if ('rackId' in patch)         dbPatch.rack_id = patch.rackId
         if ('slot' in patch)           dbPatch.slot = patch.slot
-        if ('row' in patch)            dbPatch.row = patch.row
-        if ('col' in patch)            dbPatch.col = patch.col
+        if ('row' in patch)            dbPatch.grid_row = patch.row
+        if ('col' in patch)            dbPatch.grid_col = patch.col
         if ('count' in patch)          dbPatch.count = patch.count
         if ('priceEur' in patch)       dbPatch.price_eur = patch.priceEur
         if ('retailer' in patch)       dbPatch.retailer = patch.retailer
