@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useCellar } from './store'
 import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker } from './wineConstants'
 import AutocompleteInput from '../../components/AutocompleteInput'
+import BarcodeScanner from '../../components/BarcodeScanner'
 
 const COLORS = [
   { id: 'rot',    label: '🍷 Rot' },
@@ -92,8 +93,8 @@ export default function CellarForm({ prefilled, onClose }) {
   const [hint, setHint] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeMsg, setAnalyzeMsg] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
   const photoRef = useRef(null)
-  const barcodeRef = useRef(null)
 
   useEffect(() => {
     const n = Math.max(1, Number(count) || 1)
@@ -185,34 +186,11 @@ export default function CellarForm({ prefilled, onClose }) {
     } catch { /* ignore */ }
   }
 
-  async function handleBarcodeScan() {
-    if (!('BarcodeDetector' in window)) {
-      setBarMsg('Barcode-Scan wird von diesem Browser nicht unterstützt. Nutze Chrome auf Android.')
-      return
-    }
-    barcodeRef.current?.click()
-  }
-
-  async function handleBarcodePhoto(e) {
-    const file = e.target.files?.[0]; if (!file) return
-    const img = new Image(); const url = URL.createObjectURL(file)
-    await new Promise(res => { img.onload = res; img.src = url })
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width; canvas.height = img.height
-    canvas.getContext('2d').drawImage(img, 0, 0)
-    URL.revokeObjectURL(url)
-    try {
-      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] })
-      const results = await detector.detect(canvas)
-      if (results.length > 0) {
-        setBarcode(results[0].rawValue)
-        setBarMsg(`✅ Barcode erkannt: ${results[0].rawValue}`)
-      } else {
-        setBarMsg('Kein Barcode erkannt. Versuche es nochmal mit besserem Fokus.')
-      }
-    } catch {
-      setBarMsg('Barcode-Erkennung fehlgeschlagen.')
-    }
+  function handleBarcodeDetected(code, productData) {
+    setShowScanner(false)
+    setBarcode(code)
+    setBarMsg(`✅ Barcode erkannt: ${code}`)
+    if (productData?.name && !name) setName(productData.name)
   }
 
   function save() {
@@ -262,13 +240,11 @@ export default function CellarForm({ prefilled, onClose }) {
             <div className="flex gap-2">
               <input ref={photoRef} type="file" accept="image/*" capture="environment"
                 onChange={handlePhoto} className="hidden" />
-              <input ref={barcodeRef} type="file" accept="image/*" capture="environment"
-                onChange={handleBarcodePhoto} className="hidden" />
               <button onClick={() => photoRef.current?.click()}
                 className="flex-1 flex items-center justify-center gap-2 bg-primary-600 text-white text-sm font-semibold px-4 py-3 rounded-xl active:bg-primary-700">
                 📷 Etikett fotografieren
               </button>
-              <button onClick={handleBarcodeScan}
+              <button onClick={() => setShowScanner(true)}
                 className="flex-none flex items-center justify-center gap-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 active:bg-gray-50">
                 ⊞ Barcode
               </button>
@@ -528,6 +504,7 @@ export default function CellarForm({ prefilled, onClose }) {
           </div>
         </div>
       </div>
+      {showScanner && <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />}
     </>
   )
 }
