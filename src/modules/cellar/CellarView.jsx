@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useCellar, drinkStatus, effectiveDrinkUntil } from './store'
 import CellarForm from './CellarForm'
 import CellarSetup from './CellarSetup'
@@ -28,7 +28,7 @@ const SWEETNESS_OPTIONS = [
 
 export default function CellarView() {
   const { racks, bottles, drinkOne, removeBottle,
-          setupDone, completeSetup, recentNames, quickAddByName, lastUsedRack,
+          setupDone, completeSetup,
           formOpen, formPrefill, openForm, closeForm, pending,
           bulkDeleteBottles } = useCellar()
   const [tab, setTab] = useState('bestand')
@@ -39,7 +39,6 @@ export default function CellarView() {
   const [showPending, setShowPending] = useState(false)
   const [showShare, setShowShare]     = useState(false)
   const [sharePreselect, setSharePreselect] = useState(null)
-  const [hint, setHint] = useState('')
   const [detailId, setDetailId] = useState(null)
   const detailBottle = bottles.find(b => b.id === detailId)
   const [alcoholFilter, setAlcoholFilter] = useState('all') // all | alc | free
@@ -51,23 +50,40 @@ export default function CellarView() {
   const [countryFilter, setCountryFilter] = useState('all')
   const [vintageFilter, setVintageFilter] = useState('all')
   const [sort, setSort] = useState('name') // name | vintage | price
+  const [sortDir, setSortDir] = useState('asc') // asc | desc
 
   const activeRack = racks.find(r => r.id === activeRackId) || racks[0]
 
-  const availableCountries = useMemo(() => {
-    const set = new Set(bottles.map(b => b.country).filter(Boolean))
-    return [...set].sort()
-  }, [bottles])
+  // Cross-filter: each filter's options are based on all OTHER active filters
+  const dynamicOptions = useMemo(() => {
+    const base = bottles.filter(b => b.count > 0)
+    const applyExcept = (exclude) => {
+      let arr = base
+      if (alcoholFilter === 'alc' && exclude !== 'alcohol') arr = arr.filter(b => !b.alcoholFree)
+      if (alcoholFilter === 'free' && exclude !== 'alcohol') arr = arr.filter(b => b.alcoholFree)
+      if (colorFilter !== 'all' && exclude !== 'color') arr = arr.filter(b => b.color === colorFilter)
+      if (sweetnessFilter !== 'all' && exclude !== 'sweetness') arr = arr.filter(b => b.sweetness === sweetnessFilter)
+      if (countryFilter !== 'all' && exclude !== 'country') arr = arr.filter(b => b.country === countryFilter)
+      if (vintageFilter !== 'all' && exclude !== 'vintage') arr = arr.filter(b => b.vintage === parseInt(vintageFilter))
+      if (search.trim()) {
+        const q = search.toLowerCase()
+        arr = arr.filter(b => b.name.toLowerCase().includes(q) || b.winery?.toLowerCase().includes(q) || b.grape?.toLowerCase().includes(q))
+      }
+      return arr
+    }
+    return {
+      sweetness: SWEETNESS_OPTIONS.filter(s => applyExcept('sweetness').some(b => b.sweetness === s.id)),
+      vintages: [...new Set(applyExcept('vintage').map(b => b.vintage).filter(v => v > 0))].sort((a, b) => b - a),
+      countries: [...new Set(applyExcept('country').map(b => b.country).filter(Boolean))].sort(),
+    }
+  }, [bottles, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search])
 
-  const availableSweetness = useMemo(() => {
-    const set = new Set(bottles.map(b => b.sweetness).filter(Boolean))
-    return SWEETNESS_OPTIONS.filter(s => set.has(s.id))
-  }, [bottles])
-
-  const availableVintages = useMemo(() => {
-    const set = new Set(bottles.map(b => b.vintage).filter(v => v > 0))
-    return [...set].sort((a, b) => b - a)
-  }, [bottles])
+  // Auto-reset filters whose value is no longer available
+  useEffect(() => {
+    if (sweetnessFilter !== 'all' && !dynamicOptions.sweetness.some(s => s.id === sweetnessFilter)) setSweetnessFilter('all')
+    if (vintageFilter !== 'all' && !dynamicOptions.vintages.includes(parseInt(vintageFilter))) setVintageFilter('all')
+    if (countryFilter !== 'all' && !dynamicOptions.countries.includes(countryFilter)) setCountryFilter('all')
+  }, [dynamicOptions, sweetnessFilter, vintageFilter, countryFilter])
 
   const filtered = useMemo(() => {
     let arr = bottles
@@ -98,11 +114,12 @@ export default function CellarView() {
                 .sort((a,b) => a.slot.localeCompare(b.slot))
     }
     let result = arr.filter(b => b.count > 0)
-    if (sort === 'vintage') result = result.sort((a,b) => (b.vintage || 0) - (a.vintage || 0))
-    else if (sort === 'price') result = result.sort((a,b) => (b.priceEur || 0) - (a.priceEur || 0))
-    else result = result.sort((a,b) => a.name.localeCompare(b.name, 'de'))
+    const dir = sortDir === 'asc' ? 1 : -1
+    if (sort === 'vintage') result = result.sort((a,b) => dir * ((a.vintage || 0) - (b.vintage || 0)))
+    else if (sort === 'price') result = result.sort((a,b) => dir * ((a.priceEur || 0) - (b.priceEur || 0)))
+    else result = result.sort((a,b) => dir * a.name.localeCompare(b.name, 'de'))
     return result
-  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort])
+  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort, sortDir])
 
   // Weintagebuch: bewertet ODER mind. 1× getrunken (egal ob noch Bestand)
   const memories = useMemo(() => {
@@ -129,13 +146,6 @@ export default function CellarView() {
   }, [bottles, memoryFilter, alcoholFilter])
 
   const totalBottles = bottles.reduce((s, b) => s + b.count, 0)
-  const lastRack = racks.find(r => r.id === lastUsedRack?.rackId)
-
-  function quickAdd(name) {
-    quickAddByName(name)
-    setHint(`✓ +1 ${name} → ${lastRack?.emoji || ''} ${lastRack?.label || 'Default'}`)
-    setTimeout(() => setHint(''), 2200)
-  }
 
   if (!setupDone) {
     return <CellarSetup onComplete={completeSetup} />
@@ -179,22 +189,6 @@ export default function CellarView() {
         </div>
       </div>
 
-      {/* Quick-Add */}
-      {recentNames.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-1">
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            <span className="flex-none text-[10px] text-gray-400 font-bold self-center pr-1">+1 IN {lastRack?.label?.toUpperCase() || 'DEFAULT'}:</span>
-            {recentNames.slice(0,10).map(n => (
-              <button key={n} onClick={() => quickAdd(n)}
-                className="flex-none text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2.5 py-1 rounded-full active:scale-95">
-                + {n}
-              </button>
-            ))}
-          </div>
-          {hint && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">{hint}</p>}
-        </div>
-      )}
-
       <SubTabs
         tabs={[
           { id: 'bestand',  label: '📦 Bestand' },
@@ -225,7 +219,7 @@ export default function CellarView() {
             </div>
           </div>
 
-          {/* Farbe */}
+          {/* Farbe + Sortierung */}
           <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
             {[{ id: 'all', label: 'Alle' }, ...COLOR_OPTIONS].map(c => (
               <button key={c.id} onClick={() => setColorFilter(f => f === c.id ? 'all' : c.id)}
@@ -241,16 +235,20 @@ export default function CellarView() {
               </svg>
               {sort === 'name' ? 'A–Z' : sort === 'vintage' ? 'Jahrgang' : 'Preis'}
             </button>
+            <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+              className="flex-none flex items-center rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+              {sortDir === 'asc' ? '↑' : '↓'}
+            </button>
           </div>
 
           {/* Geschmack (nur wenn Daten vorhanden) */}
-          {availableSweetness.length > 0 && (
+          {dynamicOptions.sweetness.length > 0 && (
             <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
               <button onClick={() => setSweetnessFilter('all')}
                 className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                   sweetnessFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}>Alle</button>
-              {availableSweetness.map(s => (
+              {dynamicOptions.sweetness.map(s => (
                 <button key={s.id} onClick={() => setSweetnessFilter(f => f === s.id ? 'all' : s.id)}
                   className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                     sweetnessFilter === s.id ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -260,13 +258,13 @@ export default function CellarView() {
           )}
 
           {/* Jahrgang (nur wenn Daten vorhanden) */}
-          {availableVintages.length > 0 && (
+          {dynamicOptions.vintages.length > 0 && (
             <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
               <button onClick={() => setVintageFilter('all')}
                 className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                   vintageFilter === 'all' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}>Alle Jahrgänge</button>
-              {availableVintages.map(v => (
+              {dynamicOptions.vintages.map(v => (
                 <button key={v} onClick={() => setVintageFilter(f => f === String(v) ? 'all' : String(v))}
                   className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                     vintageFilter === String(v) ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
@@ -276,13 +274,13 @@ export default function CellarView() {
           )}
 
           {/* Land (nur wenn Daten vorhanden) */}
-          {availableCountries.length > 0 && (
+          {dynamicOptions.countries.length > 0 && (
             <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
               <button onClick={() => setCountryFilter('all')}
                 className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                   countryFilter === 'all' ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                 }`}>Alle Länder</button>
-              {availableCountries.map(c => (
+              {dynamicOptions.countries.map(c => (
                 <button key={c} onClick={() => setCountryFilter(f => f === c ? 'all' : c)}
                   className={`flex-none rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                     countryFilter === c ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'

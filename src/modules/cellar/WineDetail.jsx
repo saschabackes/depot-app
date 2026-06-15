@@ -4,7 +4,7 @@ import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
 import { isSparkling, CountryPicker } from './wineConstants'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
-const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-500 to-pink-400', schaum: 'from-amber-600 to-amber-400' }
+const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
 const COUNTRY_FLAG = {
   'Deutschland':'🇩🇪','Italien':'🇮🇹','Frankreich':'🇫🇷','Spanien':'🇪🇸','Portugal':'🇵🇹',
   'Österreich':'🇦🇹','Schweiz':'🇨🇭','USA':'🇺🇸','Argentinien':'🇦🇷','Chile':'🇨🇱',
@@ -26,50 +26,54 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
   const drunken = bottle.history?.length || 0
   const flag = COUNTRY_FLAG[bottle.country] || ''
 
+  const locationParts = [bottle.region, bottle.country].filter(Boolean)
+  const locationStr = locationParts.length > 0 ? locationParts.join(', ') : null
+
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-y-auto pb-20">
-      {/* Hero */}
-      <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white relative pt-[env(safe-area-inset-top)]`}>
-        <button onClick={onClose}
-          className="absolute left-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
-          ←
-        </button>
-        <button onClick={() => setShowEdit(true)}
-          className="absolute right-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
-          ✎
-        </button>
-
-        <div className="flex items-center justify-center pt-12 pb-6">
-          {bottle.photoData
-            ? <img src={bottle.photoData} alt="" className="w-32 h-44 rounded-lg shadow-2xl object-cover ring-4 ring-white/20" />
-            : <div className="w-32 h-44 rounded-lg bg-white/10 shadow-2xl flex items-center justify-center text-7xl ring-4 ring-white/20">
-                {COLOR_EMOJI[bottle.color] || '🍷'}
-              </div>}
+      {/* Compact Header */}
+      <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white pt-[env(safe-area-inset-top)]`}>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <button onClick={onClose}
+            className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg">←</button>
+          <button onClick={() => setShowEdit(true)}
+            className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm">✎</button>
         </div>
 
-        <div className="px-6 pb-5 text-center">
-          <h1 className="text-2xl font-bold drop-shadow-sm">{bottle.name}</h1>
-          {bottle.winery && <p className="text-white/90 text-sm mt-0.5">{bottle.winery}</p>}
-          <p className="text-white/80 text-xs mt-1">
-            {bottle.vintage} · {bottle.color} · {bottle.alcohol || '—'}
-            {bottle.sweetness && <span className="ml-1">· {bottle.sweetness}</span>}
-            {bottle.classification && <span className="ml-1">· {bottle.classification}</span>}
-            {bottle.wineType && bottle.wineType !== 'wein' && <span className="ml-1">· {bottle.wineType}</span>}
-            {bottle.alcoholFree && <span className="ml-2 bg-emerald-500/90 text-white font-bold px-1.5 py-0.5 rounded text-[10px]">🚫 ALKOHOLFREI</span>}
-          </p>
-          <StarRow value={bottle.rating} onChange={r => updateBottle(bottle.id, { rating: r })} large />
+        <div className="flex gap-3.5 px-4 pb-4">
+          {bottle.photoData
+            ? <img src={bottle.photoData} alt="" className="w-[88px] h-[120px] rounded-xl shadow-xl object-cover ring-2 ring-white/20 flex-none" />
+            : <div className="w-[88px] h-[120px] rounded-xl bg-white/10 shadow-xl flex items-center justify-center text-5xl ring-2 ring-white/20 flex-none">
+                {COLOR_EMOJI[bottle.color] || '🍷'}
+              </div>}
+
+          <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
+            <h1 className="text-lg font-bold leading-tight line-clamp-2">{bottle.name}</h1>
+            {bottle.winery && <p className="text-white/80 text-sm truncate mt-0.5">{bottle.winery}</p>}
+            {locationStr && <p className="text-white/70 text-xs truncate">{flag} {locationStr}</p>}
+            <div className="flex flex-wrap gap-1 mt-2">
+              {bottle.vintage && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.vintage}</span>}
+              <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.color}</span>
+              {bottle.sweetness && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.sweetness}</span>}
+              {bottle.wineType && bottle.wineType !== 'wein' && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.wineType}</span>}
+              {bottle.alcohol && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.alcohol}</span>}
+              {bottle.alcoholFree && <span className="bg-emerald-500/90 text-[11px] font-bold px-2 py-0.5 rounded-full">🚫 alkoholfrei</span>}
+            </div>
+            <div className="mt-1.5">
+              <StarRow value={bottle.rating} onChange={r => updateBottle(bottle.id, { rating: r })} align="left" />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Quick-Facts */}
-      <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 dark:bg-gray-800/50">
-        <Fact icon={flag || '🌍'} label="Region" value={`${bottle.region}${bottle.country ? `, ${bottle.country}` : ''}`} />
+      <div className="grid grid-cols-3 gap-1.5 p-3 bg-gray-50 dark:bg-gray-800/50">
         <Fact icon="🍇" label="Rebsorte" value={bottle.grape || '—'} />
         <Fact icon="📅" label="Trinkfenster" value={`${bottle.drinkFrom}–${effUntil}`}
-          sub={effUntil !== bottle.drinkUntil ? `nominal bis ${bottle.drinkUntil}` : status.label} />
+          sub={effUntil !== bottle.drinkUntil ? `nominal bis ${bottle.drinkUntil}` : null} />
         <Fact icon={rack?.emoji || '📦'} label={rack?.label || '—'}
           value={bottle.row && bottle.col ? `R${bottle.row}/S${bottle.col}` : bottle.slot || '—'}
-          sub={`${bottle.count}× Bestand · ${drunken}× getrunken`} />
+          sub={`${bottle.count}× · ${drunken}× getrunken`} />
       </div>
 
       {/* Trinkfenster-Status + Lagerqualität */}
@@ -277,9 +281,9 @@ function Fact({ icon, label, value, sub }) {
   )
 }
 
-function StarRow({ value, onChange, large }) {
+function StarRow({ value, onChange, large, align }) {
   return (
-    <div className={`flex justify-center gap-1 ${large ? 'mt-3 text-2xl' : 'text-base'}`}>
+    <div className={`flex gap-1 ${align === 'left' ? '' : 'justify-center'} ${large ? 'mt-3 text-2xl' : 'text-base'}`}>
       {[1,2,3,4,5].map(i => (
         <button key={i} onClick={() => onChange(i === value ? 0 : i)}
           className={`${i <= value ? 'opacity-100' : 'opacity-30'} transition-opacity`}>

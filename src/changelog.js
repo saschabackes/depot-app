@@ -4,6 +4,16 @@
 
 export const CHANGELOG = [
   {
+    version: '2.6.0',
+    date: '2026-06-15',
+    entries: [
+      { type: 'improved', text: 'Wein-Detailansicht kompakter: Foto und Infos nebeneinander, Badges für Jahrgang/Farbe/Geschmack, weniger Platzverschwendung.' },
+      { type: 'improved', text: 'Wein-Filter dynamisch: Jahrgänge, Länder und Geschmack passen sich an aktive Filter an — keine leeren Optionen mehr.' },
+      { type: 'new',      text: 'Sortierrichtung wählbar: Weine auf- oder absteigend nach Name, Jahrgang oder Preis sortieren.' },
+      { type: 'fixed',    text: 'Region-Anzeige: kein führendes Komma mehr wenn nur das Land gesetzt ist.' },
+    ],
+  },
+  {
     version: '2.5.0',
     date: '2026-06-15',
     entries: [
