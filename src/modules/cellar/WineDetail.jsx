@@ -29,13 +29,13 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-y-auto pb-20">
       {/* Hero */}
-      <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white relative`}>
+      <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white relative pt-[env(safe-area-inset-top)]`}>
         <button onClick={onClose}
-          className="absolute top-4 left-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg">
+          className="absolute left-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
           ←
         </button>
         <button onClick={() => setShowEdit(true)}
-          className="absolute top-4 right-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm">
+          className="absolute right-4 z-10 bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
           ✎
         </button>
 
