@@ -13,6 +13,7 @@ const MODULE_CARDS = [
 
 const ALL_SECTIONS = [
   { id: 'counts',    label: 'Module',              emoji: '📊' },
+  { id: 'dailyfact', label: 'Wusstest du?',        emoji: '💡' },
   { id: 'attention', label: 'Braucht Aufmerksamkeit', emoji: '⚠️' },
   { id: 'cooking',   label: 'Heute kochen',        emoji: '🍳' },
   { id: 'activity',  label: 'Letzte Aktivität',    emoji: '🕐' },
@@ -127,6 +128,7 @@ export default function DashboardView({ onNavigate }) {
           if (!config.visible[s.id]) return null
           switch (s.id) {
             case 'counts':    return <CountsSection key={s.id} counts={data.counts} onNavigate={onNavigate} />
+            case 'dailyfact': return <DailyFactSection key={s.id} fact={data.dailyFact} />
             case 'attention': return data.attention.length > 0 ? <AttentionSection key={s.id} items={data.attention} /> : null
             case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} counts={data.counts} onNavigate={onNavigate} />
             case 'activity':  return data.recentActivity.length > 0 ? <ActivitySection key={s.id} items={data.recentActivity} /> : null
@@ -256,6 +258,31 @@ function ActivitySection({ items }) {
             <span className="flex-none">{timeAgo(a.createdAt)}</span>
           </div>
         ))}
+      </div>
+    </section>
+  )
+}
+
+const CAT_STYLE = {
+  wine:    { emoji: '🍷', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800' },
+  spice:   { emoji: '🌿', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
+  food:    { emoji: '🍽️', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
+  general: { emoji: '💡', bg: 'bg-sky-50 dark:bg-sky-900/20', border: 'border-sky-200 dark:border-sky-800' },
+}
+
+function DailyFactSection({ fact }) {
+  if (!fact) return null
+  const style = CAT_STYLE[fact.cat] || CAT_STYLE.general
+  return (
+    <section>
+      <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-1.5">
+        <span>💡</span> Wusstest du?
+      </h2>
+      <div className={`${style.bg} border ${style.border} rounded-2xl p-4 shadow-sm`}>
+        <div className="flex gap-3">
+          <span className="text-2xl flex-none mt-0.5">{style.emoji}</span>
+          <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{fact.text}</p>
+        </div>
       </div>
     </section>
   )

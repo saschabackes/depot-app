@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '2.5.0',
+    date: '2026-06-15',
+    entries: [
+      { type: 'new',      text: '„Wusstest du?" auf dem Dashboard: tägliches Wissen über Wein, Gewürze und Kochen — personalisiert aus deinem Bestand.' },
+    ],
+  },
+  {
     version: '2.4.0',
     date: '2026-06-14',
     entries: [

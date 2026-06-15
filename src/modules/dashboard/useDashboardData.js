@@ -4,6 +4,7 @@ import { useFreezer, FREEZER_SHELF_LIFE } from '../freezer/store'
 import { useCellar } from '../cellar/store'
 import { getMhdStatus } from '../../utils/mhd'
 import { computeRecipeAvailability } from '../../utils/inventoryMatch'
+import { getPersonalizedFact } from './dailyFacts'
 
 export default function useDashboardData() {
   const spices = useStore(s => s.spices)
@@ -67,6 +68,15 @@ export default function useDashboardData() {
 
     const recentActivity = activityLog.slice(0, 5)
 
-    return { counts, attention: topAttention, suggestions, recentActivity }
+    const now2 = new Date()
+    const dayOfYear = Math.floor((now2 - new Date(now2.getFullYear(), 0, 0)) / 86400000)
+    const inventory = {
+      wineNames: bottles.map(b => b.name).filter(Boolean),
+      grapes: bottles.map(b => b.grape).filter(Boolean),
+      spiceNames: spices.map(s => s.name).filter(Boolean),
+    }
+    const dailyFact = getPersonalizedFact(dayOfYear, inventory)
+
+    return { counts, attention: topAttention, suggestions, recentActivity, dailyFact }
   }, [spices, freezerItems, bottles, shoppingItems, recipes, activityLog])
 }
