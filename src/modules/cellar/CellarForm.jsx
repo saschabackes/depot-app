@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useCellar } from './store'
-import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker } from './wineConstants'
+import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
 import AutocompleteInput from '../../components/AutocompleteInput'
 import BarcodeScanner from '../../components/BarcodeScanner'
 

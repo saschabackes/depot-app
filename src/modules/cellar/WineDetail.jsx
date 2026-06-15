@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useCellar, drinkStatus, effectiveDrinkUntil, qualityScore, qualityLabel } from './store'
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
-import { isSparkling, CountryPicker } from './wineConstants'
+import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
 const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
@@ -435,11 +435,12 @@ function EditSheet({ bottle, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">Qualität</label><input className="input text-sm" value={classification} onChange={e => setClassification(e.target.value)} placeholder="z.B. Spätlese, DOC" /></div>
-            <div><label className="label">Preis (€)</label><input type="number" step="0.01" className="input text-sm" value={priceEur} onChange={e => setPriceEur(e.target.value)} /></div>
+          <div>
+            <label className="label">Qualität / Klassifikation</label>
+            <ClassificationPicker value={classification} onChange={setClassification} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <div><label className="label">Preis (€)</label><input type="number" step="0.01" className="input text-sm" value={priceEur} onChange={e => setPriceEur(e.target.value)} /></div>
             <div><label className="label">Händler</label><input className="input text-sm" value={retailer} onChange={e => setRetailer(e.target.value)} placeholder="z.B. Jacques'" /></div>
             <div><label className="label">Kaufdatum</label><input type="date" className="input text-sm" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} /></div>
           </div>
