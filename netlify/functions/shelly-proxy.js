@@ -36,7 +36,7 @@ exports.handler = async function(event) {
   // Validate server ID format (e.g. "eu", "48-eu", "us")
   if (!/^[a-z0-9-]{1,20}$/.test(server)) return err(CORS, 'Invalid server ID', 400)
 
-  var baseUrl = 'https://shelly-' + server + '-1.shelly.cloud'
+  var baseUrl = 'https://shelly-' + server + '.shelly.cloud'
 
   try {
     if (action === 'list') {
