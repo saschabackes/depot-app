@@ -33,21 +33,22 @@ exports.handler = async function(event) {
 
   if (!authKey || !server) return err(CORS, 'authKey and server required', 400)
 
-  // Validate server ID format (e.g. "eu", "us", "ap")
-  if (!/^[a-z]{2,5}$/.test(server)) return err(CORS, 'Invalid server ID', 400)
+  // Validate server ID format (e.g. "eu", "48-eu", "us")
+  if (!/^[a-z0-9-]{1,20}$/.test(server)) return err(CORS, 'Invalid server ID', 400)
 
   var baseUrl = 'https://shelly-' + server + '-1.shelly.cloud'
 
   try {
     if (action === 'list') {
-      // List all devices for this account
-      var res = await fetch(baseUrl + '/device/all_status', {
+      var url = baseUrl + '/device/all_status'
+      var res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'auth_key=' + encodeURIComponent(authKey),
       })
+      if (!res.ok) return err(CORS, 'Shelly HTTP ' + res.status + ' from ' + url, 502)
       var data = await res.json()
-      if (!data.isok) return err(CORS, data.errors?.join(', ') || 'Shelly API error', 502)
+      if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error', 502)
 
       // Extract devices with temperature/humidity sensors
       var devices = []
@@ -106,6 +107,6 @@ exports.handler = async function(event) {
     return err(CORS, 'Unknown action: ' + action, 400)
 
   } catch (e) {
-    return err(CORS, 'Proxy error: ' + e.message, 502)
+    return err(CORS, 'Proxy error: ' + e.message + ' (URL: ' + baseUrl + ')', 502)
   }
 }
