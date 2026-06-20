@@ -40,19 +40,39 @@ exports.handler = async function(event) {
 
   try {
     if (action === 'list') {
-      var url = baseUrl + '/device/all_status'
-      var res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'auth_key=' + encodeURIComponent(authKey),
-      })
-      if (res.status === 429) return err(CORS, 'Shelly Rate-Limit erreicht — bitte 1 Minute warten und erneut versuchen.', 429)
-      var data
-      try { data = await res.json() } catch { return err(CORS, 'Shelly HTTP ' + res.status, 502) }
-      if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error (HTTP ' + res.status + ')', 502)
+      // Fetch device names + status in parallel
+      var body = 'auth_key=' + encodeURIComponent(authKey)
+      var headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
+      var [listRes, statusRes] = await Promise.all([
+        fetch(baseUrl + '/interface/device/list', { method: 'POST', headers: headers, body: body }),
+        fetch(baseUrl + '/device/all_status',     { method: 'POST', headers: headers, body: body }),
+      ])
+
+      if (listRes.status === 429 || statusRes.status === 429) {
+        return err(CORS, 'Shelly Rate-Limit erreicht — bitte 1 Minute warten und erneut versuchen.', 429)
+      }
+
+      var listData, statusData
+      try { listData = await listRes.json() } catch { listData = {} }
+      try { statusData = await statusRes.json() } catch { statusData = {} }
+
+      // Build name lookup from device/list
+      var nameMap = {}
+      var listDevices = listData.data?.devices || listData.data?.devices_list || []
+      if (Array.isArray(listDevices)) {
+        listDevices.forEach(function(d) {
+          var did = d.id || d.device_id || d.mac
+          if (did) nameMap[did.toLowerCase()] = d.name || d.device_name || ''
+        })
+      } else if (typeof listDevices === 'object') {
+        Object.keys(listDevices).forEach(function(k) {
+          var d = listDevices[k]
+          if (d && typeof d === 'object') nameMap[k.toLowerCase()] = d.name || d.device_name || ''
+        })
+      }
 
       var devices = []
-      var devStatuses = data.data?.devices_status || data.data || {}
+      var devStatuses = statusData.data?.devices_status || statusData.data || {}
 
       Object.keys(devStatuses).forEach(function(id) {
         if (id === 'devices_status' || id === 'pending_notifications') return
@@ -61,8 +81,6 @@ exports.handler = async function(event) {
 
         var keys = Object.keys(d)
         var online = d.cloud?.connected ?? d.online ?? false
-
-        // Detect ambient temperature/humidity sensors (not internal device temps)
         var hasTemp = keys.some(function(k) { return /^temperature:\d+$/.test(k) })
           || !!(d.tmp) || !!(d.ext_temperature)
         var hasHum = keys.some(function(k) { return /^humidity:\d+$/.test(k) })
@@ -70,10 +88,12 @@ exports.handler = async function(event) {
 
         var model = d.code || 'Shelly'
         var ip = d.wifi?.sta_ip || ''
+        var userName = nameMap[id.toLowerCase()] || ''
 
         devices.push({
           id: id,
-          name: model,
+          name: userName || model,
+          model: model,
           ip: ip,
           online: online,
           hasTemp: hasTemp,
@@ -81,7 +101,6 @@ exports.handler = async function(event) {
         })
       })
 
-      // Sort: sensors first, then online, then by name
       devices.sort(function(a, b) {
         var sa = (a.hasTemp || a.hasHum) ? 0 : 1
         var sb = (b.hasTemp || b.hasHum) ? 0 : 1
