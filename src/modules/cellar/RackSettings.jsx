@@ -33,6 +33,7 @@ export default function RackSettings({ onClose }) {
   const [showShelly, setShowShelly] = useState(false)
   const [shellyAuth, setShellyAuth] = useState({ authKey: shellyConfig?.authKey || '', server: shellyConfig?.server || '' })
   const [shellyDevices, setShellyDevices] = useState(null)
+  const [shellyDebug, setShellyDebug] = useState(null)
   const [shellyLoading, setShellyLoading] = useState(false)
   const [shellyError, setShellyError] = useState('')
 
@@ -41,8 +42,9 @@ export default function RackSettings({ onClose }) {
     setShellyLoading(true)
     setShellyError('')
     try {
-      const devices = await shellyListDevices(shellyConfig.authKey, shellyConfig.server)
-      setShellyDevices(devices)
+      const result = await shellyListDevices(shellyConfig.authKey, shellyConfig.server)
+      setShellyDevices(result.devices)
+      if (result._debug) setShellyDebug(result._debug)
     } catch (e) {
       setShellyError(e.message)
     }
@@ -380,9 +382,10 @@ export default function RackSettings({ onClose }) {
                         setShellyLoading(true)
                         setShellyError('')
                         try {
-                          const devices = await shellyListDevices(shellyAuth.authKey, shellyAuth.server)
+                          const result = await shellyListDevices(shellyAuth.authKey, shellyAuth.server)
                           setShellyConfig(shellyAuth.authKey, shellyAuth.server)
-                          setShellyDevices(devices)
+                          setShellyDevices(result.devices)
+                          if (result._debug) setShellyDebug(result._debug)
                         } catch (e) {
                           setShellyError(e.message)
                         }
@@ -407,6 +410,14 @@ export default function RackSettings({ onClose }) {
                       </p>
                     ))}
                   </div>
+                )}
+                {shellyDebug && (
+                  <details className="mt-1">
+                    <summary className="text-[10px] text-gray-400 cursor-pointer">🔧 Debug-Info</summary>
+                    <pre className="text-[9px] text-gray-400 mt-1 overflow-x-auto whitespace-pre-wrap break-all bg-gray-100 dark:bg-gray-900 rounded p-2 max-h-48 overflow-y-auto">
+                      {JSON.stringify(shellyDebug, null, 2)}
+                    </pre>
+                  </details>
                 )}
               </div>
             )}

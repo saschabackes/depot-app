@@ -53,24 +53,34 @@ exports.handler = async function(event) {
 
       var devices = []
       var all = data.data || {}
-      Object.keys(all).forEach(function(id) {
+      var debugKeys = Object.keys(all)
+      var debugSamples = {}
+      debugKeys.forEach(function(id) {
         var d = all[id]
-        if (!d || typeof d !== 'object' || !d._dev_info) return
+        if (!d || typeof d !== 'object') {
+          debugSamples[id] = { _type: typeof d, _value: String(d).slice(0, 100) }
+          return
+        }
+        var topKeys = Object.keys(d).slice(0, 15)
+        debugSamples[id] = { _topKeys: topKeys }
         var status = d.device_status || {}
+        var info = d._dev_info || {}
         var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature)
         var hasHum  = !!(status.hum || status['humidity:0'] || status.ext_humidity)
-        devices.push({
-          id: id,
-          name: d._dev_info?.name || d._dev_info?.code || id,
-          model: d._dev_info?.code || 'unknown',
-          gen: d._dev_info?.gen || 1,
-          online: d.online ?? false,
-          hasTemp: hasTemp,
-          hasHum: hasHum,
-          statusKeys: Object.keys(status).filter(function(k) { return k !== '_updated' }).slice(0, 20),
-        })
+        if (topKeys.length > 1) {
+          devices.push({
+            id: id,
+            name: info.name || info.code || d.name || id,
+            model: info.code || d.type || 'unknown',
+            gen: info.gen || 1,
+            online: d.online ?? false,
+            hasTemp: hasTemp,
+            hasHum: hasHum,
+            statusKeys: Object.keys(status).filter(function(k) { return k !== '_updated' }).slice(0, 20),
+          })
+        }
       })
-      return ok(CORS, { devices: devices })
+      return ok(CORS, { devices: devices, _debug: { keys: debugKeys, samples: debugSamples } })
     }
 
     if (action === 'status') {
