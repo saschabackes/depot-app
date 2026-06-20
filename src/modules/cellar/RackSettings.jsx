@@ -396,7 +396,10 @@ export default function RackSettings({ onClose }) {
                 )}
                 {shellyError && <p className="text-xs text-red-500">{shellyError}</p>}
                 {shellyDevices && !shellyDevices.length && (
-                  <p className="text-xs text-gray-400">Keine Temperatur-/Feuchtigkeitssensoren gefunden.</p>
+                  <p className="text-xs text-gray-400">Keine Geräte gefunden. Prüfe, ob der Auth-Key korrekt ist.</p>
+                )}
+                {shellyDevices && shellyDevices.length > 0 && !shellyDevices.some(d => d.hasTemp || d.hasHum) && (
+                  <p className="text-xs text-amber-500">{shellyDevices.length} Gerät(e) gefunden, aber keines mit Temperatur-/Feuchtigkeitssensor. Geräte werden trotzdem angeboten.</p>
                 )}
               </div>
             )}

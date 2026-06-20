@@ -664,6 +664,7 @@ export const useCellar = create(
         lastUsedRack: state.lastUsedRack,
         recentNames: state.recentNames,
         pending: state.pending,
+        shellyConfig: state.shellyConfig,
       }),
     }
   )

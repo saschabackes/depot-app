@@ -51,7 +51,6 @@ exports.handler = async function(event) {
       try { data = await res.json() } catch { return err(CORS, 'Shelly HTTP ' + res.status, 502) }
       if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error (HTTP ' + res.status + ')', 502)
 
-      // Extract devices with temperature/humidity sensors
       var devices = []
       var all = data.data || {}
       Object.keys(all).forEach(function(id) {
@@ -59,17 +58,16 @@ exports.handler = async function(event) {
         var status = d.device_status || {}
         var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature)
         var hasHum  = !!(status.hum || status['humidity:0'] || status.ext_humidity)
-        if (hasTemp || hasHum) {
-          devices.push({
-            id: id,
-            name: d._dev_info?.code || d._dev_info?.gen || id,
-            online: d.online ?? false,
-            hasTemp: hasTemp,
-            hasHum: hasHum,
-          })
-        }
+        devices.push({
+          id: id,
+          name: d._dev_info?.code || d._dev_info?.gen || id,
+          online: d.online ?? false,
+          hasTemp: hasTemp,
+          hasHum: hasHum,
+          type: d._dev_info?.code || 'unknown',
+        })
       })
-      return ok(CORS, { devices: devices })
+      return ok(CORS, { devices: devices, totalDevices: Object.keys(all).length })
     }
 
     if (action === 'status') {
