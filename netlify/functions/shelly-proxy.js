@@ -52,35 +52,40 @@ exports.handler = async function(event) {
       if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error (HTTP ' + res.status + ')', 502)
 
       var devices = []
-      var all = data.data || {}
-      var debugKeys = Object.keys(all)
-      var debugSamples = {}
-      debugKeys.forEach(function(id) {
-        var d = all[id]
-        if (!d || typeof d !== 'object') {
-          debugSamples[id] = { _type: typeof d, _value: String(d).slice(0, 100) }
-          return
-        }
-        var topKeys = Object.keys(d).slice(0, 15)
-        debugSamples[id] = { _topKeys: topKeys }
-        var status = d.device_status || {}
+      var devStatuses = data.data?.devices_status || data.data || {}
+      var debugSample = null
+
+      Object.keys(devStatuses).forEach(function(id) {
+        if (id === 'devices_status' || id === 'pending_notifications') return
+        var d = devStatuses[id]
+        if (!d || typeof d !== 'object') return
+
+        if (!debugSample) debugSample = { id: id, keys: Object.keys(d).slice(0, 20) }
+
+        var status = d.device_status || d
         var info = d._dev_info || {}
-        var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature)
-        var hasHum  = !!(status.hum || status['humidity:0'] || status.ext_humidity)
-        if (topKeys.length > 1) {
-          devices.push({
-            id: id,
-            name: info.name || info.code || d.name || id,
-            model: info.code || d.type || 'unknown',
-            gen: info.gen || 1,
-            online: d.online ?? false,
-            hasTemp: hasTemp,
-            hasHum: hasHum,
-            statusKeys: Object.keys(status).filter(function(k) { return k !== '_updated' }).slice(0, 20),
-          })
-        }
+        var statusKeys = Object.keys(status).filter(function(k) { return k[0] !== '_' })
+
+        var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature
+          || statusKeys.some(function(k) { return k.indexOf('temperature') >= 0 || k === 'tmp' }))
+        var hasHum = !!(status.hum || status['humidity:0'] || status.ext_humidity
+          || statusKeys.some(function(k) { return k.indexOf('humidity') >= 0 || k === 'hum' }))
+
+        devices.push({
+          id: id,
+          name: info.name || info.code || d.name || id,
+          model: info.code || d.type || 'unknown',
+          gen: info.gen || 1,
+          online: d.online ?? false,
+          hasTemp: hasTemp,
+          hasHum: hasHum,
+          statusKeys: statusKeys.slice(0, 20),
+        })
       })
-      return ok(CORS, { devices: devices, _debug: { keys: debugKeys, samples: debugSamples } })
+      return ok(CORS, {
+        devices: devices,
+        _debug: { dataKeys: Object.keys(data.data || {}), sample: debugSample, deviceCount: devices.length },
+      })
     }
 
     if (action === 'status') {
