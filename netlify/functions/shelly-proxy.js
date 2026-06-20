@@ -53,49 +53,44 @@ exports.handler = async function(event) {
 
       var devices = []
       var devStatuses = data.data?.devices_status || data.data || {}
-      var debugSample = null
 
       Object.keys(devStatuses).forEach(function(id) {
         if (id === 'devices_status' || id === 'pending_notifications') return
         var d = devStatuses[id]
         if (!d || typeof d !== 'object') return
 
-        if (!debugSample) {
-          var raw = {}
-          Object.keys(d).forEach(function(k) {
-            if (k === 'device_status') {
-              raw[k] = Object.keys(d[k]).slice(0, 30)
-            } else {
-              raw[k] = d[k]
-            }
-          })
-          debugSample = { id: id, raw: raw }
-        }
+        var keys = Object.keys(d)
+        var online = d.cloud?.connected ?? d.online ?? false
 
-        var status = d.device_status || d
-        var info = d._dev_info || {}
-        var statusKeys = Object.keys(status).filter(function(k) { return k[0] !== '_' })
+        // Detect ambient temperature/humidity sensors (not internal device temps)
+        var hasTemp = keys.some(function(k) { return /^temperature:\d+$/.test(k) })
+          || !!(d.tmp) || !!(d.ext_temperature)
+        var hasHum = keys.some(function(k) { return /^humidity:\d+$/.test(k) })
+          || !!(d.hum) || !!(d.ext_humidity)
 
-        var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature
-          || statusKeys.some(function(k) { return k.indexOf('temperature') >= 0 || k === 'tmp' }))
-        var hasHum = !!(status.hum || status['humidity:0'] || status.ext_humidity
-          || statusKeys.some(function(k) { return k.indexOf('humidity') >= 0 || k === 'hum' }))
+        var model = d.code || 'Shelly'
+        var ip = d.wifi?.sta_ip || ''
 
         devices.push({
           id: id,
-          name: info.name || info.code || d.name || id,
-          model: info.code || d.type || 'unknown',
-          gen: info.gen || 1,
-          online: d.online ?? false,
+          name: model,
+          ip: ip,
+          online: online,
           hasTemp: hasTemp,
           hasHum: hasHum,
-          statusKeys: statusKeys.slice(0, 20),
         })
       })
-      return ok(CORS, {
-        devices: devices,
-        _debug: { dataKeys: Object.keys(data.data || {}), sample: debugSample, deviceCount: devices.length },
+
+      // Sort: sensors first, then online, then by name
+      devices.sort(function(a, b) {
+        var sa = (a.hasTemp || a.hasHum) ? 0 : 1
+        var sb = (b.hasTemp || b.hasHum) ? 0 : 1
+        if (sa !== sb) return sa - sb
+        if (a.online !== b.online) return a.online ? -1 : 1
+        return a.name.localeCompare(b.name)
       })
+
+      return ok(CORS, { devices: devices })
     }
 
     if (action === 'status') {
@@ -111,25 +106,24 @@ exports.handler = async function(event) {
       try { data = await res.json() } catch { return err(CORS, 'Shelly HTTP ' + res.status, 502) }
       if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error', 502)
 
-      var status = data.data?.device_status || {}
+      // data.data contains the flat device status (same structure as in all_status)
+      var s = data.data?.device_status || data.data || {}
 
+      // Gen2+ components (temperature:0, humidity:0)
+      var temp = null, hum = null
+      Object.keys(s).forEach(function(k) {
+        if (/^temperature:\d+$/.test(k) && temp === null) temp = s[k].tC
+        if (/^humidity:\d+$/.test(k) && hum === null)     hum = s[k].rh
+      })
       // Gen1 sensors
-      var temp = status.tmp?.tC
-        ?? status.ext_temperature?.['0']?.tC
-        ?? null
-      var hum  = status.hum?.value
-        ?? status.ext_humidity?.['0']?.hum
-        ?? null
-
-      // Gen2+ sensors
-      if (temp === null && status['temperature:0']) temp = status['temperature:0'].tC
-      if (hum  === null && status['humidity:0'])    hum  = status['humidity:0'].rh
+      if (temp === null) temp = s.tmp?.tC ?? s.ext_temperature?.['0']?.tC ?? null
+      if (hum === null)  hum = s.hum?.value ?? s.ext_humidity?.['0']?.hum ?? null
 
       return ok(CORS, {
-        online:      data.data?.online ?? false,
+        online:      s.cloud?.connected ?? data.data?.online ?? false,
         temperature: temp,
         humidity:    hum,
-        updatedAt:   status._updated ?? null,
+        updatedAt:   s._updated ?? null,
       })
     }
 

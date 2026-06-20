@@ -8,7 +8,7 @@ export async function shellyListDevices(authKey, server) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Shelly API error')
-  return { devices: data.devices, _debug: data._debug }
+  return data.devices
 }
 
 export async function shellyGetStatus(authKey, server, deviceId) {

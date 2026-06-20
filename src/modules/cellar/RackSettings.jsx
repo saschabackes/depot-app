@@ -33,7 +33,6 @@ export default function RackSettings({ onClose }) {
   const [showShelly, setShowShelly] = useState(false)
   const [shellyAuth, setShellyAuth] = useState({ authKey: shellyConfig?.authKey || '', server: shellyConfig?.server || '' })
   const [shellyDevices, setShellyDevices] = useState(null)
-  const [shellyDebug, setShellyDebug] = useState(null)
   const [shellyLoading, setShellyLoading] = useState(false)
   const [shellyError, setShellyError] = useState('')
 
@@ -42,9 +41,8 @@ export default function RackSettings({ onClose }) {
     setShellyLoading(true)
     setShellyError('')
     try {
-      const result = await shellyListDevices(shellyConfig.authKey, shellyConfig.server)
-      setShellyDevices(result.devices)
-      if (result._debug) setShellyDebug(result._debug)
+      const devices = await shellyListDevices(shellyConfig.authKey, shellyConfig.server)
+      setShellyDevices(devices)
     } catch (e) {
       setShellyError(e.message)
     }
@@ -317,7 +315,7 @@ export default function RackSettings({ onClose }) {
                       <option value="">📡 Kein Sensor</option>
                       {shellyDevices.filter(d => d.hasTemp || d.hasHum).map(d => (
                         <option key={d.id} value={d.id}>
-                          🌡️ {d.name} {d.hasTemp ? '°C' : ''}{d.hasHum ? ' + %' : ''} {d.online ? '🟢' : '⚪'}
+                          🌡️ {d.name} {d.ip ? '(' + d.ip + ')' : ''} {d.online ? '🟢' : '⚪'}
                         </option>
                       ))}
                       {shellyDevices.some(d => !d.hasTemp && !d.hasHum) && (
@@ -325,7 +323,7 @@ export default function RackSettings({ onClose }) {
                       )}
                       {shellyDevices.filter(d => !d.hasTemp && !d.hasHum).map(d => (
                         <option key={d.id} value={d.id}>
-                          📡 {d.name} {d.online ? '' : '(offline)'}
+                          {d.name} {d.ip ? '(' + d.ip + ')' : ''} {d.online ? '🟢' : '⚪'}
                         </option>
                       ))}
                     </select>
@@ -418,14 +416,6 @@ export default function RackSettings({ onClose }) {
                       </p>
                     ))}
                   </div>
-                )}
-                {shellyDebug && (
-                  <details className="mt-1">
-                    <summary className="text-[10px] text-gray-400 cursor-pointer">🔧 Debug-Info</summary>
-                    <pre className="text-[9px] text-gray-400 mt-1 overflow-x-auto whitespace-pre-wrap break-all bg-gray-100 dark:bg-gray-900 rounded p-2 max-h-48 overflow-y-auto">
-                      {JSON.stringify(shellyDebug, null, 2)}
-                    </pre>
-                  </details>
                 )}
               </div>
             )}
