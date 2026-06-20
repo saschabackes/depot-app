@@ -352,7 +352,7 @@ export default function RackSettings({ onClose }) {
                       onChange={e => setShellyAuth(p => ({ ...p, authKey: e.target.value }))} />
                     <input className="input text-sm py-1.5" placeholder='Server-ID (z.B. "eu")'
                       value={shellyAuth.server}
-                      onChange={e => setShellyAuth(p => ({ ...p, server: e.target.value.toLowerCase().replace(/[^a-z]/g, '') }))} />
+                      onChange={e => setShellyAuth(p => ({ ...p, server: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
                     <button
                       disabled={!shellyAuth.authKey || !shellyAuth.server || shellyLoading}
                       onClick={async () => {
