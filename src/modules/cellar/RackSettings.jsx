@@ -346,13 +346,34 @@ export default function RackSettings({ onClose }) {
                   </div>
                 ) : (
                   <>
-                    <p className="text-[11px] text-gray-500">Shelly Cloud Auth-Key und Server-ID aus der Shelly-App (Einstellungen → Autorisierung).</p>
-                    <input className="input text-sm py-1.5" placeholder="Auth-Key"
-                      value={shellyAuth.authKey}
-                      onChange={e => setShellyAuth(p => ({ ...p, authKey: e.target.value }))} />
-                    <input className="input text-sm py-1.5" placeholder='Server-ID (z.B. "eu")'
-                      value={shellyAuth.server}
-                      onChange={e => setShellyAuth(p => ({ ...p, server: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} />
+                    <p className="text-[11px] text-gray-500">Shelly-App → Einstellungen → Cloud Key: Auth-Key kopieren und Server-URL einfügen.</p>
+                    <div>
+                      <label className="text-[10px] text-gray-400 font-bold uppercase mb-0.5 block">Auth-Key</label>
+                      <input className="input text-sm py-1.5" placeholder="MWVlNm…"
+                        value={shellyAuth.authKey}
+                        onChange={e => setShellyAuth(p => ({ ...p, authKey: e.target.value.trim() }))} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 font-bold uppercase mb-0.5 block">Server</label>
+                      <input className="input text-sm py-1.5" placeholder="https://shelly-84-eu.shelly.cloud oder 84-eu"
+                        value={shellyAuth.serverInput || ''}
+                        onChange={e => {
+                          const raw = e.target.value
+                          setShellyAuth(p => ({ ...p, serverInput: raw }))
+                          const m = raw.match(/shelly-([a-z0-9-]+?)(?:-1)?\.shelly\.cloud/)
+                          if (m) {
+                            setShellyAuth(p => ({ ...p, serverInput: raw, server: m[1] }))
+                          } else {
+                            const clean = raw.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-|-$/g, '')
+                            if (clean) setShellyAuth(p => ({ ...p, serverInput: raw, server: clean }))
+                          }
+                        }} />
+                      {shellyAuth.server && (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          → Server-ID: {shellyAuth.server}
+                        </p>
+                      )}
+                    </div>
                     <button
                       disabled={!shellyAuth.authKey || !shellyAuth.server || shellyLoading}
                       onClick={async () => {
