@@ -315,9 +315,17 @@ export default function RackSettings({ onClose }) {
                       className="input text-xs py-1.5 w-full"
                     >
                       <option value="">📡 Kein Sensor</option>
-                      {shellyDevices.map(d => (
+                      {shellyDevices.filter(d => d.hasTemp || d.hasHum).map(d => (
                         <option key={d.id} value={d.id}>
-                          📡 {d.name} ({d.model}) {d.hasTemp ? '🌡️' : ''}{d.hasHum ? '💧' : ''} {d.online ? '' : '(offline)'}
+                          🌡️ {d.name} {d.hasTemp ? '°C' : ''}{d.hasHum ? ' + %' : ''} {d.online ? '🟢' : '⚪'}
+                        </option>
+                      ))}
+                      {shellyDevices.some(d => !d.hasTemp && !d.hasHum) && (
+                        <option disabled>── Andere Geräte ──</option>
+                      )}
+                      {shellyDevices.filter(d => !d.hasTemp && !d.hasHum).map(d => (
+                        <option key={d.id} value={d.id}>
+                          📡 {d.name} {d.online ? '' : '(offline)'}
                         </option>
                       ))}
                     </select>
