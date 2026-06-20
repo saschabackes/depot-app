@@ -46,9 +46,10 @@ exports.handler = async function(event) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'auth_key=' + encodeURIComponent(authKey),
       })
-      if (!res.ok) return err(CORS, 'Shelly HTTP ' + res.status + ' from ' + url, 502)
-      var data = await res.json()
-      if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error', 502)
+      if (res.status === 429) return err(CORS, 'Shelly Rate-Limit erreicht — bitte 1 Minute warten und erneut versuchen.', 429)
+      var data
+      try { data = await res.json() } catch { return err(CORS, 'Shelly HTTP ' + res.status, 502) }
+      if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error (HTTP ' + res.status + ')', 502)
 
       // Extract devices with temperature/humidity sensors
       var devices = []
@@ -79,8 +80,10 @@ exports.handler = async function(event) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'auth_key=' + encodeURIComponent(authKey) + '&id=' + encodeURIComponent(deviceId),
       })
-      var data = await res.json()
-      if (!data.isok) return err(CORS, data.errors?.join(', ') || 'Shelly API error', 502)
+      if (res.status === 429) return err(CORS, 'Rate-Limit — bitte kurz warten.', 429)
+      var data
+      try { data = await res.json() } catch { return err(CORS, 'Shelly HTTP ' + res.status, 502) }
+      if (!data.isok) return err(CORS, (data.errors || []).join(', ') || 'Shelly API error', 502)
 
       var status = data.data?.device_status || {}
 
