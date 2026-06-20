@@ -60,7 +60,17 @@ exports.handler = async function(event) {
         var d = devStatuses[id]
         if (!d || typeof d !== 'object') return
 
-        if (!debugSample) debugSample = { id: id, keys: Object.keys(d).slice(0, 20) }
+        if (!debugSample) {
+          var raw = {}
+          Object.keys(d).forEach(function(k) {
+            if (k === 'device_status') {
+              raw[k] = Object.keys(d[k]).slice(0, 30)
+            } else {
+              raw[k] = d[k]
+            }
+          })
+          debugSample = { id: id, raw: raw }
+        }
 
         var status = d.device_status || d
         var info = d._dev_info || {}
