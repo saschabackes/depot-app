@@ -55,19 +55,22 @@ exports.handler = async function(event) {
       var all = data.data || {}
       Object.keys(all).forEach(function(id) {
         var d = all[id]
+        if (!d || typeof d !== 'object' || !d._dev_info) return
         var status = d.device_status || {}
         var hasTemp = !!(status.tmp || status['temperature:0'] || status.ext_temperature)
         var hasHum  = !!(status.hum || status['humidity:0'] || status.ext_humidity)
         devices.push({
           id: id,
-          name: d._dev_info?.code || d._dev_info?.gen || id,
+          name: d._dev_info?.name || d._dev_info?.code || id,
+          model: d._dev_info?.code || 'unknown',
+          gen: d._dev_info?.gen || 1,
           online: d.online ?? false,
           hasTemp: hasTemp,
           hasHum: hasHum,
-          type: d._dev_info?.code || 'unknown',
+          statusKeys: Object.keys(status).filter(function(k) { return k !== '_updated' }).slice(0, 20),
         })
       })
-      return ok(CORS, { devices: devices, totalDevices: Object.keys(all).length })
+      return ok(CORS, { devices: devices })
     }
 
     if (action === 'status') {

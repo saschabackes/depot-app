@@ -315,7 +315,7 @@ export default function RackSettings({ onClose }) {
                       <option value="">📡 Kein Sensor</option>
                       {shellyDevices.map(d => (
                         <option key={d.id} value={d.id}>
-                          📡 {d.name} {d.hasTemp ? '🌡️' : ''}{d.hasHum ? '💧' : ''} {d.online ? '' : '(offline)'}
+                          📡 {d.name} ({d.model}) {d.hasTemp ? '🌡️' : ''}{d.hasHum ? '💧' : ''} {d.online ? '' : '(offline)'}
                         </option>
                       ))}
                     </select>
@@ -399,7 +399,14 @@ export default function RackSettings({ onClose }) {
                   <p className="text-xs text-gray-400">Keine Geräte gefunden. Prüfe, ob der Auth-Key korrekt ist.</p>
                 )}
                 {shellyDevices && shellyDevices.length > 0 && !shellyDevices.some(d => d.hasTemp || d.hasHum) && (
-                  <p className="text-xs text-amber-500">{shellyDevices.length} Gerät(e) gefunden, aber keines mit Temperatur-/Feuchtigkeitssensor. Geräte werden trotzdem angeboten.</p>
+                  <div className="text-xs text-amber-500 space-y-1">
+                    <p>{shellyDevices.length} Gerät(e) gefunden, aber keines mit erkanntem Temperatur-/Feuchtigkeitssensor.</p>
+                    {shellyDevices.map(d => (
+                      <p key={d.id} className="text-[10px] text-gray-400 break-all">
+                        {d.name} ({d.model}, Gen{d.gen}): {d.statusKeys?.join(', ') || 'keine Status-Keys'}
+                      </p>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
