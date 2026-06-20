@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useCellar, drinkStatus, effectiveDrinkUntil } from './store'
+import { shellyGetStatus } from '../../lib/shelly'
 import CellarForm from './CellarForm'
 import CellarSetup from './CellarSetup'
 import RackSettings from './RackSettings'
@@ -30,7 +31,7 @@ export default function CellarView() {
   const { racks, bottles, drinkOne, removeBottle,
           setupDone, completeSetup,
           formOpen, formPrefill, openForm, closeForm, pending,
-          bulkDeleteBottles } = useCellar()
+          bulkDeleteBottles, sensorReadings } = useCellar()
   const [tab, setTab] = useState('bestand')
   const [memoryFilter, setMemoryFilter] = useState('all') // all | loved | stocked | empty
   const [activeRackId, setActiveRackId] = useState(racks[0]?.id)
@@ -53,6 +54,17 @@ export default function CellarView() {
   const [sortDir, setSortDir] = useState('asc') // asc | desc
 
   const activeRack = racks.find(r => r.id === activeRackId) || racks[0]
+  const shellyConfig = useCellar(s => s.shellyConfig)
+  const updateSensorReading = useCellar(s => s.updateSensorReading)
+
+  useEffect(() => {
+    if (tab !== 'lager' || !shellyConfig || !activeRack?.conditions?.shellyDeviceId) return
+    const cached = sensorReadings[activeRack.id]
+    if (cached && Date.now() - cached.fetchedAt < 120_000) return
+    shellyGetStatus(shellyConfig.authKey, shellyConfig.server, activeRack.conditions.shellyDeviceId)
+      .then(data => updateSensorReading(activeRack.id, data))
+      .catch(() => {})
+  }, [tab, activeRack, shellyConfig, sensorReadings, updateSensorReading])
 
   // Cross-filter: each filter's options are based on all OTHER active filters
   const dynamicOptions = useMemo(() => {
@@ -353,6 +365,20 @@ export default function CellarView() {
             onArchive={() => useCellar.getState().updateBottle(b.id, { archived: !b.archived })} />)}
         </div>
       )}
+
+      {tab === 'lager' && activeRack && (() => {
+        const reading = sensorReadings[activeRack.id]
+        if (!reading || (reading.temperature == null && reading.humidity == null)) return null
+        return (
+          <div className="mx-4 mb-2 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl px-3 py-2 shadow-sm">
+            <span className={`w-2 h-2 rounded-full flex-none ${reading.online ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+            {reading.temperature != null && <span className="text-sm font-semibold">🌡️ {reading.temperature.toFixed(1)}°C</span>}
+            {reading.humidity != null && <span className="text-sm font-semibold">💧 {reading.humidity.toFixed(0)}%</span>}
+            {!reading.online && <span className="text-[10px] text-gray-400">Offline</span>}
+            <span className="text-[10px] text-gray-400 ml-auto">Live</span>
+          </div>
+        )
+      })()}
 
       {tab === 'lager' && activeRack?.rows > 0 && activeRack?.cols > 0 && (
         <div className="px-4 pb-3">

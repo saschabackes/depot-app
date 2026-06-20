@@ -182,12 +182,31 @@ export const useCellar = create(
       formPrefill: null,
       pending: [],
       _loaded: false,
+      shellyConfig: null,
+      sensorReadings: {},
 
       completeSetup() {
         set({ setupDone: true })
         if (!get().racks.length) get().addRack('Weinregal', '🍷')
       },
       restartSetup()  { set({ setupDone: false }) },
+
+      // ── Shelly Sensor Config ──────────────────────────────────────────────
+      setShellyConfig(authKey, server) {
+        set({ shellyConfig: authKey && server ? { authKey, server } : null })
+      },
+      setRackSensor(rackId, deviceId) {
+        set(s => ({
+          racks: s.racks.map(r => r.id === rackId
+            ? { ...r, conditions: { ...r.conditions, shellyDeviceId: deviceId || undefined } }
+            : r),
+        }))
+        const merged = get().racks.find(r => r.id === rackId)?.conditions
+        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', rackId).then(() => {})
+      },
+      updateSensorReading(rackId, reading) {
+        set(s => ({ sensorReadings: { ...s.sensorReadings, [rackId]: { ...reading, fetchedAt: Date.now() } } }))
+      },
 
       openForm(prefill = null) { set({ formOpen: true, formPrefill: prefill }) },
       closeForm()              { set({ formOpen: false, formPrefill: null }) },

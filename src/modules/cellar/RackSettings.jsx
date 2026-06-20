@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useCellar, CONDITION_OPTIONS, qualityScore, qualityLabel } from './store'
+import { shellyListDevices, shellyGetStatus } from '../../lib/shelly'
 
 const COND_KEYS = [
   { key: 'temperature', label: '🌡️ Temperatur' },
@@ -24,11 +25,45 @@ function rackType(r) {
 }
 
 export default function RackSettings({ onClose }) {
-  const { racks, bottles, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions, setRackGrid } = useCellar()
+  const { racks, bottles, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions, setRackGrid, shellyConfig, setShellyConfig, setRackSensor, sensorReadings, updateSensorReading } = useCellar()
   const [newLabel, setNewLabel] = useState('')
   const [newEmoji, setNewEmoji] = useState('🍷')
   const [newType, setNewType] = useState('free')
   const [showConditions, setShowConditions] = useState({})
+  const [showShelly, setShowShelly] = useState(false)
+  const [shellyAuth, setShellyAuth] = useState({ authKey: shellyConfig?.authKey || '', server: shellyConfig?.server || '' })
+  const [shellyDevices, setShellyDevices] = useState(null)
+  const [shellyLoading, setShellyLoading] = useState(false)
+  const [shellyError, setShellyError] = useState('')
+
+  const loadDevices = useCallback(async () => {
+    if (!shellyConfig) return
+    setShellyLoading(true)
+    setShellyError('')
+    try {
+      const devices = await shellyListDevices(shellyConfig.authKey, shellyConfig.server)
+      setShellyDevices(devices)
+    } catch (e) {
+      setShellyError(e.message)
+    }
+    setShellyLoading(false)
+  }, [shellyConfig])
+
+  useEffect(() => {
+    if (shellyConfig && !shellyDevices) loadDevices()
+  }, [shellyConfig, shellyDevices, loadDevices])
+
+  useEffect(() => {
+    if (!shellyConfig) return
+    const sensorRacks = racks.filter(r => r.conditions?.shellyDeviceId)
+    sensorRacks.forEach(r => {
+      const cached = sensorReadings[r.id]
+      if (cached && Date.now() - cached.fetchedAt < 120_000) return
+      shellyGetStatus(shellyConfig.authKey, shellyConfig.server, r.conditions.shellyDeviceId)
+        .then(data => updateSensorReading(r.id, data))
+        .catch(() => {})
+    })
+  }, [shellyConfig, racks, sensorReadings, updateSensorReading])
 
   function move(idx, dir) {
     const next = [...racks]
@@ -250,9 +285,101 @@ export default function RackSettings({ onClose }) {
                     </p>
                   </div>
                 )}
+
+                {/* Sensor-Anzeige */}
+                {shellyConfig && r.conditions?.shellyDeviceId && (() => {
+                  const reading = sensorReadings[r.id]
+                  if (!reading) return null
+                  return (
+                    <div className="mt-2 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl px-3 py-2">
+                      <span className={`w-2 h-2 rounded-full flex-none ${reading.online ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                      {reading.temperature != null && (
+                        <span className="text-sm font-semibold">🌡️ {reading.temperature.toFixed(1)}°C</span>
+                      )}
+                      {reading.humidity != null && (
+                        <span className="text-sm font-semibold">💧 {reading.humidity.toFixed(0)}%</span>
+                      )}
+                      {!reading.online && <span className="text-[10px] text-gray-400">Offline</span>}
+                    </div>
+                  )
+                })()}
+
+                {/* Sensor-Zuweisung */}
+                {shellyConfig && shellyDevices && (
+                  <div className="mt-2">
+                    <select
+                      value={r.conditions?.shellyDeviceId || ''}
+                      onChange={e => setRackSensor(r.id, e.target.value)}
+                      className="input text-xs py-1.5 w-full"
+                    >
+                      <option value="">📡 Kein Sensor</option>
+                      {shellyDevices.map(d => (
+                        <option key={d.id} value={d.id}>
+                          📡 {d.name} {d.hasTemp ? '🌡️' : ''}{d.hasHum ? '💧' : ''} {d.online ? '' : '(offline)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )
           })}
+
+          {/* Shelly Sensor-Konfiguration */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <button onClick={() => setShowShelly(p => !p)}
+              className="flex items-center justify-between w-full mb-2">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">📡 Shelly Sensoren</p>
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showShelly ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {showShelly && (
+              <div className="space-y-2">
+                {shellyConfig ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex-1">✓ Verbunden (Server: {shellyConfig.server})</span>
+                    <button onClick={loadDevices} disabled={shellyLoading}
+                      className="text-xs text-primary-600 font-semibold">↻ Aktualisieren</button>
+                    <button onClick={() => { setShellyConfig(null, null); setShellyDevices(null) }}
+                      className="text-xs text-red-500 font-semibold">Trennen</button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-gray-500">Shelly Cloud Auth-Key und Server-ID aus der Shelly-App (Einstellungen → Autorisierung).</p>
+                    <input className="input text-sm py-1.5" placeholder="Auth-Key"
+                      value={shellyAuth.authKey}
+                      onChange={e => setShellyAuth(p => ({ ...p, authKey: e.target.value }))} />
+                    <input className="input text-sm py-1.5" placeholder='Server-ID (z.B. "eu")'
+                      value={shellyAuth.server}
+                      onChange={e => setShellyAuth(p => ({ ...p, server: e.target.value.toLowerCase().replace(/[^a-z]/g, '') }))} />
+                    <button
+                      disabled={!shellyAuth.authKey || !shellyAuth.server || shellyLoading}
+                      onClick={async () => {
+                        setShellyLoading(true)
+                        setShellyError('')
+                        try {
+                          const devices = await shellyListDevices(shellyAuth.authKey, shellyAuth.server)
+                          setShellyConfig(shellyAuth.authKey, shellyAuth.server)
+                          setShellyDevices(devices)
+                        } catch (e) {
+                          setShellyError(e.message)
+                        }
+                        setShellyLoading(false)
+                      }}
+                      className="btn-primary text-sm py-1.5 w-full disabled:opacity-40"
+                    >
+                      {shellyLoading ? 'Verbinde…' : 'Verbinden'}
+                    </button>
+                  </>
+                )}
+                {shellyError && <p className="text-xs text-red-500">{shellyError}</p>}
+                {shellyDevices && !shellyDevices.length && (
+                  <p className="text-xs text-gray-400">Keine Temperatur-/Feuchtigkeitssensoren gefunden.</p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Neues Regal */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">

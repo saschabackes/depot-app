@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '2.7.0',
+    date: '2026-06-17',
+    entries: [
+      { type: 'new',      text: 'Shelly-Sensoren: Temperatur- und Feuchtigkeitssensoren aus der Shelly Cloud mit Weinregalen verknüpfen — Live-Werte in der Lageransicht.' },
+    ],
+  },
+  {
     version: '2.6.0',
     date: '2026-06-15',
     entries: [
