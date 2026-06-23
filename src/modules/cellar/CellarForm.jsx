@@ -97,6 +97,12 @@ export default function CellarForm({ prefilled, onClose }) {
   const photoRef = useRef(null)
 
   useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
     const n = Math.max(1, Number(count) || 1)
     setLocations(prev => {
       if (n === prev.length) return prev

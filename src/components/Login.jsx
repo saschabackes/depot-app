@@ -1,6 +1,82 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import useStore from '../store/useStore'
 import { MODULES_ENABLED, APP_NAME, APP_TAGLINE } from '../branding'
+
+const FEATURES = MODULES_ENABLED
+  ? [
+      { emoji: '🌿', title: 'Gewürze', desc: 'Bestand, MHD-Warnungen, Füllstände & Barcode-Scanner' },
+      { emoji: '❄️', title: 'Tiefkühlkost', desc: 'Gefrierschränke verwalten, Haltbarkeit im Blick' },
+      { emoji: '🍷', title: 'Weinkeller', desc: 'Regale, Trinkreife, Bewertungen & Empfehlungen' },
+      { emoji: '🍳', title: 'Rezepte', desc: 'Cookidoo & YouTube importieren, Bestand abgleichen' },
+      { emoji: '🛒', title: 'Einkaufsliste', desc: 'Automatisch aus Bestand & Rezepten befüllen' },
+      { emoji: '📊', title: 'Dashboard', desc: 'Alles auf einen Blick — was läuft ab, was fehlt?' },
+      { emoji: '👨‍👩‍👧', title: 'Haushalt', desc: 'Mit Familie oder WG teilen — alle synchron' },
+      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet — auch offline nutzbar' },
+    ]
+  : [
+      { emoji: '🌿', title: 'Überblick', desc: 'Alle Gewürze mit Füllstand & MHD auf einen Blick' },
+      { emoji: '📷', title: 'Barcode-Scan', desc: 'Gewürze per Barcode hinzufügen — schnell & einfach' },
+      { emoji: '🛒', title: 'Einkaufsliste', desc: 'Leere Gewürze direkt auf die Einkaufsliste setzen' },
+      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet — auch offline nutzbar' },
+    ]
+
+function FeatureCarousel() {
+  const scrollRef = useRef(null)
+  const [active, setActive] = useState(0)
+  const doubled = useMemo(() => [...FEATURES, ...FEATURES], [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    let frame
+    const step = () => {
+      if (!el) return
+      el.scrollLeft += 0.5
+      const cardWidth = el.firstElementChild?.offsetWidth || 200
+      if (el.scrollLeft >= cardWidth * FEATURES.length) {
+        el.scrollLeft -= cardWidth * FEATURES.length
+      }
+      const idx = Math.round(el.scrollLeft / cardWidth) % FEATURES.length
+      setActive(idx)
+      frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    const pause = () => cancelAnimationFrame(frame)
+    const resume = () => { frame = requestAnimationFrame(step) }
+    el.addEventListener('pointerdown', pause)
+    el.addEventListener('pointerup', resume)
+    el.addEventListener('pointerleave', resume)
+    return () => {
+      cancelAnimationFrame(frame)
+      el.removeEventListener('pointerdown', pause)
+      el.removeEventListener('pointerup', resume)
+      el.removeEventListener('pointerleave', resume)
+    }
+  }, [])
+
+  return (
+    <div className="w-full max-w-sm mb-5">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+      >
+        {doubled.map((f, i) => (
+          <div key={i} className="flex-none w-[140px] snap-center bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
+            <div className="text-3xl mb-1.5">{f.emoji}</div>
+            <div className="text-white font-semibold text-sm">{f.title}</div>
+            <div className="text-white/60 text-[11px] mt-0.5 leading-tight">{f.desc}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-center gap-1.5 mt-3">
+        {FEATURES.map((_, i) => (
+          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === active ? 'bg-white' : 'bg-white/30'}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAADkEqPyn3goEqAgu'
 
@@ -114,13 +190,16 @@ export default function Login() {
     : 'from-primary-600 to-primary-800'
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${bgGradient} flex flex-col items-center justify-center p-6 pt-safe`}>
+    <div className={`min-h-screen bg-gradient-to-br ${bgGradient} flex flex-col items-center justify-start p-6 pt-safe overflow-y-auto`}>
       {/* Logo */}
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-3">{MODULES_ENABLED ? '🏠' : '🌿'}</div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">{APP_NAME}</h1>
+      <div className="text-center mb-5 mt-8">
+        <div className="text-5xl mb-2">{MODULES_ENABLED ? '🏠' : '🌿'}</div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">{APP_NAME}</h1>
         <p className="text-white/70 mt-1 text-sm">{APP_TAGLINE}</p>
       </div>
+
+      {/* Feature Preview */}
+      <FeatureCarousel />
 
       {/* Form Card */}
       <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">

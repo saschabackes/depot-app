@@ -36,6 +36,12 @@ export default function RackSettings({ onClose }) {
   const [shellyLoading, setShellyLoading] = useState(false)
   const [shellyError, setShellyError] = useState('')
 
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   const loadDevices = useCallback(async () => {
     if (!shellyConfig) return
     setShellyLoading(true)
@@ -110,7 +116,7 @@ export default function RackSettings({ onClose }) {
         </div>
         <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">🍷 Weinlager verwalten</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">✕</button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Schließen">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -127,8 +133,10 @@ export default function RackSettings({ onClose }) {
                   {racks.length > 1 && (
                     <div className="flex flex-col flex-none">
                       <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                        aria-label="Nach oben verschieben"
                         className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
                       <button onClick={() => move(idx, 1)} disabled={idx === racks.length - 1}
+                        aria-label="Nach unten verschieben"
                         className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
                     </div>
                   )}
@@ -139,6 +147,7 @@ export default function RackSettings({ onClose }) {
                     value={r.label} onChange={e => renameRack(r.id, e.target.value, r.emoji)} />
                   <span className="text-[10px] text-gray-400 flex-none">{bottleCount}🍷</span>
                   <button onClick={() => { if (confirm(`Regal "${r.label}" + Inhalte löschen?`)) removeRack(r.id) }}
+                    aria-label="Regal löschen"
                     className="text-gray-300 hover:text-red-500 px-1">🗑️</button>
                 </div>
 
@@ -172,8 +181,9 @@ export default function RackSettings({ onClose }) {
                           <button onClick={() => {
                             const nl = prompt('Neuer Name für ' + s, s)
                             if (nl && nl !== s) renameSlot(r.id, s, nl)
-                          }} className="text-gray-400 hover:text-gray-600">✎</button>
+                          }} className="text-gray-400 hover:text-gray-600" aria-label={`Fach ${s} umbenennen`}>✎</button>
                           <button onClick={() => { if (confirm(`Fach "${s}" löschen?`)) removeSlot(r.id, s) }}
+                            aria-label={`Fach ${s} löschen`}
                             className="text-gray-300 hover:text-red-500">✕</button>
                         </div>
                       ))}

@@ -58,6 +58,7 @@ export default function UnifiedShoppingList() {
                   📦 Einräumen
                 </button>
                 <button onClick={() => removeTKPend(p.id)}
+                  aria-label="Entfernen"
                   className="text-gray-300 hover:text-red-500 px-1">✕</button>
               </li>
             ))}
@@ -81,6 +82,7 @@ export default function UnifiedShoppingList() {
                   📦 Einräumen
                 </button>
                 <button onClick={() => removeWnPend(p.id)}
+                  aria-label="Entfernen"
                   className="text-gray-300 hover:text-red-500 px-1">✕</button>
               </li>
             ))}

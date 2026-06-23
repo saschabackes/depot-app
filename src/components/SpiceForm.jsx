@@ -57,6 +57,12 @@ export default function SpiceForm({ spice, prefill, onClose }) {
   const suggestionTimeout = useRef(null)
 
   useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
     const t = setTimeout(() => nameRef.current?.focus(), 350)
     return () => clearTimeout(t)
   }, [])

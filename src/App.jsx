@@ -148,6 +148,7 @@ export default function App() {
             onClick={() => setShowReview(true)}
             className="relative p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
             title="Einräumen"
+            aria-label="Einräumen"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4l-2 3H10l-2-3H4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -162,6 +163,7 @@ export default function App() {
             onClick={() => setShowActivity(true)}
             className="p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
             title="Verlauf"
+            aria-label="Verlauf"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="9"/>
@@ -172,6 +174,7 @@ export default function App() {
             onClick={() => setShowHelp(true)}
             className="p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
             title="Hilfe"
+            aria-label="Hilfe"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10"/>
@@ -183,6 +186,7 @@ export default function App() {
             onClick={() => setShowSettings(true)}
             className="relative p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
             title="Einstellungen"
+            aria-label="Einstellungen"
           >
             {/* Hinweispunkt: neue Version, Changelog noch nicht gesehen */}
             {!showSettings && hasUnseenChangelog() && (
@@ -213,6 +217,7 @@ export default function App() {
           <button
             onClick={() => useStore.setState({ dataError: null })}
             className="text-red-400 hover:text-red-600 flex-none text-lg leading-none"
+            aria-label="Fehlermeldung schließen"
           >×</button>
         </div>
       )}
@@ -238,7 +243,7 @@ export default function App() {
               onChange={setView}
               trailing={
                 <button onClick={() => setShowSpiceSettings(true)}
-                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg flex-none" title="Lagerorte & Kategorien">⚙️</button>
+                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg flex-none" title="Lagerorte & Kategorien" aria-label="Lagerorte & Kategorien">⚙️</button>
               }
             />
             {view === 'bestand' && <SpiceList onEdit={handleEditSpice} onAdd={handleSpiceAddInline} />}

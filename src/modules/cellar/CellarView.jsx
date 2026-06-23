@@ -183,10 +183,10 @@ export default function CellarView() {
               {selectMode ? 'Fertig' : 'Auswählen'}
             </button>
             <button onClick={() => { setSharePreselect(null); setShowShare(true) }}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Weine empfehlen">🔗</button>
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Weine empfehlen" aria-label="Weine empfehlen">🔗</button>
             {pending.length > 0 && (
               <button onClick={() => setShowPending(true)}
-                className="relative bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 rounded-full p-2 text-lg" title="Einräumen">
+                className="relative bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 rounded-full p-2 text-lg" title="Einräumen" aria-label="Einräumen">
                 📦
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                   {pending.length}
@@ -194,9 +194,9 @@ export default function CellarView() {
               </button>
             )}
             <button onClick={() => setShowImport(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Excel-Import">📥</button>
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Excel-Import" aria-label="Excel-Import">📥</button>
             <button onClick={() => setShowSettings(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Regale verwalten">⚙️</button>
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Regale verwalten" aria-label="Regale verwalten">⚙️</button>
           </div>
         </div>
       </div>
@@ -248,6 +248,7 @@ export default function CellarView() {
               {sort === 'name' ? 'A–Z' : sort === 'vintage' ? 'Jahrgang' : 'Preis'}
             </button>
             <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+              aria-label={sortDir === 'asc' ? 'Absteigend sortieren' : 'Aufsteigend sortieren'}
               className="flex-none flex items-center rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               {sortDir === 'asc' ? '↑' : '↓'}
             </button>
@@ -436,6 +437,7 @@ export default function CellarView() {
                 {selectMode && (
                   <button
                     onClick={() => setSelected(prev => { const next = new Set(prev); next.has(b.id) ? next.delete(b.id) : next.add(b.id); return next })}
+                    aria-label={selected.has(b.id) ? `${b.name} abwählen` : `${b.name} auswählen`}
                     className={`mt-4 flex-none w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
                       selected.has(b.id) ? 'bg-primary-600 border-primary-600 text-white' : 'border-gray-300 dark:border-gray-600'
                     }`}

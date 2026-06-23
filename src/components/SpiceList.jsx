@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import useStore from '../store/useStore'
 import { getMhdStatus, MHD_STYLES, formatMhdDate, formatAmount } from '../utils/mhd'
 import { PACKAGING_TYPES, PACKAGING_COLORS, CATEGORY_COLORS } from '../data/spices'
@@ -244,7 +244,8 @@ export default function SpiceList({ onEdit, onAdd }) {
                     next.has(spice.id) ? next.delete(spice.id) : next.add(spice.id)
                     return next
                   })}
-                  className={`mt-4 flex-none w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  aria-label={selected.has(spice.id) ? `${spice.name} abwählen` : `${spice.name} auswählen`}
+                  className={`mt-4 flex-none w-11 h-11 rounded-full border-2 flex items-center justify-center transition-colors ${
                     selected.has(spice.id)
                       ? 'bg-primary-600 border-primary-600 text-white'
                       : 'border-gray-300 dark:border-gray-600'
@@ -328,6 +329,7 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onZoomImage(spice.imageUrl, spice.name) }}
+              aria-label={`${spice.name} vergrößern`}
               className="flex-none w-12 h-12 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 relative group flex-shrink-0"
             >
               <img src={spice.imageUrl} alt={spice.name} className="w-full h-full object-contain" />
@@ -400,7 +402,7 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
                 onFillChange(cur === 0 ? 4 : cur - 1)
               }}
               title={`Füllstand: ${FILL_LABELS[spice.fillLevel ?? 4]} – Tippen zum Ändern`}
-              className="mt-0.5 p-0.5 rounded hover:bg-gray-100 dark:bg-gray-700 transition-colors"
+              className="mt-0.5 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded hover:bg-gray-100 dark:bg-gray-700 transition-colors"
             >
               <FillBar level={spice.fillLevel ?? 4} />
             </button>
@@ -463,6 +465,12 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
 }
 
 function ImageLightbox({ url, name, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
     <>
       {/* Backdrop */}

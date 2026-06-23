@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCellar, drinkStatus, effectiveDrinkUntil, qualityScore, qualityLabel } from './store'
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
 import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
@@ -15,6 +15,12 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
   const { racks, drinkOne, removeBottle, updateBottle, toggleRestock } = useCellar()
   const [showDrink, setShowDrink] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
 
   if (!bottle) return null
   const rack = racks.find(r => r.id === bottle.rackId)
@@ -35,8 +41,10 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
       <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white pt-[env(safe-area-inset-top)]`}>
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
           <button onClick={onClose}
+            aria-label="Zurück"
             className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg">←</button>
           <button onClick={() => setShowEdit(true)}
+            aria-label="Wein bearbeiten"
             className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm">✎</button>
         </div>
 
@@ -237,13 +245,14 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
         </button>
         {onShare && (
           <button onClick={() => onShare(bottle.id)}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Empfehlen">🔗</button>
+            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Empfehlen" aria-label="Empfehlen">🔗</button>
         )}
         {!bottle.archived && (
           <button onClick={() => updateBottle(bottle.id, { archived: true })}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Archivieren">📦</button>
+            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Archivieren" aria-label="Archivieren">📦</button>
         )}
         <button onClick={() => { if (confirm('Position komplett löschen?')) { removeBottle(bottle.id); onClose() } }}
+          aria-label="Löschen"
           className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl">🗑️</button>
       </div>
 
@@ -286,6 +295,7 @@ function StarRow({ value, onChange, large, align }) {
     <div className={`flex gap-1 ${align === 'left' ? '' : 'justify-center'} ${large ? 'mt-3 text-2xl' : 'text-base'}`}>
       {[1,2,3,4,5].map(i => (
         <button key={i} onClick={() => onChange(i === value ? 0 : i)}
+          aria-label={`${i} Stern${i > 1 ? 'e' : ''}`}
           className={`${i <= value ? 'opacity-100' : 'opacity-30'} transition-opacity`}>
           ⭐
         </button>
@@ -394,7 +404,7 @@ function EditSheet({ bottle, onClose, onSave }) {
         <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="text-lg font-bold">✎ Wein bearbeiten</h3>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Schließen">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div className="grid grid-cols-2 gap-2">

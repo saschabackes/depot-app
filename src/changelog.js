@@ -4,6 +4,15 @@
 
 export const CHANGELOG = [
   {
+    version: '2.7.1',
+    date: '2026-06-21',
+    entries: [
+      { type: 'improved', text: 'Accessibility: ARIA-Labels für alle Icon-Buttons — bessere Screenreader-Unterstützung.' },
+      { type: 'improved', text: 'Touch-Targets vergrößert (Füllstandsbalken, Auswahl-Buttons) für einfachere Bedienung auf Mobilgeräten.' },
+      { type: 'improved', text: 'Escape-Taste schließt jetzt alle Dialoge und Overlays.' },
+    ],
+  },
+  {
     version: '2.7.0',
     date: '2026-06-17',
     entries: [

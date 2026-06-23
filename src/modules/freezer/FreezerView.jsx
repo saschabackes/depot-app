@@ -80,9 +80,9 @@ export default function FreezerView() {
               {selectMode ? 'Fertig' : 'Auswählen'}
             </button>
             <button onClick={() => setShowImport(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Excel-Import">📥</button>
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Excel-Import" aria-label="Excel-Import">📥</button>
             <button onClick={() => setShowSettings(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Schränke verwalten">⚙️</button>
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Schränke verwalten" aria-label="Schränke verwalten">⚙️</button>
           </div>
         </div>
       </div>
@@ -241,17 +241,17 @@ function ItemRow({ item, onConsume, onRemove, onRestock, onEdit, location, selec
           </div>
         </div>
         {!selectMode && <>
-          <button onClick={() => onEdit?.()} className="flex-none text-gray-400 hover:text-gray-600 px-1" title="Bearbeiten">✎</button>
+          <button onClick={() => onEdit?.()} className="flex-none text-gray-400 hover:text-gray-600 px-1" title="Bearbeiten" aria-label="Bearbeiten">✎</button>
           <button onClick={() => onRestock?.(item.id)}
             className={`flex-none text-xs font-semibold px-2 py-1 rounded-full ${
               item.needsRestock ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
             }`}
-            title="In Einkaufsliste">🛒</button>
+            title="In Einkaufsliste" aria-label="In Einkaufsliste">🛒</button>
           <button onClick={() => onConsume(item.id)}
             className="flex-none text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2.5 py-1 rounded-full"
-            title="Eine Portion verbraucht">−1</button>
+            title="Eine Portion verbraucht" aria-label="Eine Portion verbraucht">−1</button>
           <button onClick={() => { if (confirm('Eintrag löschen?')) onRemove(item.id) }}
-            className="flex-none text-gray-300 hover:text-red-500 px-1" title="Löschen">✕</button>
+            className="flex-none text-gray-300 hover:text-red-500 px-1" title="Löschen" aria-label="Löschen">✕</button>
         </>}
       </div>
     </li>
@@ -279,7 +279,7 @@ function FreezerEditSheet({ item, storages, items, onClose, onSave }) {
         <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="text-lg font-bold">✎ Eintrag bearbeiten</h3>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} aria-label="Schließen">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           <div>

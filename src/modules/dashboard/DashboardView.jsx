@@ -90,6 +90,7 @@ export default function DashboardView({ onNavigate }) {
             <div key={s.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-xl px-3 py-2.5 shadow-sm">
               <button
                 onClick={() => toggleSection(s.id)}
+                aria-label={config.visible[s.id] ? `${s.label} ausblenden` : `${s.label} einblenden`}
                 className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-none transition-colors ${
                   config.visible[s.id]
                     ? 'bg-primary-600 border-primary-600 text-white'
@@ -108,6 +109,7 @@ export default function DashboardView({ onNavigate }) {
                 <button
                   onClick={() => moveSection(s.id, -1)}
                   disabled={idx === 0}
+                  aria-label={`${s.label} nach oben verschieben`}
                   className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-20 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -115,6 +117,7 @@ export default function DashboardView({ onNavigate }) {
                 <button
                   onClick={() => moveSection(s.id, 1)}
                   disabled={idx === sections.length - 1}
+                  aria-label={`${s.label} nach unten verschieben`}
                   className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-20 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg>
