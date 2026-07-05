@@ -289,7 +289,7 @@ export default function CellarForm({ prefilled, onClose }) {
           <Section title="🍷 Grunddaten" defaultOpen={true}>
             <div>
               <label className="label">Name *</label>
-              <input className="input py-2.5 text-sm" placeholder="z.B. Spätburgunder, Riesling Kabinett…"
+              <input className="input py-2.5 text-sm" placeholder="z.B. Gutedel Alte Reben, Grauer Burgunder…"
                 value={name} onChange={e => setName(e.target.value)} autoFocus />
             </div>
             <div className="grid grid-cols-2 gap-3">
