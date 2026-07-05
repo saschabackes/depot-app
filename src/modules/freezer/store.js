@@ -179,8 +179,12 @@ export const useFreezer = create(
       completeSetup() {
         set({ setupDone: true })
         if (!get().storages.length) get().addStorage('Gefrierschrank', '❄️')
+        supabase.auth.updateUser({ data: { freezer_setup_done: true } })
       },
-      restartSetup()  { set({ setupDone: false }) },
+      restartSetup() {
+        set({ setupDone: false })
+        supabase.auth.updateUser({ data: { freezer_setup_done: false } })
+      },
 
       openForm(prefill = null) { set({ formOpen: true, formPrefill: prefill }) },
       closeForm()              { set({ formOpen: false, formPrefill: null }) },
@@ -194,7 +198,8 @@ export const useFreezer = create(
         const storages = (storagesData ?? []).map(storageToJS)
         const items = (itemsData ?? []).map(itemToJS)
         const patch = { storages, items, _loaded: true }
-        if (!get().setupDone && (storages.length > 0 || items.length > 0)) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.user_metadata?.freezer_setup_done || storages.length > 0 || items.length > 0) {
           patch.setupDone = true
         }
         set(patch)
@@ -469,6 +474,7 @@ export const useFreezer = create(
       resetSetup() {
         const h = getHousehold()
         set({ storages: [], items: [], recentNames: [], lastUsedCompartment: null, setupDone: false })
+        supabase.auth.updateUser({ data: { freezer_setup_done: false } })
         if (h) {
           supabase.from('freezer_items').delete().eq('household_id', h.id).then(() => {})
           supabase.from('freezer_storages').delete().eq('household_id', h.id).then(() => {})
@@ -478,7 +484,6 @@ export const useFreezer = create(
     {
       name: 'haushalt-freezer-local-ui',
       partialize: (state) => ({
-        setupDone: state.setupDone,
         lastUsedCompartment: state.lastUsedCompartment,
         recentNames: state.recentNames,
         pending: state.pending,

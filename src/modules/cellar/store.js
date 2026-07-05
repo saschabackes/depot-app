@@ -189,8 +189,12 @@ export const useCellar = create(
       completeSetup() {
         set({ setupDone: true })
         if (!get().racks.length) get().addRack('Weinregal', '🍷')
+        supabase.auth.updateUser({ data: { cellar_setup_done: true } })
       },
-      restartSetup()  { set({ setupDone: false }) },
+      restartSetup() {
+        set({ setupDone: false })
+        supabase.auth.updateUser({ data: { cellar_setup_done: false } })
+      },
 
       addClassification(label) {
         const trimmed = label.trim()
@@ -209,7 +213,9 @@ export const useCellar = create(
 
       // ── Shelly Sensor Config ──────────────────────────────────────────────
       setShellyConfig(authKey, server) {
-        set({ shellyConfig: authKey && server ? { authKey, server } : null })
+        const config = authKey && server ? { authKey, server } : null
+        set({ shellyConfig: config })
+        supabase.auth.updateUser({ data: { shelly_config: config } })
       },
       setRackSensor(rackId, deviceId) {
         set(s => ({
@@ -236,12 +242,17 @@ export const useCellar = create(
         const racks = (racksData ?? []).map(rackToJS)
         const bottles = (bottlesData ?? []).map(bottleToJS)
         const patch = { racks, bottles, _loaded: true }
-        if (!get().setupDone && (racks.length > 0 || bottles.length > 0)) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const meta = user?.user_metadata ?? {}
+        if (meta.cellar_setup_done || racks.length > 0 || bottles.length > 0) {
           patch.setupDone = true
         }
-        const { data: { user } } = await supabase.auth.getUser()
-        const saved = user?.user_metadata?.wine_classifications
-        if (Array.isArray(saved) && saved.length) patch.customClassifications = saved
+        if (Array.isArray(meta.wine_classifications) && meta.wine_classifications.length) {
+          patch.customClassifications = meta.wine_classifications
+        }
+        if (meta.shelly_config) {
+          patch.shellyConfig = meta.shelly_config
+        }
         set(patch)
         return { racks, bottles }
       },
@@ -670,6 +681,7 @@ export const useCellar = create(
       resetSetup() {
         const h = getHousehold()
         set({ racks: [], bottles: [], recentNames: [], lastUsedRack: null, setupDone: false })
+        supabase.auth.updateUser({ data: { cellar_setup_done: false } })
         if (h) {
           supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(() => {})
           supabase.from('cellar_racks').delete().eq('household_id', h.id).then(() => {})
@@ -679,12 +691,9 @@ export const useCellar = create(
     {
       name: 'haushalt-cellar-local-ui',
       partialize: (state) => ({
-        setupDone: state.setupDone,
         lastUsedRack: state.lastUsedRack,
         recentNames: state.recentNames,
         pending: state.pending,
-        shellyConfig: state.shellyConfig,
-        customClassifications: state.customClassifications,
       }),
     }
   )
