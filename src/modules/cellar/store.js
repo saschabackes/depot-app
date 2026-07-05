@@ -195,14 +195,16 @@ export const useCellar = create(
       addClassification(label) {
         const trimmed = label.trim()
         if (!trimmed) return
-        set(s => ({
-          customClassifications: s.customClassifications.includes(trimmed)
-            ? s.customClassifications
-            : [...s.customClassifications, trimmed],
-        }))
+        const updated = get().customClassifications.includes(trimmed)
+          ? get().customClassifications
+          : [...get().customClassifications, trimmed]
+        set({ customClassifications: updated })
+        supabase.auth.updateUser({ data: { wine_classifications: updated } })
       },
       removeClassification(label) {
-        set(s => ({ customClassifications: s.customClassifications.filter(c => c !== label) }))
+        const updated = get().customClassifications.filter(c => c !== label)
+        set({ customClassifications: updated })
+        supabase.auth.updateUser({ data: { wine_classifications: updated } })
       },
 
       // ── Shelly Sensor Config ──────────────────────────────────────────────
@@ -237,6 +239,9 @@ export const useCellar = create(
         if (!get().setupDone && (racks.length > 0 || bottles.length > 0)) {
           patch.setupDone = true
         }
+        const { data: { user } } = await supabase.auth.getUser()
+        const saved = user?.user_metadata?.wine_classifications
+        if (Array.isArray(saved) && saved.length) patch.customClassifications = saved
         set(patch)
         return { racks, bottles }
       },
