@@ -354,6 +354,11 @@ export default function CellarForm({ prefilled, onClose }) {
                 ))}
               </div>
             </div>
+
+            <div>
+              <label className="label">Klassifikation</label>
+              <ClassificationPicker value={classification} onChange={setClassification} />
+            </div>
           </Section>
 
           {/* ── 3. Lagerort ────────────────────────────────────────────── */}
