@@ -184,12 +184,26 @@ export const useCellar = create(
       _loaded: false,
       shellyConfig: null,
       sensorReadings: {},
+      customClassifications: [],
 
       completeSetup() {
         set({ setupDone: true })
         if (!get().racks.length) get().addRack('Weinregal', '🍷')
       },
       restartSetup()  { set({ setupDone: false }) },
+
+      addClassification(label) {
+        const trimmed = label.trim()
+        if (!trimmed) return
+        set(s => ({
+          customClassifications: s.customClassifications.includes(trimmed)
+            ? s.customClassifications
+            : [...s.customClassifications, trimmed],
+        }))
+      },
+      removeClassification(label) {
+        set(s => ({ customClassifications: s.customClassifications.filter(c => c !== label) }))
+      },
 
       // ── Shelly Sensor Config ──────────────────────────────────────────────
       setShellyConfig(authKey, server) {
@@ -665,6 +679,7 @@ export const useCellar = create(
         recentNames: state.recentNames,
         pending: state.pending,
         shellyConfig: state.shellyConfig,
+        customClassifications: state.customClassifications,
       }),
     }
   )

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useCellar } from './store'
 
 export const WINE_COUNTRIES_TOP = [
   { code: 'DE', flag: '🇩🇪', label: 'Deutschland' },
@@ -51,11 +52,42 @@ const ALL_CLASSIFICATIONS = CLASSIFICATION_GROUPS.flatMap(g => g.items)
 export function ClassificationPicker({ value, onChange }) {
   const [expanded, setExpanded] = useState(false)
   const [custom, setCustom] = useState('')
-  const isKnown = ALL_CLASSIFICATIONS.includes(value)
+  const customClassifications = useCellar(s => s.customClassifications)
+  const addClassification = useCellar(s => s.addClassification)
+  const removeClassification = useCellar(s => s.removeClassification)
+  const allKnown = [...ALL_CLASSIFICATIONS, ...customClassifications]
+  const isKnown = allKnown.includes(value)
   const isCustom = value && !isKnown
+
+  function saveCustom() {
+    const val = (isCustom ? value : custom).trim()
+    if (!val || allKnown.includes(val)) return
+    addClassification(val)
+    onChange(val)
+    setCustom('')
+  }
 
   return (
     <div className="space-y-2">
+      {/* Eigene Klassifikationen */}
+      {customClassifications.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {customClassifications.map(c => (
+            <span key={c} className="inline-flex items-center gap-0.5">
+              <button type="button"
+                onClick={() => onChange(value === c ? '' : c)}
+                className={`px-2.5 py-1.5 rounded-l-xl text-xs font-semibold ${
+                  value === c ? 'bg-primary-600 text-white' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                }`}>{c}</button>
+              <button type="button" onClick={() => { if (value === c) onChange(''); removeClassification(c) }}
+                className={`px-1.5 py-1.5 rounded-r-xl text-[10px] ${
+                  value === c ? 'bg-primary-700 text-white/70 hover:text-white' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-400 hover:text-red-500'
+                }`}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Häufigste direkt sichtbar */}
       <div className="flex gap-1.5 flex-wrap">
         {['Kabinett', 'Spätlese', 'Auslese', 'DOC', 'DOCG', 'AOC', 'Reserva', 'Grand Cru'].map(c => (
@@ -91,14 +123,19 @@ export function ClassificationPicker({ value, onChange }) {
         </div>
       )}
 
-      {/* Freitext für Sonderfälle */}
+      {/* Freitext + Speichern */}
       <div className="flex gap-2 items-center">
         <input
           className="input text-sm flex-1"
-          placeholder="Oder eigene eingeben…"
+          placeholder="Eigene eingeben…"
           value={isCustom ? value : custom}
           onChange={e => { setCustom(e.target.value); onChange(e.target.value) }}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveCustom() } }}
         />
+        {(isCustom || custom.trim()) && (
+          <button type="button" onClick={saveCustom}
+            className="text-xs text-primary-600 dark:text-primary-400 font-semibold whitespace-nowrap">+ Merken</button>
+        )}
         {isCustom && (
           <button type="button" onClick={() => { onChange(''); setCustom('') }}
             className="text-xs text-gray-400 hover:text-gray-600">✕</button>
