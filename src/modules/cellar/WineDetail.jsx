@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useCellar, drinkStatus, effectiveDrinkUntil, qualityScore, qualityLabel } from './store'
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
 import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
+import { estimateDrinkWindow } from './drinkWindow'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
 const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
@@ -388,12 +389,23 @@ function EditSheet({ bottle, onClose, onSave }) {
   const [aromas, setAromas]   = useState(bottle.aromas || [])
   const [pairings, setPairings] = useState(bottle.pairings || [])
   const [alcoholFree, setAlcoholFree] = useState(!!bottle.alcoholFree)
+  const [drinkFrom, setDrinkFrom] = useState(bottle.drinkFrom || '')
+  const [drinkUntil, setDrinkUntil] = useState(bottle.drinkUntil || '')
+  const [manualDrink, setManualDrink] = useState(true)
   const [rackId, setRackId] = useState(bottle.rackId || racks[0]?.id)
   const [slot, setSlot]     = useState(bottle.slot || '')
   const [gridRow, setGridRow] = useState(bottle.row ?? null)
   const [gridCol, setGridCol] = useState(bottle.col ?? null)
   const selectedRack = racks.find(r => r.id === rackId)
   const isGrid = selectedRack?.rows > 0 && selectedRack?.cols > 0
+
+  useEffect(() => {
+    if (manualDrink) return
+    const v = bottle.vintage
+    if (!v) return
+    const est = estimateDrinkWindow(v, bottle.color, grape, classification, alcoholFree)
+    if (est) { setDrinkFrom(est.drinkFrom); setDrinkUntil(est.drinkUntil) }
+  }, [grape, classification, alcoholFree, manualDrink, bottle.vintage, bottle.color])
 
   function toggle(arr, set, v) { set(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]) }
 
@@ -539,6 +551,23 @@ function EditSheet({ bottle, onClose, onSave }) {
           </div>
 
           <div>
+            <label className="label">🗓️ Trinkfenster</label>
+            {!manualDrink && drinkFrom && (
+              <p className="text-[11px] text-primary-600 dark:text-primary-400 mb-1">Automatisch geschätzt</p>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div><label className="label text-[10px]">Trinken ab</label><input type="number" className="input text-sm" value={drinkFrom}
+                onChange={e => { setDrinkFrom(e.target.value); setManualDrink(true) }} /></div>
+              <div><label className="label text-[10px]">Trinken bis</label><input type="number" className="input text-sm" value={drinkUntil}
+                onChange={e => { setDrinkUntil(e.target.value); setManualDrink(true) }} /></div>
+            </div>
+            {manualDrink && (
+              <button type="button" onClick={() => setManualDrink(false)}
+                className="text-xs text-primary-600 dark:text-primary-400 mt-1">↻ Automatisch berechnen</button>
+            )}
+          </div>
+
+          <div>
             <label className="label">🍽️ Passt zu</label>
             <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto">
               {DISH_CATEGORIES.map(d => (
@@ -553,7 +582,7 @@ function EditSheet({ bottle, onClose, onSave }) {
           <div className="flex gap-2 pt-2 pb-4">
             <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
             <button
-              onClick={() => onSave({ name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer, priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings, rackId, slot: isGrid ? '' : slot, row: isGrid ? gridRow : null, col: isGrid ? gridCol : null })}
+              onClick={() => onSave({ name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer, priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings, drinkFrom: drinkFrom ? Number(drinkFrom) : null, drinkUntil: drinkUntil ? Number(drinkUntil) : null, rackId, slot: isGrid ? '' : slot, row: isGrid ? gridRow : null, col: isGrid ? gridCol : null })}
               className="btn-primary flex-1">Speichern</button>
           </div>
         </div>

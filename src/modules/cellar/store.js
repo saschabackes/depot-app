@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '../../lib/supabase'
 import useStore from '../../store/useStore'
+import { estimateDrinkWindow } from './drinkWindow'
 
 function uid(p='w') { return p + '_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36) }
 
@@ -442,8 +443,8 @@ export const useCellar = create(
           classification: data.classification || '',
           alcohol: data.alcohol || '',
           alcoholFree: !!data.alcoholFree,
-          drinkFrom: Number(data.drinkFrom) || (Number(data.vintage) || new Date().getFullYear()) + 1,
-          drinkUntil: Number(data.drinkUntil) || (Number(data.vintage) || new Date().getFullYear()) + 5,
+          drinkFrom: Number(data.drinkFrom) || (estimateDrinkWindow(Number(data.vintage), data.color, data.grape, data.classification, data.alcoholFree)?.drinkFrom ?? (Number(data.vintage) || new Date().getFullYear()) + 1),
+          drinkUntil: Number(data.drinkUntil) || (estimateDrinkWindow(Number(data.vintage), data.color, data.grape, data.classification, data.alcoholFree)?.drinkUntil ?? (Number(data.vintage) || new Date().getFullYear()) + 5),
           bought: data.bought || '',
           priceEur: data.priceEur ? Number(data.priceEur) : null,
           retailer: data.retailer || '',

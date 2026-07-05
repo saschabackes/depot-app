@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useCellar } from './store'
 import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
+import { estimateDrinkWindow } from './drinkWindow'
 import AutocompleteInput from '../../components/AutocompleteInput'
 import BarcodeScanner from '../../components/BarcodeScanner'
 
@@ -70,8 +71,9 @@ export default function CellarForm({ prefilled, onClose }) {
   const [wineType, setWineType] = useState(prefilled?.wineType || 'wein')
   const [sweetness, setSweetness] = useState(prefilled?.sweetness || '')
   const [classification, setClassification] = useState(prefilled?.classification || '')
-  const [drinkFrom, setDrinkFrom] = useState(prefilled?.drinkFrom || new Date().getFullYear())
-  const [drinkUntil, setDrinkUntil] = useState(prefilled?.drinkUntil || new Date().getFullYear() + 5)
+  const [drinkFrom, setDrinkFrom] = useState(prefilled?.drinkFrom || '')
+  const [drinkUntil, setDrinkUntil] = useState(prefilled?.drinkUntil || '')
+  const [manualDrink, setManualDrink] = useState(!!(prefilled?.drinkFrom || prefilled?.drinkUntil))
   const [note, setNote] = useState('')
   const [photoData, setPhotoData] = useState(null)
   const [barcode, setBarcode] = useState('')
@@ -88,6 +90,18 @@ export default function CellarForm({ prefilled, onClose }) {
   const startRack = racks.find(r => r.id === startRackId)
   const hasGrid = startRack?.rows > 0 && startRack?.cols > 0
   const [locations, setLocations] = useState([{ rackId: startRackId, slot: hasGrid ? '' : startSlot, row: null, col: null }])
+
+  // Auto-Trinkfenster berechnen (ohne Lagerbedingungen — die fließen über effectiveDrinkUntil ein)
+  useEffect(() => {
+    if (manualDrink) return
+    const v = Number(vintage)
+    if (!v) return
+    const est = estimateDrinkWindow(v, color, grape, classification, false)
+    if (est) {
+      setDrinkFrom(est.drinkFrom)
+      setDrinkUntil(est.drinkUntil)
+    }
+  }, [vintage, color, grape, classification, manualDrink])
 
   const [bulkMode, setBulkMode] = useState(false)
   const [hint, setHint] = useState('')
@@ -451,19 +465,28 @@ export default function CellarForm({ prefilled, onClose }) {
           </Section>
 
           {/* ── 4. Trinkfenster ────────────────────────────────────────── */}
-          <Section title="🗓️ Trinkfenster" defaultOpen={false}>
+          <Section title="🗓️ Trinkfenster" defaultOpen={true}>
+            {!manualDrink && drinkFrom && (
+              <p className="text-[11px] text-primary-600 dark:text-primary-400">
+                Geschätzt aus Farbe, Rebsorte & Klassifikation — Lagerbedingungen fließen separat ein
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">Trinken ab</label>
                 <input type="number" className="input py-2.5 text-sm" value={drinkFrom}
-                  onChange={e => setDrinkFrom(e.target.value)} />
+                  onChange={e => { setDrinkFrom(e.target.value); setManualDrink(true) }} />
               </div>
               <div>
                 <label className="label">Trinken bis</label>
                 <input type="number" className="input py-2.5 text-sm" value={drinkUntil}
-                  onChange={e => setDrinkUntil(e.target.value)} />
+                  onChange={e => { setDrinkUntil(e.target.value); setManualDrink(true) }} />
               </div>
             </div>
+            {manualDrink && (
+              <button type="button" onClick={() => setManualDrink(false)}
+                className="text-xs text-primary-600 dark:text-primary-400">↻ Automatisch berechnen</button>
+            )}
           </Section>
 
           {/* ── 5. Optionale Details ───────────────────────────────────── */}

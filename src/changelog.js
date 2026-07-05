@@ -4,6 +4,15 @@
 
 export const CHANGELOG = [
   {
+    version: '2.8.0',
+    date: '2026-07-05',
+    entries: [
+      { type: 'new',      text: 'Trinkfenster-Automatik: Trinken-ab/bis wird anhand von Farbe, Rebsorte und Klassifikation geschätzt — manuell überschreibbar.' },
+      { type: 'new',      text: 'Klassifikationen verwalten: eigene Einträge hinzufügen und löschen, geräteübergreifend gespeichert.' },
+      { type: 'improved', text: 'Benutzereinstellungen (Setup, Shelly, Klassifikationen) werden jetzt in der Cloud gespeichert statt nur lokal.' },
+    ],
+  },
+  {
     version: '2.7.1',
     date: '2026-06-21',
     entries: [
