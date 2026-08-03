@@ -81,7 +81,7 @@ export default function RackSettings({ onClose }) {
 
   function switchType(rack, type) {
     if (type === 'grid') {
-      while (rack.slots.length > 0) removeSlot(rack.id, rack.slots[0])
+      ;[...rack.slots].forEach(s => removeSlot(rack.id, s))
       if (!rack.rows || !rack.cols) setRackGrid(rack.id, 3, 4)
     } else if (type === 'slots') {
       setRackGrid(rack.id, 0, 0)
@@ -90,7 +90,7 @@ export default function RackSettings({ onClose }) {
       }
     } else {
       setRackGrid(rack.id, 0, 0)
-      while (rack.slots.length > 0) removeSlot(rack.id, rack.slots[0])
+      ;[...rack.slots].forEach(s => removeSlot(rack.id, s))
     }
   }
 
@@ -100,9 +100,9 @@ export default function RackSettings({ onClose }) {
     const r = useCellar.getState().racks.find(r => r.id === id)
     if (r && newType === 'grid') {
       setRackGrid(id, 3, 4)
-      while (r.slots.length > 0) removeSlot(id, r.slots[0])
+      ;[...r.slots].forEach(s => removeSlot(id, s))
     } else if (r && newType === 'free') {
-      while (r.slots.length > 0) removeSlot(id, r.slots[0])
+      ;[...r.slots].forEach(s => removeSlot(id, s))
     }
     setNewLabel('')
   }
