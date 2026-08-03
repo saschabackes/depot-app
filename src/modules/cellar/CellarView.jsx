@@ -389,30 +389,36 @@ export default function CellarView() {
                 {Array.from({ length: activeRack.rows }, (_, ri) => (
                   <tr key={ri}>
                     <td className="text-[10px] text-gray-400 pr-1.5 text-right font-medium w-6">{ri + 1}</td>
-                    {Array.from({ length: activeRack.cols }, (_, ci) => {
-                      const r1 = ri + 1, c1 = ci + 1
-                      const here = bottles.filter(b => b.rackId === activeRack.id && b.row === r1 && b.col === c1 && b.count > 0)
-                      const total = here.reduce((s, b) => s + b.count, 0)
-                      const first = here[0]
-                      return (
-                        <td key={ci}
-                          onClick={() => first && setDetailId(first.id)}
-                          className={`w-12 h-12 text-center border border-gray-200 dark:border-gray-600 transition-colors ${
-                            total > 0
-                              ? 'bg-primary-50 dark:bg-primary-900/30 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50'
-                              : 'bg-gray-50 dark:bg-gray-800'
-                          }`}>
-                          {total > 0 ? (
-                            <div className="flex flex-col items-center">
-                              <span className="text-sm">🍷</span>
-                              {total > 1 && <span className="text-[9px] font-bold text-primary-600 dark:text-primary-400 -mt-0.5">{total}</span>}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
-                          )}
-                        </td>
-                      )
-                    })}
+                    {(() => {
+                      const blockedCells = new Set(activeRack.conditions?.blockedCells ?? [])
+                      return Array.from({ length: activeRack.cols }, (_, ci) => {
+                        const r1 = ri + 1, c1 = ci + 1
+                        if (blockedCells.has(`${r1}-${c1}`)) return (
+                          <td key={ci} className="w-12 h-12 text-center border border-gray-200 dark:border-gray-600 bg-gray-200 dark:bg-gray-700" />
+                        )
+                        const here = bottles.filter(b => b.rackId === activeRack.id && b.row === r1 && b.col === c1 && b.count > 0)
+                        const total = here.reduce((s, b) => s + b.count, 0)
+                        const first = here[0]
+                        return (
+                          <td key={ci}
+                            onClick={() => first && setDetailId(first.id)}
+                            className={`w-12 h-12 text-center border border-gray-200 dark:border-gray-600 transition-colors ${
+                              total > 0
+                                ? 'bg-primary-50 dark:bg-primary-900/30 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50'
+                                : 'bg-gray-50 dark:bg-gray-800'
+                            }`}>
+                            {total > 0 ? (
+                              <div className="flex flex-col items-center">
+                                <span className="text-sm">🍷</span>
+                                {total > 1 && <span className="text-[9px] font-bold text-primary-600 dark:text-primary-400 -mt-0.5">{total}</span>}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                            )}
+                          </td>
+                        )
+                      })
+                    })()}
                   </tr>
                 ))}
                 <tr>

@@ -4,6 +4,14 @@
 
 export const CHANGELOG = [
   {
+    version: '2.8.1',
+    date: '2026-08-03',
+    entries: [
+      { type: 'new',      text: 'Gitter-Positionen sperren: Einzelne Zellen im Weinregal-Gitter sperren — ideal für versetzte oder unregelmäßige Regale.' },
+      { type: 'fixed',    text: 'Regaltyp-Wechsel (Fächer/Gitter/Frei) hängte die App nicht mehr auf.' },
+    ],
+  },
+  {
     version: '2.8.0',
     date: '2026-07-05',
     entries: [

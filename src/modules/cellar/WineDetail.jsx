@@ -493,20 +493,27 @@ function EditSheet({ bottle, onClose, onSave }) {
                       {Array.from({ length: selectedRack.rows }, (_, ri) => (
                         <tr key={ri}>
                           <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
-                          {Array.from({ length: selectedRack.cols }, (_, ci) => {
-                            const r1 = ri + 1, c1 = ci + 1
-                            const selected = gridRow === r1 && gridCol === c1
-                            return (
-                              <td key={ci} onClick={() => { setGridRow(r1); setGridCol(c1) }}
-                                className={`w-9 h-9 text-center border text-[11px] cursor-pointer transition-colors ${
-                                  selected
-                                    ? 'bg-primary-600 text-white border-primary-600 font-bold'
-                                    : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
-                                }`}>
-                                {selected ? '🍷' : ''}
-                              </td>
-                            )
-                          })}
+                          {(() => {
+                            const blockedCells = new Set(selectedRack.conditions?.blockedCells ?? [])
+                            return Array.from({ length: selectedRack.cols }, (_, ci) => {
+                              const r1 = ri + 1, c1 = ci + 1
+                              const isBlocked = blockedCells.has(`${r1}-${c1}`)
+                              const selected = gridRow === r1 && gridCol === c1
+                              if (isBlocked) return (
+                                <td key={ci} className="w-9 h-9 text-center border border-gray-200 dark:border-gray-600 bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500 text-[11px]">✕</td>
+                              )
+                              return (
+                                <td key={ci} onClick={() => { setGridRow(r1); setGridCol(c1) }}
+                                  className={`w-9 h-9 text-center border text-[11px] cursor-pointer transition-colors ${
+                                    selected
+                                      ? 'bg-primary-600 text-white border-primary-600 font-bold'
+                                      : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
+                                  }`}>
+                                  {selected ? '🍷' : ''}
+                                </td>
+                              )
+                            })
+                          })()}
                         </tr>
                       ))}
                       <tr>

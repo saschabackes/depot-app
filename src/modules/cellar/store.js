@@ -374,6 +374,20 @@ export const useCellar = create(
         set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, rows, cols } : r) }))
         supabase.from('cellar_racks').update({ rows, cols }).eq('id', id).then(() => {})
       },
+      toggleBlockedCell(id, row, col) {
+        const key = `${row}-${col}`
+        set(s => ({
+          racks: s.racks.map(r => {
+            if (r.id !== id) return r
+            const blocked = new Set(r.conditions?.blockedCells ?? [])
+            if (blocked.has(key)) blocked.delete(key); else blocked.add(key)
+            const conditions = { ...r.conditions, blockedCells: [...blocked] }
+            return { ...r, conditions }
+          })
+        }))
+        const merged = get().racks.find(r => r.id === id)?.conditions
+        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', id).then(() => {})
+      },
       setRackConditions(id, conditions) {
         set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, conditions: { ...(r.conditions || DEFAULT_CONDITIONS), ...conditions } } : r) }))
         const merged = get().racks.find(r => r.id === id)?.conditions

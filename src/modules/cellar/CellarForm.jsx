@@ -392,6 +392,7 @@ export default function CellarForm({ prefilled, onClose }) {
               const rack = racks.find(r => r.id === loc.rackId)
               const isGrid = rack?.rows > 0 && rack?.cols > 0
               const occupied = isGrid ? bottles.filter(b => b.rackId === rack.id && b.row != null && b.col != null && b.count > 0) : []
+              const blockedCells = isGrid ? new Set(rack.conditions?.blockedCells ?? []) : null
               return (
                 <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 space-y-2">
                   {count > 1 && (
@@ -420,9 +421,13 @@ export default function CellarForm({ prefilled, onClose }) {
                                 <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
                                 {Array.from({ length: rack.cols }, (_, ci) => {
                                   const r1 = ri + 1, c1 = ci + 1
+                                  const isBlocked = blockedCells?.has(`${r1}-${c1}`)
                                   const here = occupied.filter(b => b.row === r1 && b.col === c1)
                                   const total = here.reduce((s, b) => s + b.count, 0)
                                   const selected = loc.row === r1 && loc.col === c1
+                                  if (isBlocked) return (
+                                    <td key={ci} className="w-9 h-9 text-center border border-gray-200 dark:border-gray-600 bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500 text-[11px]">✕</td>
+                                  )
                                   return (
                                     <td key={ci}
                                       onClick={() => setLocations(prev => prev.map((l, i) => i === idx ? { ...l, row: r1, col: c1 } : l))}

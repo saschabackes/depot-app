@@ -25,7 +25,7 @@ function rackType(r) {
 }
 
 export default function RackSettings({ onClose }) {
-  const { racks, bottles, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions, setRackGrid, shellyConfig, setShellyConfig, setRackSensor, sensorReadings, updateSensorReading } = useCellar()
+  const { racks, bottles, addRack, renameRack, removeRack, reorderRacks, addSlot, renameSlot, removeSlot, setRackConditions, setRackGrid, toggleBlockedCell, shellyConfig, setShellyConfig, setRackSensor, sensorReadings, updateSensorReading } = useCellar()
   const [newLabel, setNewLabel] = useState('')
   const [newEmoji, setNewEmoji] = useState('🍷')
   const [newType, setNewType] = useState('free')
@@ -216,11 +216,13 @@ export default function RackSettings({ onClose }) {
                           value={r.cols || ''} placeholder="S"
                           onChange={e => setRackGrid(r.id, r.rows || 1, Math.max(1, Math.min(20, Number(e.target.value) || 1)))} />
                       </div>
-                      <span className="text-[10px] text-gray-400 self-center">= {(r.rows || 0) * (r.cols || 0)} Plätze</span>
+                      <span className="text-[10px] text-gray-400 self-center">= {(r.rows || 0) * (r.cols || 0) - (r.conditions?.blockedCells?.length || 0)} Plätze</span>
                     </div>
-                    {/* Grid-Vorschau */}
+                    {/* Grid-Vorschau — Tap sperrt/entsperrt Zellen */}
                     {r.rows > 0 && r.cols > 0 && (() => {
                       const occupied = bottles.filter(b => b.rackId === r.id && b.row != null && b.col != null && b.count > 0)
+                      const blocked = new Set(r.conditions?.blockedCells ?? [])
+                      const blockedCount = blocked.size
                       return (
                         <div className="overflow-x-auto rounded-xl bg-white dark:bg-gray-800 p-2">
                           <table className="border-collapse mx-auto">
@@ -229,13 +231,19 @@ export default function RackSettings({ onClose }) {
                                 <tr key={ri}>
                                   <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
                                   {Array.from({ length: r.cols }, (_, ci) => {
-                                    const here = occupied.filter(b => b.row === ri + 1 && b.col === ci + 1)
+                                    const r1 = ri + 1, c1 = ci + 1
+                                    const here = occupied.filter(b => b.row === r1 && b.col === c1)
                                     const total = here.reduce((s, b) => s + b.count, 0)
+                                    const isBlocked = blocked.has(`${r1}-${c1}`)
                                     return (
-                                      <td key={ci} className={`w-7 h-7 text-center border border-gray-100 dark:border-gray-700 text-[10px] rounded-sm ${
-                                        total > 0 ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold' : 'text-gray-300 dark:text-gray-600'
-                                      }`}>
-                                        {total > 0 ? total : '·'}
+                                      <td key={ci}
+                                        onClick={() => toggleBlockedCell(r.id, r1, c1)}
+                                        className={`w-7 h-7 text-center border border-gray-100 dark:border-gray-700 text-[10px] rounded-sm cursor-pointer select-none ${
+                                          isBlocked
+                                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                                            : total > 0 ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold' : 'text-gray-300 dark:text-gray-600'
+                                        }`}>
+                                        {isBlocked ? '✕' : total > 0 ? total : '·'}
                                       </td>
                                     )
                                   })}
@@ -249,6 +257,12 @@ export default function RackSettings({ onClose }) {
                               </tr>
                             </tbody>
                           </table>
+                          {blockedCount > 0 && (
+                            <p className="text-[10px] text-gray-400 text-center mt-1">{blockedCount} gesperrt — Tap zum Umschalten</p>
+                          )}
+                          {blockedCount === 0 && (
+                            <p className="text-[10px] text-gray-400 text-center mt-1">Tap auf Zelle zum Sperren (für versetzte Regale)</p>
+                          )}
                         </div>
                       )
                     })()}
