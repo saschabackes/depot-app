@@ -16,6 +16,8 @@ const GRID_PRESETS = [
   { label: '3 × 4', rows: 3, cols: 4 },
   { label: '4 × 6', rows: 4, cols: 6 },
   { label: '5 × 8', rows: 5, cols: 8 },
+  { label: '8 × 10', rows: 8, cols: 10 },
+  { label: '25 × 5', rows: 25, cols: 5 },
 ]
 
 function rackType(r) {
@@ -208,13 +210,13 @@ export default function RackSettings({ onClose }) {
                           }`}>{p.label}</button>
                       ))}
                       <div className="flex items-center gap-1.5 bg-white dark:bg-gray-800 rounded-xl px-2 py-1">
-                        <input type="number" min="1" max="20" className="w-10 text-center text-xs font-semibold bg-transparent outline-none"
+                        <input type="number" min="1" max="50" className="w-10 text-center text-xs font-semibold bg-transparent outline-none"
                           value={r.rows || ''} placeholder="R"
-                          onChange={e => setRackGrid(r.id, Math.max(1, Math.min(20, Number(e.target.value) || 1)), r.cols || 1)} />
+                          onChange={e => setRackGrid(r.id, Math.max(1, Math.min(50, Number(e.target.value) || 1)), r.cols || 1)} />
                         <span className="text-gray-400 text-xs">×</span>
-                        <input type="number" min="1" max="20" className="w-10 text-center text-xs font-semibold bg-transparent outline-none"
+                        <input type="number" min="1" max="50" className="w-10 text-center text-xs font-semibold bg-transparent outline-none"
                           value={r.cols || ''} placeholder="S"
-                          onChange={e => setRackGrid(r.id, r.rows || 1, Math.max(1, Math.min(20, Number(e.target.value) || 1)))} />
+                          onChange={e => setRackGrid(r.id, r.rows || 1, Math.max(1, Math.min(50, Number(e.target.value) || 1)))} />
                       </div>
                       <span className="text-[10px] text-gray-400 self-center">= {(r.rows || 0) * (r.cols || 0) - (r.conditions?.blockedCells?.length || 0)} Plätze</span>
                     </div>
