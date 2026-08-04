@@ -384,7 +384,7 @@ export default function CellarView() {
                                     : 'bg-gray-50 dark:bg-gray-800'
                                 }`}>
                                 {total > 0 ? (
-                                  <span className="text-xs">🍷{total > 1 ? <span className="text-[9px] font-bold text-primary-600">{total}</span> : ''}</span>
+                                  <span className="text-xs">{COLOR_EMOJI[first?.color] || '🍷'}{total > 1 ? <span className="text-[9px] font-bold text-primary-600">{total}</span> : ''}</span>
                                 ) : (
                                   <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
                                 )}
@@ -494,7 +494,7 @@ export default function CellarView() {
                             }`}>
                             {total > 0 ? (
                               <div className="flex flex-col items-center">
-                                <span className="text-sm">🍷</span>
+                                <span className="text-sm">{COLOR_EMOJI[first?.color] || '🍷'}</span>
                                 {total > 1 && <span className="text-[9px] font-bold text-primary-600 dark:text-primary-400 -mt-0.5">{total}</span>}
                               </div>
                             ) : (
