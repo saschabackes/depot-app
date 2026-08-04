@@ -50,8 +50,9 @@ export default function CellarView() {
   const [sweetnessFilter, setSweetnessFilter] = useState('all')
   const [countryFilter, setCountryFilter] = useState('all')
   const [vintageFilter, setVintageFilter] = useState('all')
-  const [sort, setSort] = useState('name') // name | vintage | price
+  const [sort, setSort] = useState('name') // name | vintage | price | rack
   const [sortDir, setSortDir] = useState('asc') // asc | desc
+  const [showGrid, setShowGrid] = useState(false)
 
   const activeRack = racks.find(r => r.id === activeRackId) || racks[0]
   const shellyConfig = useCellar(s => s.shellyConfig)
@@ -129,9 +130,18 @@ export default function CellarView() {
     const dir = sortDir === 'asc' ? 1 : -1
     if (sort === 'vintage') result = result.sort((a,b) => dir * ((a.vintage || 0) - (b.vintage || 0)))
     else if (sort === 'price') result = result.sort((a,b) => dir * ((a.priceEur || 0) - (b.priceEur || 0)))
+    else if (sort === 'rack') result = result.sort((a,b) => {
+      const ra = racks.find(r => r.id === a.rackId)
+      const rb = racks.find(r => r.id === b.rackId)
+      const rackCmp = (ra?.label || '').localeCompare(rb?.label || '', 'de')
+      if (rackCmp !== 0) return dir * rackCmp
+      const posA = (a.row || 0) * 1000 + (a.col || 0) || a.slot?.localeCompare?.(b.slot || '', 'de') || 0
+      const posB = (b.row || 0) * 1000 + (b.col || 0) || 0
+      return dir * (posA - posB)
+    })
     else result = result.sort((a,b) => dir * a.name.localeCompare(b.name, 'de'))
     return result
-  }, [bottles, tab, activeRack, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort, sortDir])
+  }, [bottles, tab, activeRack, racks, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort, sortDir])
 
   // Weintagebuch: bewertet ODER mind. 1× getrunken (egal ob noch Bestand)
   const memories = useMemo(() => {
@@ -240,18 +250,25 @@ export default function CellarView() {
                 }`}>{c.label}</button>
             ))}
             <div className="flex-none border-l border-gray-200 dark:border-gray-700 mx-1" />
-            <button onClick={() => setSort(s => s === 'name' ? 'vintage' : s === 'vintage' ? 'price' : 'name')}
+            <button onClick={() => setSort(s => s === 'name' ? 'vintage' : s === 'vintage' ? 'price' : s === 'price' ? 'rack' : 'name')}
               className="flex-none flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M3 6h18M7 12h10M11 18h2" strokeLinecap="round"/>
               </svg>
-              {sort === 'name' ? 'A–Z' : sort === 'vintage' ? 'Jahrgang' : 'Preis'}
+              {sort === 'name' ? 'A–Z' : sort === 'vintage' ? 'Jahrgang' : sort === 'price' ? 'Preis' : 'Regal'}
             </button>
             <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
               aria-label={sortDir === 'asc' ? 'Absteigend sortieren' : 'Aufsteigend sortieren'}
               className="flex-none flex items-center rounded-full px-2 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               {sortDir === 'asc' ? '↑' : '↓'}
             </button>
+            {racks.some(r => r.rows > 0 && r.cols > 0) && tab === 'bestand' && (
+              <button onClick={() => setShowGrid(g => !g)}
+                aria-label={showGrid ? 'Gitteransicht ausblenden' : 'Gitteransicht einblenden'}
+                className={`flex-none rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  showGrid ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                }`}>🔲</button>
+            )}
           </div>
 
           {/* Geschmack (nur wenn Daten vorhanden) */}
@@ -321,6 +338,74 @@ export default function CellarView() {
             </button>
           ))}
         </div>
+      )}
+
+      {tab === 'bestand' && showGrid && (
+        <>
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-4 pb-2">
+            {racks.filter(r => r.rows > 0 && r.cols > 0).map(r => {
+              const count = bottles.filter(b => b.rackId === r.id).reduce((s,b)=>s+b.count,0)
+              const active = activeRack?.id === r.id
+              return (
+                <button key={r.id} onClick={() => setActiveRackId(r.id)}
+                  className={`flex-none flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+                    active ? 'bg-primary-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                  }`}>
+                  <span>{r.emoji}</span><span>{r.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/30' : 'bg-gray-100 dark:bg-gray-700'}`}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+          {activeRack?.rows > 0 && activeRack?.cols > 0 && (
+            <div className="px-4 pb-3">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm overflow-x-auto">
+                <table className="border-collapse mx-auto">
+                  <tbody>
+                    {Array.from({ length: activeRack.rows }, (_, ri) => (
+                      <tr key={ri}>
+                        <td className="text-[10px] text-gray-400 pr-1.5 text-right font-medium w-6">{ri + 1}</td>
+                        {(() => {
+                          const blockedCells = new Set(activeRack.conditions?.blockedCells ?? [])
+                          return Array.from({ length: activeRack.cols }, (_, ci) => {
+                            const r1 = ri + 1, c1 = ci + 1
+                            if (blockedCells.has(`${r1}-${c1}`)) return (
+                              <td key={ci} className="w-10 h-10 text-center border border-gray-200 dark:border-gray-600 bg-gray-200 dark:bg-gray-700" />
+                            )
+                            const here = bottles.filter(b => b.rackId === activeRack.id && b.row === r1 && b.col === c1 && b.count > 0)
+                            const total = here.reduce((s, b) => s + b.count, 0)
+                            const first = here[0]
+                            return (
+                              <td key={ci}
+                                onClick={() => first && setDetailId(first.id)}
+                                className={`w-10 h-10 text-center border border-gray-200 dark:border-gray-600 transition-colors ${
+                                  total > 0
+                                    ? 'bg-primary-50 dark:bg-primary-900/30 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50'
+                                    : 'bg-gray-50 dark:bg-gray-800'
+                                }`}>
+                                {total > 0 ? (
+                                  <span className="text-xs">🍷{total > 1 ? <span className="text-[9px] font-bold text-primary-600">{total}</span> : ''}</span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                                )}
+                              </td>
+                            )
+                          })
+                        })()}
+                      </tr>
+                    ))}
+                    <tr>
+                      <td />
+                      {Array.from({ length: activeRack.cols }, (_, ci) => (
+                        <td key={ci} className="text-[10px] text-gray-400 text-center font-medium pt-0.5">{ci + 1}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {tab === 'lager' && (
