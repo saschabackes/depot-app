@@ -377,16 +377,16 @@ export default function CellarView() {
                             const first = here[0]
                             return (
                               <td key={ci}
-                                onClick={() => first && setDetailId(first.id)}
-                                className={`w-10 h-10 text-center border border-gray-200 dark:border-gray-600 transition-colors ${
+                                onClick={() => first ? setDetailId(first.id) : openForm({ rackId: activeRack.id, row: r1, col: c1 })}
+                                className={`w-10 h-10 text-center border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer ${
                                   total > 0
-                                    ? 'bg-primary-50 dark:bg-primary-900/30 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50'
-                                    : 'bg-gray-50 dark:bg-gray-800'
+                                    ? 'bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50'
+                                    : 'bg-gray-50 dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20'
                                 }`}>
                                 {total > 0 ? (
                                   <span className="text-xs">{COLOR_EMOJI[first?.color] || '🍷'}{total > 1 ? <span className="text-[9px] font-bold text-primary-600">{total}</span> : ''}</span>
                                 ) : (
-                                  <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                                  <span className="text-[10px] text-gray-300 dark:text-gray-600">+</span>
                                 )}
                               </td>
                             )
@@ -486,11 +486,11 @@ export default function CellarView() {
                         const first = here[0]
                         return (
                           <td key={ci}
-                            onClick={() => first && setDetailId(first.id)}
-                            className={`w-12 h-12 text-center border border-gray-200 dark:border-gray-600 transition-colors ${
+                            onClick={() => first ? setDetailId(first.id) : openForm({ rackId: activeRack.id, row: r1, col: c1 })}
+                            className={`w-12 h-12 text-center border border-gray-200 dark:border-gray-600 transition-colors cursor-pointer ${
                               total > 0
-                                ? 'bg-primary-50 dark:bg-primary-900/30 cursor-pointer hover:bg-primary-100 dark:hover:bg-primary-900/50'
-                                : 'bg-gray-50 dark:bg-gray-800'
+                                ? 'bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:hover:bg-primary-900/50'
+                                : 'bg-gray-50 dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20'
                             }`}>
                             {total > 0 ? (
                               <div className="flex flex-col items-center">
@@ -498,7 +498,7 @@ export default function CellarView() {
                                 {total > 1 && <span className="text-[9px] font-bold text-primary-600 dark:text-primary-400 -mt-0.5">{total}</span>}
                               </div>
                             ) : (
-                              <span className="text-[10px] text-gray-300 dark:text-gray-600">·</span>
+                              <span className="text-[10px] text-gray-300 dark:text-gray-600">+</span>
                             )}
                           </td>
                         )

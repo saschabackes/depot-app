@@ -89,7 +89,7 @@ export default function CellarForm({ prefilled, onClose }) {
   const [count, setCount] = useState(1)
   const startRack = racks.find(r => r.id === startRackId)
   const hasGrid = startRack?.rows > 0 && startRack?.cols > 0
-  const [locations, setLocations] = useState([{ rackId: startRackId, slot: hasGrid ? '' : startSlot, row: null, col: null }])
+  const [locations, setLocations] = useState([{ rackId: startRackId, slot: hasGrid ? '' : startSlot, row: prefilled?.row ?? null, col: prefilled?.col ?? null }])
 
   // Auto-Trinkfenster berechnen (ohne Lagerbedingungen — die fließen über effectiveDrinkUntil ein)
   useEffect(() => {
