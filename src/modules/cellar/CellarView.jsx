@@ -435,7 +435,7 @@ export default function CellarView() {
       )}
 
       {tab === 'tagebuch' && (
-        <div className="px-4 space-y-2.5">
+        <div className="px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {memories.length === 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 text-center">
               <p className="text-3xl mb-2">📒</p>
@@ -519,7 +519,7 @@ export default function CellarView() {
       )}
 
       {tab !== 'tagebuch' && (
-        <div className="px-4 space-y-2.5">
+        <div className="px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
           {filtered.map(b => {
             const r = racks.find(r => r.id === b.rackId)
             const status = drinkStatus(b, r)
