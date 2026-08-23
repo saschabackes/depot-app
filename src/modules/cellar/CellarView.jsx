@@ -605,6 +605,7 @@ export default function CellarView() {
           onClose={() => setDetailId(null)}
           onOpenPairing={() => { setDetailId(null) }}
           onShare={(id) => { setDetailId(null); setSharePreselect(id); setShowShare(true) }}
+          onDuplicate={(prefill) => { setDetailId(null); openForm(prefill) }}
         />
       )}
     </div>

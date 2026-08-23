@@ -12,7 +12,7 @@ const COUNTRY_FLAG = {
   'Südafrika':'🇿🇦','Neuseeland':'🇳🇿','Australien':'🇦🇺','Griechenland':'🇬🇷','Ungarn':'🇭🇺',
 }
 
-export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) {
+export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, onDuplicate }) {
   const { racks, drinkOne, removeBottle, updateBottle, toggleRestock } = useCellar()
   const [showDrink, setShowDrink] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -244,6 +244,17 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare }) 
           disabled={bottle.count <= 0}>
           🥂 Getrunken
         </button>
+        {onDuplicate && (
+          <button onClick={() => onDuplicate({
+            name: bottle.name, winery: bottle.winery, vintage: bottle.vintage,
+            region: bottle.region, country: bottle.country, grape: bottle.grape,
+            color: bottle.color, wineType: bottle.wineType, sweetness: bottle.sweetness,
+            classification: bottle.classification, alcohol: bottle.alcohol,
+            alcoholFree: bottle.alcoholFree, drinkFrom: bottle.drinkFrom, drinkUntil: bottle.drinkUntil,
+            priceEur: bottle.priceEur, retailer: bottle.retailer, rackId: bottle.rackId,
+          })}
+            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Weitere Flasche anlegen" aria-label="Weitere Flasche anlegen">➕</button>
+        )}
         {onShare && (
           <button onClick={() => onShare(bottle.id)}
             className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Empfehlen" aria-label="Empfehlen">🔗</button>
