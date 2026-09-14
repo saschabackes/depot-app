@@ -14,6 +14,7 @@ import RecipesView from './components/RecipesView'
 import SubTabs from './components/SubTabs'
 import FreezerView from './modules/freezer/FreezerView'
 import CellarView from './modules/cellar/CellarView'
+import PantryView from './modules/pantry/PantryView'
 import UnifiedShoppingList from './modules/shopping/UnifiedShoppingList'
 import SpiceSettings from './components/SpiceSettings'
 import SpiceSetup from './components/SpiceSetup'
@@ -252,6 +253,7 @@ export default function App() {
         )}
         {module === 'freezer'  && <FreezerView />}
         {module === 'cellar'   && <CellarView />}
+        {module === 'pantry'   && <PantryView />}
         {module === 'recipes'  && <RecipesView />}
         {module === 'shopping' && <UnifiedShoppingList />}
       </main>

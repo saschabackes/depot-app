@@ -23,6 +23,12 @@ export const MODULES = [
     description: 'Flaschen, Trinkfenster, Bewertung',
   },
   {
+    id: 'pantry',
+    label: 'Vorrat',
+    emoji: '📦',
+    description: 'Vorratskammer, MHD, QR-Codes',
+  },
+  {
     id: 'shopping',
     label: 'Einkauf',
     emoji: '🛒',

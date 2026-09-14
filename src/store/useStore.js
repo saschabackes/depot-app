@@ -4,6 +4,7 @@ import { bringLogin, bringGetLists, bringAddItem, bringGetItems, bringRemoveItem
 import { cookidooVerify, cookidooFetchCollections, cookidooFetchFavorites, cookidooFetchRecipe } from '../lib/cookidoo'
 import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
+import { usePantry } from '../modules/pantry/store'
 
 // ── Einladungscode generieren ─────────────────────────────────────────────────
 // Verwirrbaren Zeichen (0/O, 1/I/l) ausgeschlossen
@@ -690,10 +691,12 @@ const useStore = create((set, get) => ({
     // ── Freezer + Cellar: Supabase laden + localStorage-Migration ──────
     const freezer = useFreezer.getState()
     const cellar  = useCellar.getState()
+    const pantry  = usePantry.getState()
 
     const [freezerResult, cellarResult] = await Promise.all([
       freezer._loadFromSupabase(household.id),
       cellar._loadFromSupabase(household.id),
+      pantry._loadFromSupabase(household.id),
     ])
 
     if ((!freezerResult.storages.length && !freezerResult.items.length)) {
