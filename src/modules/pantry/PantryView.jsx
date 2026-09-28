@@ -25,8 +25,17 @@ function catLabel(id) {
 
 const APP_URL = typeof window !== 'undefined' ? window.location.origin : ''
 
+const DISPOSAL_REASONS = [
+  { id: 'schaedling', label: 'Schädlingsbefall', emoji: '🐛' },
+  { id: 'abgelaufen', label: 'Abgelaufen / verdorben', emoji: '🤢' },
+  { id: 'schimmel', label: 'Schimmel', emoji: '🦠' },
+  { id: 'beschaedigt', label: 'Verpackung beschädigt', emoji: '📦' },
+  { id: 'qualitaet', label: 'Qualität schlecht', emoji: '👎' },
+  { id: 'sonstiges', label: 'Sonstiges', emoji: '❓' },
+]
+
 export default function PantryView() {
-  const { locations, items, removeItem, toggleRestock,
+  const { locations, items, removeItem, disposeItem, toggleRestock,
     setupDone, completeSetup, formOpen, formPrefill, openForm, closeForm,
     bulkDeleteItems, updateItem } = usePantry()
   const [tab, setTab] = useState('bestand')
@@ -37,21 +46,25 @@ export default function PantryView() {
   const [editingItem, setEditingItem] = useState(null)
   const [sort, setSort] = useState('name')
   const [detailId, setDetailId] = useState(null)
+  const [disposeTarget, setDisposeTarget] = useState(null)
+
+  const activeItems = useMemo(() => items.filter(it => !it.disposedAt), [items])
+  const disposedItems = useMemo(() => items.filter(it => !!it.disposedAt).sort((a, b) => b.disposedAt.localeCompare(a.disposedAt)), [items])
 
   const activeLocation = locations.find(l => l.id === activeLocationId) || locations[0]
   const shelvesOfActive = activeLocation?.shelves || []
 
   const byShelf = useMemo(() => {
     const map = Object.fromEntries(shelvesOfActive.map(sh => [sh.id, []]))
-    items.filter(it => it.locationId === activeLocation?.id).forEach(it => {
+    activeItems.filter(it => it.locationId === activeLocation?.id).forEach(it => {
       (map[it.shelfId] ||= []).push(it)
     })
     Object.values(map).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name, 'de')))
     return map
-  }, [shelvesOfActive, items, activeLocation])
+  }, [shelvesOfActive, activeItems, activeLocation])
 
   const sorted = useMemo(() => {
-    const arr = [...items]
+    const arr = [...activeItems]
     if (sort === 'name') arr.sort((a, b) => a.name.localeCompare(b.name, 'de'))
     else if (sort === 'mhd') arr.sort((a, b) => {
       if (!a.bestBefore) return 1; if (!b.bestBefore) return -1
@@ -59,7 +72,7 @@ export default function PantryView() {
     })
     else if (sort === 'category') arr.sort((a, b) => a.category.localeCompare(b.category, 'de'))
     return arr
-  }, [items, sort])
+  }, [activeItems, sort])
 
   const detailItem = detailId ? items.find(it => it.id === detailId) : null
 
@@ -111,7 +124,8 @@ export default function PantryView() {
           <div>
             <p className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">📦 Vorratskammer</p>
             <p className="text-xs text-gray-400">
-              {items.length} Eintrag{items.length === 1 ? '' : 'e'} · {locations.length} Lagerort{locations.length === 1 ? '' : 'e'}
+              {activeItems.length} Eintrag{activeItems.length === 1 ? '' : 'e'} · {locations.length} Lagerort{locations.length === 1 ? '' : 'e'}
+              {disposedItems.length > 0 && ` · ${disposedItems.length} entsorgt`}
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -134,6 +148,7 @@ export default function PantryView() {
         tabs={[
           { id: 'bestand', label: 'Bestand' },
           { id: 'lager', label: 'Lager' },
+          ...(disposedItems.length > 0 ? [{ id: 'entsorgt', label: `Entsorgt (${disposedItems.length})` }] : []),
         ]}
         active={tab} onChange={setTab}
       />
@@ -160,7 +175,7 @@ export default function PantryView() {
             {sorted.map(item => <ItemCard key={item.id} item={item} />)}
           </div>
 
-          {items.length === 0 && (
+          {activeItems.length === 0 && (
             <div className="text-center py-12 text-gray-400">
               <p className="text-3xl mb-2">📦</p>
               <p className="text-sm">Noch keine Vorräte erfasst.</p>
@@ -250,11 +265,82 @@ export default function PantryView() {
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                 🛒 {detailItem.needsRestock ? 'Nachkauf ✓' : 'Nachkaufen'}
               </button>
-              <button onClick={() => { if (confirm(`"${detailItem.name}" löschen?`)) { removeItem(detailItem.id); setDetailId(null) } }}
+              <button onClick={() => setDisposeTarget(detailItem)}
+                className="flex items-center gap-1.5 text-xs bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-3 py-1.5 rounded-full font-semibold hover:bg-orange-100 dark:hover:bg-orange-900/50">
+                🗑️ Entsorgen
+              </button>
+              <button onClick={() => { if (confirm(`"${detailItem.name}" endgültig löschen?`)) { removeItem(detailItem.id); setDetailId(null) } }}
                 className="flex items-center gap-1.5 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-semibold hover:bg-red-100 dark:hover:bg-red-900/50">
-                🗑️ Löschen
+                ✕ Löschen
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'entsorgt' && (
+        <div className="px-3 py-2">
+          {disposedItems.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <p className="text-sm">Keine entsorgten Einträge.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {disposedItems.map(item => {
+                const reason = DISPOSAL_REASONS.find(r => r.id === item.disposalReason)
+                return (
+                  <div key={item.id} className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-700 opacity-70">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate line-through">{item.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{catLabel(item.category)}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                            {reason ? `${reason.emoji} ${reason.label}` : item.disposalReason}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(item.disposedAt).toLocaleDateString('de-DE')}
+                          </span>
+                        </div>
+                      </div>
+                      <button onClick={() => { if (confirm(`"${item.name}" endgültig löschen?`)) removeItem(item.id) }}
+                        className="text-gray-300 hover:text-red-500 px-2 text-sm">✕</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Entsorgen-Dialog */}
+      {disposeTarget && (
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-end sm:items-center justify-center"
+          onClick={e => { if (e.target === e.currentTarget) setDisposeTarget(null) }}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 space-y-4">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
+              „{disposeTarget.name}" entsorgen
+            </h3>
+            <p className="text-sm text-gray-500">Warum wird der Vorrat entsorgt?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DISPOSAL_REASONS.map(reason => (
+                <button key={reason.id}
+                  onClick={() => {
+                    disposeItem(disposeTarget.id, reason.id)
+                    setDisposeTarget(null)
+                    setDetailId(null)
+                  }}
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 transition-colors">
+                  <span>{reason.emoji}</span>
+                  <span>{reason.label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setDisposeTarget(null)}
+              className="w-full bg-gray-100 dark:bg-gray-700 text-gray-500 py-2.5 rounded-2xl font-semibold text-sm">
+              Abbrechen
+            </button>
           </div>
         </div>
       )}

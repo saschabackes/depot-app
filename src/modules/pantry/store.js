@@ -79,6 +79,8 @@ function itemToJS(row) {
     barcode: row.barcode ?? '',
     note: row.note ?? '',
     needsRestock: row.needs_restock ?? false,
+    disposedAt: row.disposed_at ?? '',
+    disposalReason: row.disposal_reason ?? '',
   }
 }
 
@@ -96,6 +98,8 @@ function itemToDB(data) {
     barcode: data.barcode ?? '',
     note: data.note ?? '',
     needs_restock: data.needsRestock ?? false,
+    disposed_at: data.disposedAt || null,
+    disposal_reason: data.disposalReason ?? '',
   }
 }
 
@@ -244,6 +248,15 @@ export const usePantry = create(
         if ('barcode' in patch) dbPatch.barcode = patch.barcode
         if ('needsRestock' in patch) dbPatch.needs_restock = patch.needsRestock
         if (Object.keys(dbPatch).length) supabase.from('pantry_items').update(dbPatch).eq('id', id).then(() => {})
+      },
+
+      disposeItem(id, reason) {
+        const item = get().items.find(it => it.id === id)
+        if (!item) return
+        const disposedAt = today()
+        set(s => ({ items: s.items.map(it => it.id === id ? { ...it, disposedAt, disposalReason: reason, quantity: 0 } : it) }))
+        supabase.from('pantry_items').update({ disposed_at: disposedAt, disposal_reason: reason, quantity: 0 }).eq('id', id).then(() => {})
+        logActivity('pantry_disposed', item.name, reason)
       },
 
       removeItem(id) {

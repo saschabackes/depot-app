@@ -34,9 +34,11 @@ CREATE TABLE IF NOT EXISTS pantry_items (
   opened_at     DATE,
   photo_data    TEXT,
   barcode       TEXT,
-  note          TEXT NOT NULL DEFAULT '',
-  needs_restock BOOLEAN NOT NULL DEFAULT false,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  note            TEXT NOT NULL DEFAULT '',
+  needs_restock   BOOLEAN NOT NULL DEFAULT false,
+  disposed_at     DATE,
+  disposal_reason TEXT NOT NULL DEFAULT '',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE pantry_items ENABLE ROW LEVEL SECURITY;
