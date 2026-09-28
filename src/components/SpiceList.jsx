@@ -13,8 +13,20 @@ const FILTERS = [
   { id: 'metallstreuer', label: 'Metallstreuer' },
 ]
 
+const DISPOSAL_REASONS = [
+  { id: 'schaedling', label: 'Schädlingsbefall', emoji: '🐛' },
+  { id: 'abgelaufen', label: 'Abgelaufen / verdorben', emoji: '🤢' },
+  { id: 'schimmel', label: 'Schimmel', emoji: '🦠' },
+  { id: 'beschaedigt', label: 'Verpackung beschädigt', emoji: '📦' },
+  { id: 'qualitaet', label: 'Qualität schlecht', emoji: '👎' },
+  { id: 'sonstiges', label: 'Sonstiges', emoji: '❓' },
+]
+
 export default function SpiceList({ onEdit, onAdd }) {
-  const { spices: allSpices, addShoppingItem, locations, categories: allCategories, dataLoading, updateFillLevel, bulkDeleteSpices } = useStore()
+  const { spices: rawSpices, addShoppingItem, locations, categories: allCategories, dataLoading, updateFillLevel, bulkDeleteSpices, disposeSpice, deleteSpice } = useStore()
+
+  const allSpices = useMemo(() => rawSpices.filter(s => !s.disposedAt), [rawSpices])
+  const disposedSpices = useMemo(() => rawSpices.filter(s => !!s.disposedAt).sort((a, b) => b.disposedAt.localeCompare(a.disposedAt)), [rawSpices])
 
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
@@ -26,6 +38,8 @@ export default function SpiceList({ onEdit, onAdd }) {
   const [showReorderOnly, setShowReorderOnly] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
+  const [disposeTarget, setDisposeTarget] = useState(null)
+  const [showDisposed, setShowDisposed] = useState(false)
 
   // Nachkaufen-Logik: Gruppe braucht Nachkauf wenn ALLE Einheiten ≤ level 1
   const reorderNeeded = useMemo(() => {
@@ -267,6 +281,7 @@ export default function SpiceList({ onEdit, onAdd }) {
                   onZoomImage={(url, name) => setZoomedImage({ url, name })}
                   needsReorder={reorderNeeded.has(spice.name.toLowerCase().trim())}
                   onFillChange={level => updateFillLevel(spice.id, level)}
+                  onDispose={sp => setDisposeTarget(sp)}
                 />
               </div>
             </div>
@@ -284,6 +299,74 @@ export default function SpiceList({ onEdit, onAdd }) {
         />
       )}
 
+      {/* Entsorgt-Bereich */}
+      {disposedSpices.length > 0 && (
+        <div className="px-3 pb-3">
+          <button onClick={() => setShowDisposed(v => !v)}
+            className="w-full text-xs text-gray-400 font-semibold py-2 flex items-center gap-1.5 justify-center">
+            <span className={`transition-transform ${showDisposed ? 'rotate-180' : ''}`}>▼</span>
+            {disposedSpices.length} entsorgt{disposedSpices.length === 1 ? 'es Gewürz' : 'e Gewürze'}
+          </button>
+          {showDisposed && (
+            <div className="space-y-2 mt-1">
+              {disposedSpices.map(sp => {
+                const reason = DISPOSAL_REASONS.find(r => r.id === sp.disposalReason)
+                return (
+                  <div key={sp.id} className="card p-3 opacity-60">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate line-through">{sp.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
+                            {reason ? `${reason.emoji} ${reason.label}` : sp.disposalReason}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(sp.disposedAt).toLocaleDateString('de-DE')}
+                          </span>
+                        </div>
+                      </div>
+                      <button onClick={() => { if (confirm(`"${sp.name}" endgültig löschen?`)) deleteSpice(sp.id) }}
+                        className="text-gray-300 hover:text-red-500 px-2">✕</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Entsorgen-Dialog */}
+      {disposeTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+          onClick={e => { if (e.target === e.currentTarget) setDisposeTarget(null) }}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 space-y-4">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
+              „{disposeTarget.name}" entsorgen
+            </h3>
+            <p className="text-sm text-gray-500">Warum wird das Gewürz entsorgt?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DISPOSAL_REASONS.map(reason => (
+                <button key={reason.id}
+                  onClick={() => {
+                    disposeSpice(disposeTarget.id, reason.id)
+                    setDisposeTarget(null)
+                    setExpandedId(null)
+                  }}
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 transition-colors">
+                  <span>{reason.emoji}</span>
+                  <span>{reason.label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setDisposeTarget(null)}
+              className="w-full bg-gray-100 dark:bg-gray-700 text-gray-500 py-2.5 rounded-2xl font-semibold text-sm">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
       {selectMode && (
         <SelectionBar
           count={selected.size}
@@ -295,7 +378,7 @@ export default function SpiceList({ onEdit, onAdd }) {
   )
 }
 
-function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomImage, needsReorder, onFillChange }) {
+function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomImage, needsReorder, onFillChange, onDispose }) {
   const { deleteSpice, locations, categories } = useStore()
   const [justAdded, setJustAdded] = useState(false)
 
@@ -450,13 +533,16 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
             )}
           </button>
           <button
-            onClick={() => { if (confirm(`"${spice.name}" wirklich löschen?`)) deleteSpice(spice.id) }}
-            className="btn-danger py-2 px-3 text-xs ml-auto"
+            onClick={() => onDispose(spice)}
+            className="py-2 px-3 text-xs rounded-xl font-semibold flex items-center justify-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 ml-auto"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Löschen
+            🗑️ Entsorgen
+          </button>
+          <button
+            onClick={() => { if (confirm(`"${spice.name}" endgültig löschen?`)) deleteSpice(spice.id) }}
+            className="btn-danger py-2 px-3 text-xs"
+          >
+            ✕
           </button>
         </div>
       )}

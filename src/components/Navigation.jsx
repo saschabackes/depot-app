@@ -3,6 +3,7 @@ const MODULES = [
   { id: 'spices',    label: 'Gewürze', emoji: '🌿', addLabel: 'Gewürz hinzufügen' },
   { id: 'freezer',   label: 'TK',      emoji: '❄️', addLabel: 'TK-Eintrag' },
   { id: 'cellar',    label: 'Wein',    emoji: '🍷', addLabel: 'Flasche' },
+  { id: 'pantry',    label: 'Vorrat',  emoji: '📦', addLabel: 'Vorrat' },
   { id: 'recipes',   label: 'Kochen',  emoji: '📖', addLabel: 'Rezept' },
   { id: 'shopping',  label: 'Einkauf', emoji: '🛒', addLabel: null },
 ]

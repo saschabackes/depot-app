@@ -30,10 +30,12 @@ function toJS(row) {
     notes:         row.notes          ?? null,
     locationId:    row.location_id    ?? null,
     category:      row.category       ?? null,
-    fillLevel:     row.fill_level     ?? 4,
-    form:          row.form           ?? '',
-    createdAt:     row.created_at,
-    updatedAt:     row.updated_at,
+    fillLevel:      row.fill_level      ?? 4,
+    form:           row.form            ?? '',
+    disposedAt:     row.disposed_at     ?? '',
+    disposalReason: row.disposal_reason ?? '',
+    createdAt:      row.created_at,
+    updatedAt:      row.updated_at,
   }
 }
 
@@ -842,6 +844,16 @@ const useStore = create((set, get) => ({
     supabase.from('spices').update({ fill_level: clamped }).eq('id', id)
       .then(({ error }) => { if (error) console.error('updateFillLevel:', error) })
     if (sp) get()._logActivity('fill_changed', sp.name, FILL_LABELS[clamped])
+  },
+
+  disposeSpice(id, reason) {
+    const sp = get().spices.find(s => s.id === id)
+    if (!sp) return
+    const disposedAt = new Date().toISOString().slice(0, 10)
+    set(s => ({ spices: s.spices.map(sp => sp.id === id ? { ...sp, disposedAt, disposalReason: reason, fillLevel: 0 } : sp) }))
+    supabase.from('spices').update({ disposed_at: disposedAt, disposal_reason: reason, fill_level: 0 }).eq('id', id)
+      .then(({ error }) => { if (error) console.error('disposeSpice:', error) })
+    get()._logActivity('spice_disposed', sp.name, reason)
   },
 
   deleteSpice(id) {
