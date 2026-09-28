@@ -500,8 +500,8 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 flex gap-2 flex-wrap bg-gray-50 dark:bg-gray-800">
-          <button onClick={onEdit} className="btn-secondary py-2 px-3 text-xs">
+        <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 grid grid-cols-4 gap-2 bg-gray-50 dark:bg-gray-800">
+          <button onClick={onEdit} className="btn-secondary py-2 px-2 text-xs flex flex-col items-center gap-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -510,20 +510,13 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
           <button
             onClick={handleAddToShopping}
             disabled={justAdded}
-            className={`py-2 px-3 text-xs rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
+            className={`py-2 px-2 text-xs rounded-xl font-semibold flex flex-col items-center gap-1 transition-colors ${
               justAdded
                 ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
                 : 'btn-secondary'
             }`}
           >
-            {justAdded ? (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Auf der Liste
-              </>
-            ) : (
+            {justAdded ? '✓ Liste' : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -534,15 +527,19 @@ function SpiceCard({ spice, expanded, onToggle, onEdit, onAddToShopping, onZoomI
           </button>
           <button
             onClick={() => onDispose(spice)}
-            className="py-2 px-3 text-xs rounded-xl font-semibold flex items-center justify-center gap-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 ml-auto"
+            className="py-2 px-2 text-xs rounded-xl font-semibold flex flex-col items-center gap-1 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
           >
-            🗑️ Entsorgen
+            🗑️
+            Entsorgen
           </button>
           <button
             onClick={() => { if (confirm(`"${spice.name}" endgültig löschen?`)) deleteSpice(spice.id) }}
-            className="btn-danger py-2 px-3 text-xs"
+            className="btn-danger py-2 px-2 text-xs flex flex-col items-center gap-1"
           >
-            ✕
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Löschen
           </button>
         </div>
       )}
