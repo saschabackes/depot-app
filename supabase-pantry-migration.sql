@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS pantry_locations (
 ALTER TABLE pantry_locations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "pantry_locations_household" ON pantry_locations
   FOR ALL USING (household_id IN (
-    SELECT id FROM households WHERE owner_id = auth.uid()
+    SELECT id FROM households WHERE created_by = auth.uid()
     UNION
     SELECT household_id FROM household_members WHERE user_id = auth.uid()
   ));
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS pantry_items (
 ALTER TABLE pantry_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "pantry_items_household" ON pantry_items
   FOR ALL USING (household_id IN (
-    SELECT id FROM households WHERE owner_id = auth.uid()
+    SELECT id FROM households WHERE created_by = auth.uid()
     UNION
     SELECT household_id FROM household_members WHERE user_id = auth.uid()
   ));
