@@ -153,8 +153,9 @@ exports.handler = async function(event) {
       var res3 = await fetch(BASE_URL + '/bringlists/' + p.listUuid, {
         method:  'PUT',
         headers: Object.assign({}, BRING_HEADERS, {
-          'Authorization':  'Bearer ' + p.accessToken,
-          'Content-Type':   'application/x-www-form-urlencoded',
+          'Authorization':     'Bearer ' + p.accessToken,
+          'X-BRING-USER-UUID': p.userUuid || '',
+          'Content-Type':      'application/x-www-form-urlencoded',
         }),
         body: 'purchase=' + encodeURIComponent(p.name) + '&specification=' + encodeURIComponent(p.specification || '') + '&remove=',
       })
@@ -172,8 +173,9 @@ exports.handler = async function(event) {
       var rr = await fetch(BASE_URL + '/bringlists/' + p.listUuid, {
         method:  'PUT',
         headers: Object.assign({}, BRING_HEADERS, {
-          'Authorization':  'Bearer ' + p.accessToken,
-          'Content-Type':   'application/x-www-form-urlencoded',
+          'Authorization':     'Bearer ' + p.accessToken,
+          'X-BRING-USER-UUID': p.userUuid || '',
+          'Content-Type':      'application/x-www-form-urlencoded',
         }),
         body: 'purchase=&specification=&remove=' + encodeURIComponent(p.name),
       })

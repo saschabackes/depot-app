@@ -556,7 +556,7 @@ const useStore = create((set, get) => ({
     // Optimistisch aus der lokalen Liste entfernen
     set(s => ({ bringItems: s.bringItems.filter(i => i.name !== name) }))
     try {
-      await bringRemoveItem(bringSettings.listUuid, bringSettings.accessToken, name)
+      await bringRemoveItem(bringSettings.listUuid, bringSettings.accessToken, name, bringSettings.userUuid ?? '')
       get().loadBringItems()
     } catch (e) {
       console.error('🔴 removeBringItem:', e.message)
@@ -965,7 +965,7 @@ const useStore = create((set, get) => ({
       const spec = isSpice ? 'Gewürz' : amount.trim()
       const addOnce = async (token, retried) => {
         try {
-          await bringAddItem(bringSettings.listUuid, token, name.trim(), spec)
+          await bringAddItem(bringSettings.listUuid, token, name.trim(), spec, bringSettings.userUuid ?? '')
           get().loadBringItems()
         } catch (err) {
           console.error('🔴 Bring! addItem:', err)
@@ -973,7 +973,8 @@ const useStore = create((set, get) => ({
             const t = await get()._refreshBringToken()
             if (t) return addOnce(t, true)
           }
-          set({ dataError: `Bring!-Fehler: ${err.message}` })
+          const hint = /401/.test(err.message) ? ' — bitte Bring! in den Einstellungen neu verbinden' : ''
+          set({ dataError: `Bring!-Fehler: ${err.message}${hint}` })
         }
       }
       addOnce(bringSettings.accessToken, false)
