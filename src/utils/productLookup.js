@@ -1,3 +1,5 @@
+import { authPost } from '../lib/authFetch'
+
 const OFF_API = 'https://world.openfoodfacts.org/api/v2/product'
 const PROXY   = '/.netlify/functions/bring-proxy'
 
@@ -68,11 +70,7 @@ function buildQueries(name, brand) {
 // ── Öffentliche API ───────────────────────────────────────────────────────────
 
 async function proxyPost(body) {
-  const res = await fetch(PROXY, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  })
+  const res = await authPost(PROXY, body)
   if (!res.ok) return []
   const data = await res.json()
   return Array.isArray(data) ? data : []

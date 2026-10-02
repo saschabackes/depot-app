@@ -28,20 +28,45 @@ async function verifyJwt(event) {
   return user?.id ? user : null
 }
 
-const URL_ALLOWLIST = [
-  /^https:\/\/(www\.)?youtube\.com\//i,
-  /^https:\/\/youtu\.be\//i,
-  /^https:\/\/(www\.)?chefkoch\.de\//i,
-  /^https:\/\/(www\.)?cookidoo\./i,
-  /^https:\/\/(www\.)?eatsmarter\.de\//i,
-  /^https:\/\/(www\.)?lecker\.de\//i,
-  /^https:\/\/(www\.)?springlane\.de\//i,
-  /^https:\/\/(www\.)?kitchenstories\.com\//i,
-  /^https:\/\/(www\.)?simply-yummy\.de\//i,
-  /^https:\/\/(www\.)?gutekueche\.(at|de|ch)\//i,
-  /^https:\/\/(www\.)?kochbar\.de\//i,
-  /^https:\/\/(mobile\.)?kptncook\.com\//i,
+// Exakter Abgleich auf den Hostnamen, damit z. B. cookidoo.evil.com nicht durchrutscht
+const HOST_ALLOWLIST = [
+  /^(www\.|m\.)?youtube\.com$/,
+  /^youtu\.be$/,
+  /^(www\.)?chefkoch\.de$/,
+  /^(www\.)?cookidoo\.(de|at|ch|fr|es|it|nl|pl|pt|be|lu|ie|cz|co\.uk|com|com\.au)$/,
+  /^(www\.)?eatsmarter\.de$/,
+  /^(www\.)?lecker\.de$/,
+  /^(www\.)?springlane\.de$/,
+  /^(www\.)?kitchenstories\.com$/,
+  /^(www\.)?simply-yummy\.de$/,
+  /^(www\.)?gutekueche\.(at|de|ch)$/,
+  /^(www\.)?kochbar\.de$/,
+  /^(mobile\.)?kptncook\.com$/,
 ]
+
+function isAllowedUrl(raw) {
+  let u
+  try { u = new URL(raw) } catch { return false }
+  if (u.protocol !== 'https:' || u.port || u.username || u.password) return false
+  return HOST_ALLOWLIST.some(re => re.test(u.hostname.toLowerCase()))
+}
+
+// Redirects nur folgen, solange das Ziel ebenfalls auf der Allowlist steht
+async function fetchAllowed(url, options, maxHops = 5) {
+  let current = url
+  for (let i = 0; i <= maxHops; i++) {
+    if (!isAllowedUrl(current)) throw new Error('Weiterleitung auf nicht erlaubte Adresse')
+    const res = await fetch(current, Object.assign({}, options, { redirect: 'manual' }))
+    if ([301, 302, 303, 307, 308].includes(res.status)) {
+      const loc = res.headers.get('location')
+      if (!loc) return res
+      current = new URL(loc, current).toString()
+      continue
+    }
+    return res
+  }
+  throw new Error('Zu viele Weiterleitungen')
+}
 
 let _cors
 function ok(d)  { return { statusCode: 200, headers: _cors, body: JSON.stringify(d) } }
@@ -248,7 +273,7 @@ exports.handler = async function (event) {
   const url = (body.url || '').trim()
   if (!url) return err('url erforderlich')
 
-  if (!URL_ALLOWLIST.some(re => re.test(url))) {
+  if (!isAllowedUrl(url)) {
     return err('URL nicht unterstützt – nur YouTube, Chefkoch, Cookidoo und andere Rezeptseiten')
   }
 
@@ -282,7 +307,7 @@ exports.handler = async function (event) {
 
   // Andere Quelle → schema.org/Recipe (JSON-LD), Fallback og:-Tags
   try {
-    const res = await fetch(url, {
+    const res = await fetchAllowed(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
         'Accept-Language': 'de-DE,de;q=0.9',

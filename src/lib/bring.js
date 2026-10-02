@@ -3,14 +3,12 @@
 // Deshalb läuft der eigentliche HTTP-Call serverseitig in einer
 // Netlify Function unter /.netlify/functions/bring-proxy.
 
+import { authPost } from './authFetch'
+
 const PROXY = '/.netlify/functions/bring-proxy'
 
 async function callProxy(action, params = {}) {
-  const res = await fetch(PROXY, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ action, ...params }),
-  })
+  const res = await authPost(PROXY, { action, ...params })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error ?? `Fehler ${res.status}`)
   return data

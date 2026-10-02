@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { APP_VERSION } from '../../changelog'
 import { supabase } from '../../lib/supabase'
-import useStore from '../../store/useStore'
 
 export default function FeedbackSection() {
-  const user = useStore(s => s.user)
   const [type, setType] = useState('bug')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -29,7 +27,6 @@ export default function FeedbackSection() {
           type,
           title: title.trim(),
           description: description.trim(),
-          userEmail: user?.email || '',
           appVersion: APP_VERSION,
         }),
       })

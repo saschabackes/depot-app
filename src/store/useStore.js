@@ -6,14 +6,6 @@ import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { usePantry } from '../modules/pantry/store'
 
-// ── Einladungscode generieren ─────────────────────────────────────────────────
-// Verwirrbaren Zeichen (0/O, 1/I/l) ausgeschlossen
-
-function generateInviteCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-}
-
 // ── DB (snake_case) ↔ JS (camelCase) Mapper ──────────────────────────────────
 
 function toJS(row) {
@@ -181,13 +173,13 @@ const useStore = create((set, get) => ({
   async connectCookidoo(email, password) {
     await cookidooVerify(email, password)  // wirft bei falschen Daten
     const settings = { email, password }
+    await get()._saveIntegration('cookidoo', settings)
     set({ cookidooSettings: settings })
-    await supabase.auth.updateUser({ data: { cookidoo: settings } })
   },
 
   async disconnectCookidoo() {
     set({ cookidooSettings: null })
-    await supabase.auth.updateUser({ data: { cookidoo: null } })
+    await get()._saveIntegration('cookidoo', null)
   },
 
   // Data
@@ -261,18 +253,46 @@ const useStore = create((set, get) => ({
     set({ _initialized: true })
 
     const { data: { session } } = await supabase.auth.getSession()
-    const bringSettings = session?.user?.user_metadata?.bring_settings ?? null
-    const cookidooSettings = session?.user?.user_metadata?.cookidoo ?? null
-    set({ user: session?.user ?? null, authLoading: false, bringSettings, cookidooSettings })
+    set({ user: session?.user ?? null, authLoading: false })
+    if (session?.user) get()._loadIntegrations()
 
     supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null
-      const bringSettings = user?.user_metadata?.bring_settings ?? null
-      const cookidooSettings = user?.user_metadata?.cookidoo ?? null
-      set({ user, bringSettings, cookidooSettings })
-      if (user) get().loadData()
-      else set({ household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null })
+      const userChanged = user?.id !== get()._integrationsUserId
+      set({ user })
+      if (user) {
+        if (userChanged) get()._loadIntegrations()
+        get().loadData()
+      }
+      else set({ household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null, _integrationsUserId: null })
     })
+  },
+
+  // Bring!/Cookidoo-Zugangsdaten liegen in user_integrations (nicht im JWT)
+  _integrationsUserId: null,
+  async _loadIntegrations() {
+    const { user } = get()
+    if (!user) return
+    set({ _integrationsUserId: user.id })
+    const { data, error } = await supabase
+      .from('user_integrations')
+      .select('bring, cookidoo')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (error) { console.error('🔴 loadIntegrations:', error); return }
+    set({ bringSettings: data?.bring ?? null, cookidooSettings: data?.cookidoo ?? null })
+  },
+
+  async _saveIntegration(key, value) {
+    const { user } = get()
+    if (!user) return
+    const { error } = await supabase
+      .from('user_integrations')
+      .upsert({ user_id: user.id, [key]: value, updated_at: new Date().toISOString() })
+    if (error) {
+      console.error('🔴 saveIntegration:', error)
+      throw new Error('Verbindung konnte nicht gespeichert werden.')
+    }
   },
 
   async signIn(email, password, options) {
@@ -310,7 +330,7 @@ const useStore = create((set, get) => ({
 
   async signOut() {
     await supabase.auth.signOut({ scope: 'local' })
-    set({ user: null, household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null, _initialized: false })
+    set({ user: null, household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null, _integrationsUserId: null, _bringAuth: null, _initialized: false })
   },
 
   currentUser() {
@@ -348,82 +368,32 @@ const useStore = create((set, get) => ({
 
     if (membership?.household_id) {
       const h = membership.households
-      // Altdaten (ohne household_id) automatisch in diesen Haushalt migrieren
-      await Promise.all([
-        supabase.from('spices').update({ household_id: h.id }).is('household_id', null),
-        supabase.from('shopping_items').update({ household_id: h.id }).is('household_id', null),
-        supabase.from('storage_locations').update({ household_id: h.id }).is('household_id', null),
-      ])
       return { id: h.id, name: h.name, inviteCode: h.invite_code, role: membership.role ?? 'member' }
     }
 
-    // Keinen Haushalt gefunden → neuen erstellen
-    const householdId  = crypto.randomUUID()
-    const inviteCode   = generateInviteCode()
-    const userName     = user.user_metadata?.name ?? 'Benutzer'
-    const householdName = `${userName}s Haushalt`
-
-    const { error: hErr } = await supabase.from('households').insert([{
-      id: householdId, name: householdName, invite_code: inviteCode, created_by: user.id,
-    }])
-    if (hErr) {
+    const userName = user.user_metadata?.name ?? 'Benutzer'
+    const { data: created, error: hErr } = await supabase.rpc('create_household', { p_name: `${userName}s Haushalt` })
+    if (hErr || !created) {
       console.error('🔴 _ensureHousehold – Haushalt erstellen:', hErr)
-      set({ dataError: `Haushalt erstellen fehlgeschlagen: ${hErr.message} (Code: ${hErr.code})` })
+      set({ dataError: 'Haushalt konnte nicht angelegt werden. Bitte später erneut versuchen.' })
       return null
     }
-
-    const { error: mErr } = await supabase.from('household_members').insert([{
-      household_id: householdId, user_id: user.id, role: 'owner',
-    }])
-    if (mErr) {
-      console.error('🔴 _ensureHousehold – Mitglied hinzufügen:', mErr)
-      set({ dataError: `Mitgliedschaft erstellen fehlgeschlagen: ${mErr.message} (Code: ${mErr.code})` })
-      return null
-    }
-
-    // Altdaten migrieren
-    await Promise.all([
-      supabase.from('spices').update({ household_id: householdId }).is('household_id', null),
-      supabase.from('shopping_items').update({ household_id: householdId }).is('household_id', null),
-      supabase.from('storage_locations').update({ household_id: householdId }).is('household_id', null),
-    ])
-
-    return { id: householdId, name: householdName, inviteCode, role: 'owner' }
+    return { id: created.id, name: created.name, inviteCode: created.invite_code, role: 'owner' }
   },
 
   // Haushalt per Einladungscode beitreten
   async joinHousehold(code) {
-    const { user, household } = get()
-    const cleanCode = code.trim().toUpperCase()
-
-    const { data: target } = await supabase
-      .from('households')
-      .select('id, name, invite_code')
-      .eq('invite_code', cleanCode)
-      .maybeSingle()
-
-    if (!target) throw new Error('Ungültiger Einladungscode.')
-    if (target.id === household?.id) throw new Error('Du bist bereits Mitglied dieses Haushalts.')
-
-    // Aktuellen Haushalt verlassen
-    if (household?.id) {
-      await supabase.from('household_members')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('household_id', household.id)
+    const { data, error } = await supabase.rpc('join_household', { p_code: code })
+    if (error) {
+      if (/invalid_code/.test(error.message)) throw new Error('Ungültiger Einladungscode.')
+      if (/already_member/.test(error.message)) throw new Error('Du bist bereits Mitglied dieses Haushalts.')
+      throw new Error('Beitritt fehlgeschlagen. Bitte später erneut versuchen.')
     }
 
-    // Neuem Haushalt beitreten
-    const { error } = await supabase.from('household_members').insert([{
-      household_id: target.id, user_id: user.id, role: 'member',
-    }])
-    if (error) throw new Error('Beitritt fehlgeschlagen: ' + error.message)
-
-    // Daten neu laden
     set({ household: null, spices: [], shoppingItems: [], locations: [] })
     await get().loadData()
 
-    return target.name
+    return data.name
   },
 
   // Haushalt verlassen und privaten Haushalt erstellen
@@ -481,7 +451,7 @@ const useStore = create((set, get) => ({
     return lists
   },
 
-  // Access-Token via refresh_token erneuern; aktualisiert State + user_metadata.
+  // Access-Token via refresh_token erneuern; aktualisiert State + user_integrations.
   // Gibt den neuen Token zurück oder null.
   async _refreshBringToken() {
     const { bringSettings } = get()
@@ -496,7 +466,7 @@ const useStore = create((set, get) => ({
         refreshToken: data.refresh_token ?? bringSettings.refreshToken,
       }
       set({ bringSettings: updated })
-      supabase.auth.updateUser({ data: { bring_settings: updated } })
+      get()._saveIntegration('bring', updated).catch(() => {})
       return newToken
     } catch (e) {
       console.error('🔴 Bring! refresh:', e.message)
@@ -509,13 +479,13 @@ const useStore = create((set, get) => ({
     const { _bringAuth } = get()
     if (!_bringAuth) throw new Error('Nicht authentifiziert')
     const settings = { ..._bringAuth, listUuid, listName }
+    await get()._saveIntegration('bring', settings)
     set({ bringSettings: settings, _bringAuth: null })
-    await supabase.auth.updateUser({ data: { bring_settings: settings } })
   },
 
   async disconnectBring() {
     set({ bringSettings: null, bringItems: [] })
-    await supabase.auth.updateUser({ data: { bring_settings: null } })
+    await get()._saveIntegration('bring', null)
   },
 
   // Aktuelle Artikel aus der Bring!-Liste laden

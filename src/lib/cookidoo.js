@@ -1,11 +1,9 @@
+import { authPost } from './authFetch'
+
 const PROXY = '/.netlify/functions/cookidoo-fetch'
 
 async function call(payload) {
-  const res = await fetch(PROXY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  const res = await authPost(PROXY, payload)
   const data = await res.json().catch(() => ({}))
   if (!data.ok) throw new Error(data.error ?? `Fehler ${res.status}`)
   return data

@@ -60,14 +60,19 @@ export function QRCodeSVG({ value, size = 120 }) {
   )
 }
 
+const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
 export default function QRLabel({ item, appUrl }) {
   const qrUrl = `${appUrl}/pantry/${item.id}`
 
   function handlePrint() {
     const printWindow = window.open('', '_blank', 'width=400,height=300')
     if (!printWindow) return
+    const name = escapeHtml(item.name)
+    const unit = escapeHtml(item.unit)
+    const quantity = Number(item.quantity) || 0
     printWindow.document.write(`<!DOCTYPE html><html><head>
-      <title>QR-Etikett: ${item.name}</title>
+      <title>QR-Etikett: ${name}</title>
       <style>
         @page { size: 62mm 30mm; margin: 2mm; }
         body { font-family: -apple-system, sans-serif; margin: 0; padding: 4mm; display: flex; gap: 3mm; align-items: center; }
@@ -81,9 +86,9 @@ export default function QRLabel({ item, appUrl }) {
         <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrUrl)}" width="80" height="80" />
       </div>
       <div class="info">
-        <div class="name">${item.name}</div>
-        ${item.bestBefore ? `<div class="mhd">MHD: ${new Date(item.bestBefore).toLocaleDateString('de-DE')}</div>` : ''}
-        ${item.quantity > 1 ? `<div>${item.quantity}× ${item.unit}</div>` : ''}
+        <div class="name">${name}</div>
+        ${item.bestBefore ? `<div class="mhd">MHD: ${escapeHtml(new Date(item.bestBefore).toLocaleDateString('de-DE'))}</div>` : ''}
+        ${quantity > 1 ? `<div>${quantity}× ${unit}</div>` : ''}
       </div>
     </body></html>`)
     printWindow.document.close()

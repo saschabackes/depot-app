@@ -55,7 +55,11 @@ exports.handler = async function(event) {
   var caller = await verifyRes.json().catch(function() { return {} })
   if (!verifyRes.ok || !caller.id) return err('Ungültiges oder abgelaufenes Token', 401)
   var callerId    = caller.id
-  var callerEmail = (caller.email || '').toLowerCase()
+  var callerEmail = caller.email_confirmed_at ? (caller.email || '').toLowerCase() : ''
+
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (householdId && !UUID_RE.test(householdId)) return err('Ungültige householdId', 400)
+  if (body.targetId && !UUID_RE.test(body.targetId)) return err('Ungültige targetId', 400)
 
   // ── Helper: Auth-User-Details laden ──────────────────────────────────────
   async function getAuthUser(userId) {
@@ -305,6 +309,19 @@ exports.handler = async function(event) {
     return err('Keine Berechtigung – nur Haushaltsinhaber können Mitglieder verwalten', 403)
   }
 
+  async function isHouseholdMember(userId) {
+    var r = await fetch(
+      sbUrl + '/rest/v1/household_members?user_id=eq.' + userId + '&household_id=eq.' + householdId + '&select=user_id',
+      { headers: dbH }
+    )
+    var d = await r.json().catch(function() { return [] })
+    return Array.isArray(d) && d.length > 0
+  }
+
+  if (body.targetId && !(await isHouseholdMember(body.targetId))) {
+    return err('Diese Person ist kein Mitglied deines Haushalts', 403)
+  }
+
   // ── Mitglieder abrufen ────────────────────────────────────────────────────
   if (action === 'getMembers') {
     var membRes = await fetch(
@@ -331,8 +348,18 @@ exports.handler = async function(event) {
 
   // ── Passwort-Reset-Mail senden ────────────────────────────────────────────
   if (action === 'resetPassword') {
-    var email = body.email
+    var email = (body.email || '').trim().toLowerCase()
     if (!email) return err('E-Mail erforderlich')
+    var hmRes = await fetch(
+      sbUrl + '/rest/v1/household_members?household_id=eq.' + householdId + '&select=user_id',
+      { headers: dbH }
+    )
+    var hm = await hmRes.json().catch(function() { return [] })
+    var memberEmails = await Promise.all((Array.isArray(hm) ? hm : []).map(async function(m) {
+      var u = await getAuthUser(m.user_id)
+      return ((u && u.email) || '').toLowerCase()
+    }))
+    if (memberEmails.indexOf(email) < 0) return err('Diese E-Mail gehört zu keinem Mitglied deines Haushalts', 403)
     var resetRes = await fetch(sbUrl + '/auth/v1/recover', {
       method: 'POST', headers: authH,
       body: JSON.stringify({ email: email }),

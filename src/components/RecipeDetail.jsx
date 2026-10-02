@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useStore from '../store/useStore'
 import InventoryCheck from './InventoryCheck'
+import { isSafeUrl } from '../utils/safeUrl'
 
 export default function RecipeDetail({ recipe, onBack, onEdit }) {
   const { deleteRecipe } = useStore()
@@ -58,7 +59,7 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
         {/* Quelle / Tags */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           {recipe.author && <span className="text-sm text-gray-500 dark:text-gray-400">{recipe.author}</span>}
-          {recipe.sourceUrl && (
+          {isSafeUrl(recipe.sourceUrl) && (
             <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer"
               className="text-sm text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-1">
               Im Original öffnen

@@ -45,21 +45,22 @@ exports.handler = async function (event) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid JSON' }) }
   }
 
-  const { type, title, description, userEmail, appVersion } = body
-  if (!title || !title.trim()) {
+  const { type, title, description, appVersion } = body
+  if (typeof title !== 'string' || !title.trim()) {
     return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Titel erforderlich' }) }
   }
 
   const label = type === 'bug' ? 'bug' : 'enhancement'
   const emoji = type === 'bug' ? '🐛' : '💡'
-  const issueTitle = `${emoji} ${title.trim()}`
+  const issueTitle = `${emoji} ${title.trim().slice(0, 120)}`
 
+  // Das Repo ist öffentlich – keine E-Mail-Adressen, nur eine anonyme Kennung
   const parts = []
-  if (description?.trim()) parts.push(description.trim())
+  if (typeof description === 'string' && description.trim()) parts.push(description.trim().slice(0, 5000))
   parts.push('')
   parts.push('---')
-  parts.push(`**App-Version:** ${appVersion || 'unbekannt'}`)
-  if (userEmail) parts.push(`**Nutzer:** ${userEmail}`)
+  parts.push(`**App-Version:** ${String(appVersion || 'unbekannt').slice(0, 20)}`)
+  parts.push(`**Nutzer-ID:** ${caller.id.slice(0, 8)}`)
   parts.push(`**Quelle:** In-App Feedback`)
 
   const res = await fetch('https://api.github.com/repos/saschabackes/depot-app/issues', {

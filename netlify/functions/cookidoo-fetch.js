@@ -2,7 +2,28 @@
 // POST { email, password, url? }
 //   - ohne url → Verify-Modus (nur Login testen)
 //   - mit url  → { ok, title, ingredients: [{ name, amount, optional }] }
-// Zugangsdaten kommen pro Request vom Client (aus user_metadata), nichts global.
+// Zugangsdaten kommen pro Request vom Client (aus user_integrations), nichts global.
+
+const COOKIDOO_TLDS = ['de', 'at', 'ch', 'fr', 'es', 'it', 'nl', 'pl', 'pt', 'be', 'lu', 'ie', 'cz', 'co.uk', 'com', 'com.au']
+
+function isAllowedHost(hostname) {
+  const h = hostname.toLowerCase()
+  if (COOKIDOO_TLDS.some(t => h === 'cookidoo.' + t || h.endsWith('.cookidoo.' + t))) return true
+  return ['vorwerk-digital.com', 'vorwerk.com', 'vorwerk.de'].some(d => h === d || h.endsWith('.' + d))
+}
+
+async function verifyJwt(event) {
+  const sbUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/$/, '')
+  const sbKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim()
+  const accessToken = (event.headers.authorization || '').replace(/^Bearer\s+/i, '')
+  if (!accessToken || !sbUrl || !sbKey) return null
+  const res = await fetch(`${sbUrl}/auth/v1/user`, {
+    headers: { apikey: sbKey, Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) return null
+  const user = await res.json().catch(() => null)
+  return user?.id ? user : null
+}
 
 const CIAM_LOGIN_SRV_URL = 'https://ciam.prod.cookidoo.vorwerk-digital.com/login-srv/login'
 const UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.39 Mobile Safari/537.36'
@@ -12,7 +33,7 @@ function corsHeaders(event) {
   const origin = (event?.headers?.origin || '').toLowerCase()
   return {
     'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type': 'application/json',
   }
 }
@@ -39,6 +60,8 @@ async function follow(startUrl, options, jar, maxHops = 10) {
   let body = options.body
   const base = Object.assign({}, options.headers)
   for (let i = 0; i < maxHops; i++) {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:' || parsed.port || !isAllowedHost(parsed.hostname)) return null
     const headers = Object.assign({}, base)
     const cs = jarHeader(jar); if (cs) headers['Cookie'] = cs
     const res = await fetch(url, { method, body, headers, redirect: 'manual' })
@@ -146,6 +169,9 @@ exports.handler = async function (event) {
   }
   if (event.httpMethod !== 'POST') return err('Method not allowed')
 
+  const caller = await verifyJwt(event)
+  if (!caller) return err('Nicht autorisiert')
+
   let body
   try { body = JSON.parse(event.body || '{}') } catch (e) { return err('Invalid JSON') }
   const email = (body.email || '').trim()
@@ -155,7 +181,11 @@ exports.handler = async function (event) {
   // tld/lang/recipeId aus URL ableiten (Default cookidoo.de / de-DE)
   let tld = 'de', lang = 'de-DE', recipeId = ''
   if (body.url) {
-    const m = body.url.match(/cookidoo\.([a-z.]+?)\//i); if (m) tld = m[1]
+    let host = ''
+    try { host = new URL(body.url).hostname.toLowerCase() } catch (e) { return err('Ungültige URL') }
+    const hm = host.match(/^(?:www\.)?cookidoo\.(.+)$/)
+    if (!hm || !COOKIDOO_TLDS.includes(hm[1])) return err('Nur Cookidoo-Links werden unterstützt')
+    tld = hm[1]
     const lm = body.url.match(/\/([a-z]{2}-[A-Z]{2})\//); if (lm) lang = lm[1]
     const rm = body.url.match(/(r\d{5,})/i); if (rm) recipeId = rm[1]
   }

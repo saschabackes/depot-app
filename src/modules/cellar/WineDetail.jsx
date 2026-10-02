@@ -3,6 +3,7 @@ import { useCellar, drinkStatus, effectiveDrinkUntil, qualityScore, qualityLabel
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
 import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
 import { estimateDrinkWindow } from './drinkWindow'
+import { isSafeUrl } from '../../utils/safeUrl'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
 const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
@@ -206,7 +207,7 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, on
             {bottle.retailer && <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">🏪 {bottle.retailer}</span>}
             {bottle.purchaseDate && <span className="text-xs text-gray-500">🗓️ {bottle.purchaseDate}</span>}
           </div>
-          {bottle.link && (
+          {isSafeUrl(bottle.link) && (
             <a href={bottle.link} target="_blank" rel="noopener noreferrer"
               className="text-xs text-primary-600 dark:text-primary-400 underline truncate block">🔗 {bottle.link}</a>
           )}

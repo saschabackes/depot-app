@@ -13,9 +13,22 @@ function corsHeaders(event) {
   var origin = (event && event.headers && event.headers.origin || '').toLowerCase()
   return {
     'Access-Control-Allow-Origin':  ALLOWED_ORIGINS.indexOf(origin) >= 0 ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Content-Type':                 'application/json',
   }
+}
+
+async function verifyJwt(event) {
+  var sbUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/$/, '')
+  var sbKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim()
+  var accessToken = ((event.headers && event.headers.authorization) || '').replace(/^Bearer\s+/i, '')
+  if (!accessToken || !sbUrl || !sbKey) return null
+  var res = await fetch(sbUrl + '/auth/v1/user', {
+    headers: { apikey: sbKey, Authorization: 'Bearer ' + accessToken },
+  })
+  if (!res.ok) return null
+  var user = await res.json().catch(function() { return null })
+  return user && user.id ? user : null
 }
 
 var CORS
@@ -47,6 +60,8 @@ exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
     return err('Method Not Allowed (v8)', 405)
   }
+
+  if (!(await verifyJwt(event))) return err('Nicht angemeldet', 401)
 
   var body
   try { body = JSON.parse(event.body || '{}') } catch (e) { return err('Invalid JSON body') }
