@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import useStore from '../store/useStore'
 import { getMhdStatus, formatMhdDate, formatAmount } from '../utils/mhd'
 import { PACKAGING_TYPES } from '../data/spices'
@@ -30,7 +30,7 @@ function expiryInfo(spice) {
   return { tone: null, text: `MHD ${mmYYYY}` }
 }
 
-export default function SpiceList({ onEdit, onAdd }) {
+export default function SpiceList({ onEdit, onAdd, focusId = null, onFocusHandled = () => {} }) {
   const rawSpices = useStore(s => s.spices)
   const locations = useStore(s => s.locations)
   const categories = useStore(s => s.categories)
@@ -49,6 +49,12 @@ export default function SpiceList({ onEdit, onAdd }) {
   const [sort, setSort] = useState('name')
   const [showFilters, setShowFilters] = useState(false)
   const [detailId, setDetailId] = useState(null)
+  useEffect(() => {
+    if (!focusId) return
+    if (rawSpices.some(x => x.id === focusId)) setDetailId(focusId)
+    onFocusHandled()
+  }, [focusId])
+
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [showDisposed, setShowDisposed] = useState(false)

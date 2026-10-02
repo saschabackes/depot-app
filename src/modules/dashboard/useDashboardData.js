@@ -63,7 +63,7 @@ export default function useDashboardData() {
     })
 
     bottles.forEach(b => {
-      if (b.drinkUntil && b.drinkUntil <= year) {
+      if (b.drinkUntil && b.drinkUntil <= year && (b.count ?? 1) > 0 && !b.archived) {
         attention.push({ type: 'cellar', id: b.id, name: b.name, emoji: '🍷', status: b.drinkUntil < year ? 'expired' : 'critical', label: b.drinkUntil < year ? 'Trinkfenster vorbei' : 'Bald trinken', days: (b.drinkUntil - year) * 365 })
       }
     })
@@ -94,6 +94,6 @@ export default function useDashboardData() {
     }
     const dailyFact = getPersonalizedFact(dayOfYear, inventory)
 
-    return { counts, attention: topAttention, suggestions, recentActivity, dailyFact }
+    return { counts, attention: topAttention, attentionAll: attention, suggestions, recentActivity, dailyFact }
   }, [spices, freezerItems, bottles, pantryItems, shoppingItems, recipes, activityLog])
 }

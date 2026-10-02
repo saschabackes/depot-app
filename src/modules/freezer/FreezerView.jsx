@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFreezer } from './store'
 import FreezerForm from './FreezerForm'
 import FreezerSetup from './FreezerSetup'
@@ -22,7 +22,7 @@ const STATUS_FILTERS = [
 
 const byExpiry = (a, b) => (a.expiryDate || '9999').localeCompare(b.expiryDate || '9999')
 
-export default function FreezerView() {
+export default function FreezerView({ focusId = null, onFocusHandled = () => {} }) {
   const { storages, items, consumePortion, setupDone, completeSetup, formOpen, formPrefill, openForm, closeForm, bulkDeleteItems } = useFreezer()
 
   const [search, setSearch] = useState('')
@@ -36,6 +36,12 @@ export default function FreezerView() {
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [detailId, setDetailId] = useState(null)
+  useEffect(() => {
+    if (!focusId) return
+    if (items.some(x => x.id === focusId)) setDetailId(focusId)
+    onFocusHandled()
+  }, [focusId])
+
   const [editingId, setEditingId] = useState(null)
 
   const counts = useMemo(() => ({

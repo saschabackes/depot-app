@@ -4,6 +4,22 @@
 
 export const CHANGELOG = [
   {
+    version: '3.0.0',
+    date: '2026-10-02',
+    entries: [
+      { type: 'new',      text: 'Komplett neues Design: ruhiger, übersichtlicher und näher an iPhone-Apps – mit großem Seitentitel, klaren Listen und einheitlichen Detailansichten in allen Bereichen.' },
+      { type: 'new',      text: 'Neue Navigation mit fünf Tabs: Start, Bestand, Kochen, Einkauf und Mehr. Gewürze, Tiefkühl, Wein und Vorrat findest du gesammelt unter „Bestand“.' },
+      { type: 'new',      text: 'Suche auf der Startseite durchsucht alle Bereiche auf einmal.' },
+      { type: 'new',      text: 'Antippen öffnet bei allen Einträgen eine Detailansicht mit Füllstand, Nachkaufen, Entsorgen und Löschen an einem Ort.' },
+      { type: 'improved', text: '„Braucht Aufmerksamkeit“ berücksichtigt jetzt auch den Vorrat und fast leere Gewürze – und jeder Eintrag springt direkt an die richtige Stelle.' },
+      { type: 'improved', text: 'Rückfragen und Hinweise erscheinen als App-eigene Dialoge statt als Browser-Fenster.' },
+      { type: 'improved', text: 'Größere Tippflächen und Schriften, überarbeiteter Dunkelmodus, aktualisierte Hilfe und Einführung.' },
+      { type: 'fixed',    text: 'Filter „Kann ich kochen“ zeigt wieder passende Rezepte.' },
+      { type: 'fixed',    text: 'Vorrat bearbeiten legte versehentlich einen neuen Eintrag an.' },
+      { type: 'fixed',    text: 'Die Gewürzliste ist auf dem iPhone nicht mehr breiter als der Bildschirm.' },
+    ],
+  },
+  {
     version: '2.9.1',
     date: '2026-10-02',
     entries: [

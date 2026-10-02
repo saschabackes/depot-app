@@ -10,222 +10,113 @@ const HELP_GROUPS = [
   {
     group: 'Erste Schritte',
     items: [
-      {
-        emoji: '🌿',
-        title: 'Gewürz hinzufügen',
-        body: [
-          'Tippe auf den runden Plus-Button unten rechts.',
-          'Pflichtangaben sind nur Name und Verpackungstyp. Je nach Typ kommen Gramm und/oder Stückzahl dazu.',
-          'Beim Tippen des Namens erscheinen Vorschläge gängiger Gewürze – einfach antippen zum Übernehmen.',
-          'Alle weiteren Felder (Marke, Foto, MHD, Lagerort, Kategorie, Notizen) sind optional und können auch später ergänzt werden.',
-        ],
-      },
-      {
-        emoji: '📦',
-        title: 'Verpackungstypen verstehen',
-        body: [
-          'Fertigstreuer: gekaufter Streuer (z.B. Ostmann) – du gibst Gramm pro Packung und Anzahl der Streuer an.',
-          'Nachfüllpackung: lose Ware im Beutel – nur Menge in Gramm.',
-          'Ganze Gewürze: z.B. Muskatnuss oder Lorbeer – Stückzahl.',
-          'Eigener Metallstreuer: selbst befüllt – Anzahl der Streuer.',
-          'Der Typ bestimmt welche Mengenfelder erscheinen und dient als Filter in der Vorratsliste.',
-        ],
-      },
+      { title: 'So ist die App aufgebaut', body: MODULES_ENABLED ? [
+        'Unten wechselst du zwischen fünf Tabs: Start, Bestand, Kochen, Einkauf und Mehr.',
+        'Start zeigt, was Aufmerksamkeit braucht (Abgelaufenes, fast Leeres, Weine im Trinkfenster) und durchsucht alle Bereiche auf einmal.',
+        'Unter Bestand findest du Gewürze, Tiefkühl, Wein und Vorrat sowie „Noch einzuräumen“.',
+        'Mehr enthält Einstellungen, Verlauf, Neuigkeiten, Hilfe und Abmelden.',
+      ] : [
+        'Oben siehst du deine Gewürze, umschaltbar zwischen „Bestand“ und „Ablauf“.',
+        'Über das Menü oben rechts erreichst du die Einstellungen.',
+      ] },
+      { title: 'Etwas hinzufügen', body: [
+        'Im jeweiligen Bereich oben rechts auf „+“ tippen.',
+        'Der Name reicht zum Start – per Barcode-Scan werden Name, Marke, Bild und Menge oft automatisch ausgefüllt.',
+        'Alles Weitere (Foto, MHD, Lagerort, Notizen) kannst du später ergänzen.',
+      ] },
+      { title: 'Einträge ansehen und ändern', body: [
+        'Tippe einen Eintrag an: Es öffnet sich die Detailansicht mit allen Angaben und Aktionen.',
+        'Oben rechts „Bearbeiten“, unten „Eintrag löschen“.',
+        'Zum Aussortieren lieber „Entsorgen …“ mit Grund wählen – dann bleibt nachvollziehbar, was weggeworfen wurde.',
+      ] },
     ],
   },
   {
-    group: 'Gewürze verwalten',
+    group: 'Gewürze',
     items: [
-      {
-        emoji: '📸',
-        title: 'Produktfoto hinzufügen',
-        body: [
-          'Im Bearbeitungsformular gibt es drei Wege zum Bild:',
-          '1. Foto / Galerie – eigenes Foto aufnehmen oder aus der Mediathek wählen (wird automatisch verkleinert).',
-          '2. Bild-URL einfügen – wenn du einen Link zu einem Bild hast.',
-          '3. „Foto aus Datenbank suchen" – sucht automatisch nach Hersteller + Gewürzname im Internet und zeigt Vorschläge. Tipp: Marke mit angeben verbessert die Treffer deutlich.',
-          'In der Vorratsliste kannst du auf das kleine Vorschaubild tippen, um es vergrößert anzuzeigen.',
-        ],
-      },
-      {
-        emoji: '📊',
-        title: 'Füllstand pflegen',
-        body: [
-          'Die vier kleinen Balken rechts auf jeder Karte zeigen wie voll ein Gewürz noch ist.',
-          'Tippe auf die Balken, um eine Stufe runterzuschalten: Voll → Gut → Halb → Wenig → Fast leer.',
-          'Nach „Fast leer" springt ein weiterer Tipp zurück auf Voll – praktisch wenn du eine neue Packung gekauft hast.',
-          'Bei „Fast leer" blinkt der unterste Balken rot als Warnsignal.',
-          'Den Füllstand kannst du auch beim Bearbeiten eines Gewürzes setzen.',
-        ],
-      },
-      {
-        emoji: '↓',
-        title: 'Nachkaufen-Hinweis',
-        body: [
-          'Wenn ein Gewürz zur Neige geht, erscheint ein orangener „↓ Nachkaufen"-Hinweis auf der Karte.',
-          'Wichtig bei Mehrfach-Bestand: Der Hinweis kommt erst, wenn ALLE Einheiten einer Sorte niedrig sind.',
-          'Beispiel: Du hast zwei Päckchen Curry. Erst wenn beide auf „Wenig" oder „Fast leer" stehen, wird Nachkaufen vorgeschlagen.',
-          'Im Statusstreifen ganz oben siehst du „X nachkaufen" – tippe darauf, um die Liste auf genau diese Gewürze zu filtern.',
-        ],
-      },
-      {
-        emoji: '📅',
-        title: 'Mindesthaltbarkeit (MHD)',
-        body: [
-          'Trage optional das MHD eines Gewürzes ein.',
-          'Läuft es in weniger als einem Monat ab, erscheint ein oranges Datum-Badge; ist es abgelaufen, ein rotes mit ⚠.',
-          'Der Ablauf-Tab oben listet alle Gewürze nach Datum sortiert – ideal um regelmäßig auszumisten.',
-          'In der Vorratsliste kannst du oben rechts zwischen Sortierung A–Z und nach MHD umschalten.',
-        ],
-      },
-      {
-        emoji: '🏷️',
-        title: 'Kategorien & Lagerorte',
-        body: [
-          'Kategorien (z.B. Kräuter, Asiatisch, Scharf) und Lagerorte (z.B. Oberschrank, Keller) legst du in den Einstellungen an.',
-          'Jeder Kategorie kannst du eine Farbe geben, damit sie in der Liste sofort erkennbar ist.',
-          'Beim Bearbeiten eines Gewürzes wählst du Kategorie und Lagerort aus den Dropdowns.',
-          'In der Vorratsliste erscheinen sie als Filter-Chips – so findest du z.B. „alles im Keller" mit einem Tipp.',
-        ],
-      },
-      {
-        emoji: '🔍',
-        title: 'Suchen & Filtern',
-        body: [
-          'Das Suchfeld oben in der Vorratsliste durchsucht die Gewürznamen.',
-          'Darunter filterst du nach Verpackungstyp, Kategorie und Lagerort – mehrere Filter lassen sich kombinieren.',
-          'Ein erneuter Tipp auf einen aktiven Filter hebt ihn wieder auf.',
-        ],
-      },
+      { title: 'Füllstand pflegen', body: [
+        'In der Detailansicht wählst du den Füllstand von „Fast leer“ bis „Voll“.',
+        'In der Liste zeigen vier kleine Balken rechts den aktuellen Stand.',
+      ] },
+      { title: 'Nachkaufen-Hinweis', body: [
+        '„Nachkaufen“ erscheint erst, wenn ALLE Packungen eines Gewürzes fast leer sind – zwei Päckchen Curry lösen den Hinweis also erst aus, wenn beide leer werden.',
+        'Mit dem Filter „Nachkaufen“ oben siehst du genau diese Gewürze.',
+      ] },
+      { title: 'Mindesthaltbarkeit', body: [
+        'Orange heißt: läuft innerhalb eines Monats ab. Rotbraun heißt: abgelaufen.',
+        'Die Ansicht „Ablauf“ sortiert alle Gewürze nach Dringlichkeit – ideal zum regelmäßigen Ausmisten.',
+      ] },
+      { title: 'Lagerorte, Kategorien, Filter', body: [
+        'Lagerorte und Kategorien verwaltest du über das Zahnrad in der Gewürze-Kopfleiste.',
+        'Die Liste ist nach Lagerort gruppiert. Über den Filter-Knopf neben der Suche filterst du nach Lagerort, Verpackung und Kategorie oder sortierst nach Ablaufdatum.',
+        'Dort findest du auch „Mehrere auswählen …“ zum gesammelten Löschen.',
+      ] },
     ],
   },
   ...(MODULES_ENABLED ? [{
-    group: 'Tiefkühl, Wein & Kochen',
+    group: 'Tiefkühl, Wein, Vorrat & Kochen',
     items: [
-      {
-        emoji: '❄️',
-        title: 'Tiefkühl-Vorräte',
-        body: [
-          'Im TK-Bereich verwaltest du mehrere Gefrierschränke mit ihren Schubladen.',
-          'Jeder Eintrag hat Portionen, Kategorie und Einfrierdatum – die empfohlene Haltbarkeit wird automatisch berechnet.',
-          'Eine Portion entnommen? Auf „−1" tippen oder die Zeile nach links wischen.',
-          'Die Quick-Add-Zeile oben versteht z.B. „3 Lasagne Keller Korb 2" und legt den Eintrag direkt richtig ab.',
-          'Per Excel-Import (📥 oben) holst du bestehende Listen in die App.',
-        ],
-      },
-      {
-        emoji: '🍷',
-        title: 'Weinkeller',
-        body: [
-          'Flaschen mit Lagerplatz (Regal/Fach), Trinkfenster, Rebsorte und Bewertung erfassen.',
-          'Die Lagerbedingungen deiner Regale (Temperatur, Licht, Feuchte) fließen in eine Qualitätseinschätzung ein.',
-          'Der Ablauf-Tab zeigt, welche Weine bald getrunken werden sollten.',
-          'Über das 🔗-Symbol teilst du Empfehlungen als Link – Empfänger brauchen keine App.',
-        ],
-      },
-      {
-        emoji: '📖',
-        title: 'Rezepte & Bestandscheck',
-        body: [
-          'Im Kochen-Bereich speicherst du Rezepte per Link (Cookidoo, YouTube, Chefkoch & Co.) – Zutaten und Schritte werden automatisch übernommen, wo möglich.',
-          'Der Bestandscheck im Rezept gleicht jede Zutat mit Gewürzen, TK und Weinkeller ab und zeigt, was du schon hast.',
-          'Fehlende Zutaten wandern einzeln oder alle auf einmal auf die Einkaufsliste.',
-          'In der Rezeptliste zeigen ✓- und ✗-Badges auf einen Blick, wie gut dein Bestand zum Rezept passt.',
-        ],
-      },
+      { title: 'Tiefkühl', body: [
+        'Mehrere Gefrierschränke mit Schubladen – verwaltet über das Zahnrad.',
+        'Die Haltbarkeit wird aus Kategorie und Einfrierdatum berechnet.',
+        'Portion entnommen? In der Detailansicht „Portion entnehmen“ tippen oder die Zeile nach links wischen.',
+        'Die Schnelleingabe oben versteht z. B. „3 Lasagne Keller Korb 2“.',
+      ] },
+      { title: 'Wein', body: [
+        'Flaschen mit Regalplatz, Trinkfenster, Rebsorte und Bewertung. Über den Gitter-Knopf siehst du dein Regal als Raster – ein Tipp auf einen freien Platz legt dort eine Flasche an.',
+        '„Trinkreif“ zeigt, was jetzt getrunken werden sollte, „Tagebuch“ deine Notizen.',
+        'Weine lassen sich als Link weiterempfehlen – Empfänger brauchen keine App.',
+      ] },
+      { title: 'Vorrat & QR-Etiketten', body: [
+        'Für Lebensmittel in Vorratsdosen: Lagerort, Fach, Menge und MHD.',
+        'In der Detailansicht „Etikett“ druckt ein QR-Etikett. Scannst du es später mit dem Handy, öffnet sich direkt dieser Eintrag.',
+        'Klappt das Drucken in der installierten App nicht, öffne Depot einmal in Safari.',
+      ] },
+      { title: 'Rezepte & Bestandscheck', body: [
+        'Rezepte per Link speichern (Cookidoo, YouTube, Chefkoch & Co.) – Zutaten werden übernommen, wo möglich.',
+        'Der Bestandscheck zeigt, was du schon hast, und setzt Fehlendes mit einem Tipp auf die Einkaufsliste.',
+        'Der Filter „Kann ich kochen“ zeigt Rezepte, für die du das meiste im Haus hast.',
+      ] },
     ],
   }] : []),
   {
     group: 'Einkaufen',
     items: [
-      {
-        emoji: '🛒',
-        title: 'Einkaufsliste nutzen',
-        body: [
-          'Tippe eine Gewürzkarte an, damit sie sich aufklappt, und dann auf „Einkaufen" – das Gewürz landet auf der Einkaufsliste.',
-          'Den Einkauf-Tab findest du unten in der Navigation.',
-          'Erledigte Artikel kannst du abhaken und gesammelt entfernen.',
-        ],
-      },
-      {
-        emoji: '🔗',
-        title: 'Bring!-Anbindung',
-        body: [
-          'In den Einstellungen kannst du dein Bring!-Konto verknüpfen.',
-          'Danach wandern „Einkaufen"-Artikel direkt in deine Bring!-Liste – auch per Alexa abrufbar.',
-          'Gewürze werden automatisch mit dem Tag „Gewürz" markiert, sodass du in der Ansicht zwischen „nur Gewürze" und „alle Artikel" umschalten kannst.',
-          'Artikel, die du in Bring! abhakst, verschwinden auch hier.',
-        ],
-      },
+      { title: 'Einkaufsliste', body: [
+        'In der Detailansicht eines Eintrags „Auf die Einkaufsliste“ tippen – oder direkt im Einkauf-Tab etwas eintragen.',
+        'Abgehakte Gewürze warten danach unter „Noch einzuräumen“, bis sie im Regal stehen.',
+        'Erledigte Artikel lassen sich gesammelt entfernen.',
+      ] },
+      { title: 'Bring!-Anbindung', body: [
+        'Unter Mehr → Einstellungen verknüpfst du dein Bring!-Konto.',
+        'Danach landen Artikel direkt in deiner Bring!-Liste – auch per Alexa abrufbar.',
+        'Was du in Bring! abhakst, verschwindet auch hier.',
+      ] },
     ],
   },
   {
-    group: 'Haushalt & Teilen',
+    group: 'Haushalt & Konto',
     items: [
-      {
-        emoji: '🏠',
-        title: 'Mit Familie teilen',
-        body: [
-          'Öffne Einstellungen → Verwaltung → Einladen und wähle „Familie / Mitbewohner".',
-          MODULES_ENABLED
-            ? 'Teile den Einladungscode – die Person tritt deinem Haushalt bei und ihr verwaltet Gewürze, TK, Wein und Rezepte gemeinsam.'
-            : 'Teile den Einladungscode – die Person tritt deinem Haushalt bei und ihr verwaltet die Gewürze gemeinsam.',
-          'Alle Änderungen sind sofort für alle Mitglieder sichtbar.',
-        ],
-      },
-      {
-        emoji: '👤',
-        title: 'Freunde empfehlen',
-        body: [
-          'Im Einladen-Bereich gibt es den Modus „Freunde".',
-          'Dabei wird KEIN Code geteilt – dein Freund erstellt seinen eigenen, unabhängigen Haushalt mit eigener Sammlung.',
-          'Du kannst eine persönliche Nachricht hinzufügen; die App generiert daraus eine fertige Empfehlung zum Teilen.',
-        ],
-      },
-      {
-        emoji: '🔑',
-        title: 'Konto & Passwort',
-        body: [
-          'Bei der Registrierung bestätigst du deine E-Mail über einen Link – wichtig, damit das Zurücksetzen des Passworts funktioniert.',
-          'Passwort vergessen? Auf der Anmeldeseite auf „Vergessen?" tippen und der Anleitung in der E-Mail folgen.',
-          'Haushaltsinhaber können in den Einstellungen Mitglieder verwalten (Passwort-Reset anstoßen, Rollen ändern, entfernen).',
-        ],
-      },
-    ],
-  },
-  {
-    group: 'Daten & Darstellung',
-    items: [
-      {
-        emoji: '💾',
-        title: 'Datensicherung',
-        body: [
-          MODULES_ENABLED
-            ? 'Einstellungen → Datensicherung exportiert deine kompletten Daten (Gewürze, TK, Weine, Rezepte, Kategorien, Lagerorte) als Datei auf dein Gerät.'
-            : 'Einstellungen → Datensicherung exportiert deine komplette Sammlung (Gewürze, Kategorien, Lagerorte) als Datei auf dein Gerät.',
-          'Empfehlung: ab und zu ein Backup ziehen – die Datei ist lesbar und lässt sich aufbewahren.',
-          'So bist du auf der sicheren Seite, falls mal etwas schiefgeht.',
-        ],
-      },
-      {
-        emoji: '🌙',
-        title: 'Hell / Dunkel',
-        body: [
-          'Unter Einstellungen → Darstellung wählst du zwischen System, Hell und Dunkel.',
-          'Im System-Modus folgt die App automatisch der Einstellung deines Geräts (z.B. nachts dunkel).',
-          'Die Auswahl gilt pro Gerät.',
-        ],
-      },
-      {
-        emoji: '📲',
-        title: 'Als App installieren',
-        body: [
-          'Die App lässt sich wie eine echte App auf dem Homebildschirm ablegen.',
-          'iPhone (Safari): Teilen-Symbol → „Zum Home-Bildschirm".',
-          'Android (Chrome): Menü → „App installieren" bzw. „Zum Startbildschirm hinzufügen".',
-          'Danach startet sie im Vollbild ohne Browser-Leiste.',
-        ],
-      },
+      { title: 'Mit Familie teilen', body: [
+        'Unter Mehr → Einstellungen → Haushalt findest du deinen Einladungscode zum Teilen.',
+        'Wer beitritt, sieht denselben Bestand – Änderungen erscheinen sofort bei allen.',
+        'Haushaltsinhaber verwalten Mitglieder im Bereich „Mitglieder“.',
+      ] },
+      { title: 'Konto & Passwort', body: [
+        'Bei der Registrierung bestätigst du deine E-Mail über einen Link.',
+        'Passwort vergessen? Auf der Anmeldeseite „Vergessen?“ tippen.',
+      ] },
+      { title: 'Datensicherung', body: [
+        'Unter Einstellungen → Datensicherung exportierst du alle Daten als Datei.',
+        'Ab und zu ein Backup schadet nie.',
+      ] },
+      { title: 'Hell / Dunkel', body: [
+        'Unter Einstellungen → Darstellung: Automatisch, Hell oder Dunkel. „Automatisch“ folgt deinem Gerät.',
+      ] },
+      { title: 'Als App installieren', body: [
+        'iPhone (Safari): Teilen-Symbol → „Zum Home-Bildschirm“.',
+        'Android (Chrome): Menü → „App installieren“.',
+      ] },
     ],
   },
 ]

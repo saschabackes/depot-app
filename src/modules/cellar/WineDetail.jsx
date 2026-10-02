@@ -52,7 +52,7 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, on
     ['Rebsorte', bottle.grape || '–'],
     rack && ['Lagerqualität', `${q.score}/100`, q.label],
     bottle.classification && ['Klassifikation', bottle.classification],
-    bottle.priceEur != null && ['Preis', `${Number(bottle.priceEur).toFixed(2)} €`, bottle.retailer || null],
+    bottle.priceEur != null && ['Preis', Number(bottle.priceEur).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }), bottle.retailer || null],
     bottle.purchaseDate && ['Gekauft', fmtDate(bottle.purchaseDate), bottle.priceEur == null ? bottle.retailer || null : null],
   ].filter(Boolean)
 

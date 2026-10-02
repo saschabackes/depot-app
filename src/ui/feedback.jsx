@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useTopmostEscape } from './Sheet'
 
@@ -58,7 +57,6 @@ function ActionSheet({ dialog }) {
 }
 
 function Toast({ toast }) {
-  useEffect(() => () => clearTimeout(toastTimer), [])
   return (
     <div role="status" className="fixed inset-x-4 z-[85] max-w-md mx-auto fade-enter"
       style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}>

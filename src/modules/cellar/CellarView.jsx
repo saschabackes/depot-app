@@ -28,7 +28,7 @@ const TABS = [
 const squareBtn = 'relative w-11 h-11 flex-none rounded-[10px] flex items-center justify-center'
 const squareIdle = 'bg-gray-200/70 dark:bg-gray-700 text-primary-500 dark:text-primary-300'
 
-export default function CellarView() {
+export default function CellarView({ focusId = null, onFocusHandled = () => {} }) {
   const racks = useCellar(s => s.racks)
   const bottles = useCellar(s => s.bottles)
   const setupDone = useCellar(s => s.setupDone)
@@ -49,6 +49,12 @@ export default function CellarView() {
   const [sheet, setSheet] = useState(null) // settings | import | pending | share | filters | actions
   const [sharePreselect, setSharePreselect] = useState(null)
   const [detailId, setDetailId] = useState(null)
+  useEffect(() => {
+    if (!focusId) return
+    if (bottles.some(x => x.id === focusId)) setDetailId(focusId)
+    onFocusHandled()
+  }, [focusId])
+
   const [alcoholFilter, setAlcoholFilter] = useState('all') // all | alc | free
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())

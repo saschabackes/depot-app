@@ -61,7 +61,7 @@ export default function App() {
   const [deepLink] = useState(readDeepLink)
   const [route, setRouteState] = useState({ tab: deepLink?.tab ?? 'start', section: deepLink?.section ?? null })
   const [focusRecipeId, setFocusRecipeId] = useState(null)
-  const [focusPantryId, setFocusPantryId] = useState(deepLink?.pantryId ?? null)
+  const [focus, setFocus] = useState(deepLink ? { section: 'pantry', id: deepLink.pantryId } : null)
   const [spiceView, setSpiceView] = useState('bestand')
 
   // Jeder Wechsel ist ein Verlaufseintrag → Zurück-Geste/-Taste navigiert statt die App zu schließen
@@ -75,7 +75,8 @@ export default function App() {
   function openTarget(target, id) {
     if (target === 'recipes') { if (id) setFocusRecipeId(id); return navigate('kochen') }
     if (target === 'shopping') return navigate('einkauf')
-    if (target === 'pantry' && id) setFocusPantryId(id)
+    if (id) setFocus({ section: target, id })
+    if (target === 'spices') setSpiceView('bestand')
     navigate('bestand', target)
   }
 
@@ -108,11 +109,17 @@ export default function App() {
   const [formPrefill, setFormPrefill] = useState(null)
   const [showSpiceSettings, setShowSpiceSettings] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [showMore, setShowMore] = useState(false)
   const [swUpdate, setSwUpdate] = useState(false)
   const resolvePending = useStore(s => s.resolvePending)
   const spiceSetupDone = useStore(s => s.spiceSetupDone)
   const completeSpiceSetup = useStore(s => s.completeSpiceSetup)
   const shoppingOpen = useStore(s => s.shoppingItems.filter(i => !i.checked).length)
+  const reviewCount = useStore(s => s.pendingInventory.filter(p => p.status === 'ready').length)
+  const freezerReady = useFreezer(s => s.setupDone)
+  const cellarReady = useCellar(s => s.setupDone)
+  const pantryReady = usePantry(s => s.setupDone)
+  const focusProps = sec => ({ focusId: focus?.section === sec ? focus.id : null, onFocusHandled: () => setFocus(null) })
 
   const [pendingInvite, setPendingInvite] = useState(null)
 
@@ -190,14 +197,14 @@ export default function App() {
   const spicesContent = !spiceSetupDone
     ? <SpiceSetup onComplete={completeSpiceSetup} />
     : spiceView === 'bestand'
-      ? <SpiceList onEdit={handleEditSpice} onAdd={handleSpiceAddInline} />
+      ? <SpiceList onEdit={handleEditSpice} onAdd={handleSpiceAddInline} {...focusProps('spices')} />
       : <ExpiryView onEdit={handleEditSpice} />
 
   const sectionActions = section && (
     <>
       {section === 'spices' && spiceSetupDone && <BarButton icon="settings" label="Lagerorte und Kategorien" onClick={() => setShowSpiceSettings(true)} />}
-      {!MODULES_ENABLED && <BarButton icon="more" label="Einstellungen" onClick={() => setShowSettings(true)} />}
-      {(section !== 'spices' || spiceSetupDone) && <BarButton icon="plus" label={`${SECTION_TITLES[section]} hinzufügen`} onClick={() => handleSectionAdd(section)} />}
+      {!MODULES_ENABLED && <BarButton icon="more" label="Mehr" onClick={() => setShowMore(true)} />}
+      {({ spices: spiceSetupDone, freezer: freezerReady, cellar: cellarReady, pantry: pantryReady })[section] && <BarButton icon="plus" label={`${SECTION_TITLES[section]} hinzufügen`} onClick={() => handleSectionAdd(section)} />}
     </>
   )
 
@@ -247,9 +254,9 @@ export default function App() {
             </SectionBar>
             <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: MODULES_ENABLED ? 'calc(50px + env(safe-area-inset-bottom, 0px))' : 0 }}>
               {section === 'spices'  && spicesContent}
-              {section === 'freezer' && <FreezerView />}
-              {section === 'cellar'  && <CellarView />}
-              {section === 'pantry'  && <PantryView focusId={focusPantryId} onFocusHandled={() => setFocusPantryId(null)} />}
+              {section === 'freezer' && <FreezerView {...focusProps('freezer')} />}
+              {section === 'cellar'  && <CellarView {...focusProps('cellar')} />}
+              {section === 'pantry'  && <PantryView {...focusProps('pantry')} />}
             </div>
           </>
         )}
@@ -258,15 +265,21 @@ export default function App() {
         {tab === 'einkauf' && <UnifiedShoppingList onReview={() => setShowReview(true)} />}
         {tab === 'mehr' && (
           <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
-            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} />
+            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
         )}
       </main>
 
       {MODULES_ENABLED && (
-        <TabBar tabs={TABS.map(t => t.id === 'einkauf' ? { ...t, badge: shoppingOpen } : t)} active={tab}
+        <TabBar tabs={TABS.map(t => t.id === 'einkauf' ? { ...t, badge: shoppingOpen } : t.id === 'bestand' ? { ...t, badge: reviewCount } : t)} active={tab}
           onChange={t => navigate(t)} />
       )}
 
+      {showMore && !MODULES_ENABLED && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-gray-50 dark:bg-gray-900">
+          <MoreView onClose={() => setShowMore(false)} onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
+            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
+        </div>
+      )}
       {showAddForm && <SpiceForm spice={editingSpice} prefill={formPrefill} onClose={handleFormClose} />}
       {showReview && <InventoryReviewView onClose={() => setShowReview(false)} onNewPackage={handleNewPackage} />}
       {showSpiceSettings && <SpiceSettings onClose={() => setShowSpiceSettings(false)} />}

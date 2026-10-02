@@ -39,7 +39,7 @@ const STORAGE_KEY = 'depot_dashboard_config_v2'
 
 function getConfig() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('depot_dashboard_config'))
     if (saved?.order && saved?.visible) return saved
   } catch { /* Standard verwenden */ }
   return { order: ALL_SECTIONS.map(s => s.id), visible: Object.fromEntries(ALL_SECTIONS.map(s => [s.id, true])) }

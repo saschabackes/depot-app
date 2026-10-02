@@ -13,7 +13,7 @@ const AREAS = [
 ]
 
 export default function BestandView({ onOpen, onReview }) {
-  const { counts, attention } = useDashboardData()
+  const { counts, attentionAll: attention } = useDashboardData()
   const reviewCount = useStore(s => s.pendingInventory.filter(p => p.status === 'ready').length)
 
   const statusFor = type => {

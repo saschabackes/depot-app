@@ -4,10 +4,11 @@ import { ListGroup, ListRow, IconTile } from '../ui/List'
 import { confirmAction } from '../ui/feedback'
 import { hasUnseenChangelog, APP_VERSION } from '../changelog'
 
-export default function MoreView({ onSettings, onActivity, onHelp, onChangelog }) {
+export default function MoreView({ onSettings, onActivity, onHelp, onChangelog, onReview, onClose }) {
   const user = useStore(s => s.user)
   const household = useStore(s => s.household)
   const signOut = useStore(s => s.signOut)
+  const reviewCount = useStore(s => s.pendingInventory.filter(p => p.status === 'ready').length)
   const name = user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? 'Benutzer'
 
   async function handleSignOut() {
@@ -17,7 +18,7 @@ export default function MoreView({ onSettings, onActivity, onHelp, onChangelog }
   }
 
   return (
-    <Screen title="Mehr">
+    <Screen title="Mehr" back={onClose ? { label: 'Gewürze', onClick: onClose } : undefined}>
       <div className="space-y-6">
         <ListGroup>
           <ListRow onClick={onSettings} chevron
@@ -28,6 +29,10 @@ export default function MoreView({ onSettings, onActivity, onHelp, onChangelog }
         <ListGroup>
           <ListRow onClick={onSettings} chevron leading={<IconTile icon="settings" tone="gray" />} title="Einstellungen" subtitle="Haushalt, Bring!, Cookidoo, Darstellung" />
           <ListRow onClick={onActivity} chevron leading={<IconTile icon="clock" tone="gray" />} title="Verlauf" subtitle="Wer hat was geändert" />
+          {reviewCount > 0 && onReview && (
+            <ListRow onClick={onReview} chevron leading={<IconTile icon="inbox" tone="accent" />} title="Noch einzuräumen"
+              trailing={<span className="text-callout font-semibold text-gray-500 dark:text-gray-400">{reviewCount}</span>} />
+          )}
         </ListGroup>
 
         <ListGroup>
