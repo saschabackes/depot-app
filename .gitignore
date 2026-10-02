@@ -28,3 +28,7 @@ npm-debug.log*
 # Claude Code
 .claude/settings.local.json
 .claude/launch.json
+
+# Supabase CLI
+supabase/.temp/
+deno.lock

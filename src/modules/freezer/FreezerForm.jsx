@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { useFreezer, CATEGORIES, FREEZER_SHELF_LIFE, autoCategory } from './store'
 import AutocompleteInput from '../../components/AutocompleteInput'
+import { localISODate } from '../../utils/date'
 
 export default function FreezerForm({ prefilled, onClose }) {
   const { storages, items, addItem, removePending, lastUsedCompartment } = useFreezer()
@@ -21,7 +22,7 @@ export default function FreezerForm({ prefilled, onClose }) {
   const [compartmentId, setCompartmentId] = useState(startCompartmentId)
   const [portions, setPortions] = useState(1)
   const [portionSize, setPortionSize] = useState(prefilled?.portionSize || '')
-  const [frozenAt, setFrozenAt] = useState(new Date().toISOString().slice(0, 10))
+  const [frozenAt, setFrozenAt] = useState(localISODate())
   const [note, setNote] = useState('')
   const [photoData, setPhotoData] = useState(prefilled?.photoData || null)
   const [bulkMode, setBulkMode] = useState(false)

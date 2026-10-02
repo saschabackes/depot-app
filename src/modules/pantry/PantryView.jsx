@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { usePantry, CATEGORIES } from './store'
 import PantryForm from './PantryForm'
 import PantrySetup from './PantrySetup'
@@ -34,10 +34,12 @@ const DISPOSAL_REASONS = [
   { id: 'sonstiges', label: 'Sonstiges', emoji: '❓' },
 ]
 
-export default function PantryView() {
+export default function PantryView({ focusId = null, onFocusHandled = () => {} }) {
   const { locations, items, removeItem, disposeItem, toggleRestock,
     setupDone, completeSetup, formOpen, formPrefill, openForm, closeForm,
     bulkDeleteItems, updateItem } = usePantry()
+  const loaded = usePantry(s => s._loaded)
+  const [focusNotFound, setFocusNotFound] = useState(false)
   const [tab, setTab] = useState('bestand')
   const [activeLocationId, setActiveLocationId] = useState(locations[0]?.id)
   const [showSettings, setShowSettings] = useState(false)
@@ -75,6 +77,18 @@ export default function PantryView() {
   }, [activeItems, sort])
 
   const detailItem = detailId ? items.find(it => it.id === detailId) : null
+
+  useEffect(() => {
+    if (!focusId || !loaded) return
+    const item = items.find(it => it.id === focusId)
+    if (item) {
+      setTab(item.disposedAt ? 'entsorgt' : 'bestand')
+      setDetailId(item.id)
+    } else {
+      setFocusNotFound(true)
+    }
+    onFocusHandled()
+  }, [focusId, loaded, items])
 
   if (!setupDone) {
     return <PantrySetup onComplete={completeSetup} />
@@ -152,6 +166,13 @@ export default function PantryView() {
         ]}
         active={tab} onChange={setTab}
       />
+
+      {focusNotFound && (
+        <div role="alert" className="mx-3 mt-2 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-sm rounded-xl px-3 py-2 flex items-start gap-2">
+          <span className="flex-1">Zu diesem QR-Etikett gibt es keinen Eintrag mehr – vermutlich wurde er gelöscht.</span>
+          <button onClick={() => setFocusNotFound(false)} aria-label="Hinweis schließen" className="text-lg leading-none">×</button>
+        </div>
+      )}
 
       {tab === 'bestand' && (
         <div className="px-3 py-2">

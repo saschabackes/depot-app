@@ -40,10 +40,12 @@ export async function bringAddItem(listUuid, accessToken, name, specification = 
 export async function bringGetItems(listUuid, accessToken, userUuid = '') {
   const data = await callProxy('getItems', { listUuid, accessToken, userUuid })
 
-  // Bring! kann die Liste direkt als Array zurückgeben oder in verschiedenen Feldern verpackt
+  // Bring! kann die Liste direkt als Array zurückgeben oder in verschiedenen Feldern verpackt.
+  // Unbekanntes Format → Fehler statt leerer Liste (sonst gälten alle Nachkäufe als erledigt)
   const raw = Array.isArray(data)
     ? data
-    : (data.purchase ?? data.items ?? data.purchases ?? [])
+    : (data.purchase ?? data.items ?? data.purchases)
+  if (!Array.isArray(raw)) throw new Error('Unerwartete Antwort von Bring!')
 
   // Feldnamen normalisieren: Bring! nutzt itemId/spec statt name/specification
   const items = raw.map(i => ({
@@ -52,12 +54,7 @@ export async function bringGetItems(listUuid, accessToken, userUuid = '') {
     specification: i.specification ?? i.spec   ?? '',
   })).filter(i => i.name)
 
-  // Debug-Info für den Fall dass noch immer leer
-  const debugInfo = Array.isArray(data)
-    ? `Array mit ${data.length} Einträgen`
-    : `Felder: ${Object.keys(data).join(', ')} | raw=${raw.length}`
-
-  return { items, debugInfo }
+  return items
 }
 
 export async function bringRemoveItem(listUuid, accessToken, name, userUuid = '') {

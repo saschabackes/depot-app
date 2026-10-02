@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { MODULES_ENABLED } from '../../branding'
 import { superListUsers, superBanUser, superResetPassword, superDeleteUser, superBackup, superStats, superUserActivity, superUserApiUsage, superActivityOverview } from '../../lib/userAdmin'
 import { getLastSeen, markSeen } from './lastSeen'
+import { localISODate } from '../../utils/date'
 
 const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL || '').toLowerCase()
 
@@ -138,7 +139,7 @@ function SuperAdminSection() {
       const url  = URL.createObjectURL(blob)
       const a    = document.createElement('a')
       a.href     = url
-      a.download = `${MODULES_ENABLED ? 'depot' : 'gewuerzmanager'}-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = `${MODULES_ENABLED ? 'depot' : 'gewuerzmanager'}-backup-${localISODate()}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

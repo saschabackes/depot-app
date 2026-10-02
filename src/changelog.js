@@ -4,6 +4,21 @@
 
 export const CHANGELOG = [
   {
+    version: '2.9.1',
+    date: '2026-10-02',
+    entries: [
+      { type: 'fixed',    text: 'QR-Etiketten öffnen beim Scannen jetzt direkt den passenden Vorrat.' },
+      { type: 'fixed',    text: 'Fehlgeschlagene Speichervorgänge werden angezeigt und der echte Stand neu geladen – nichts geht mehr unbemerkt verloren.' },
+      { type: 'fixed',    text: 'Beim Abmelden oder Haushaltswechsel werden TK, Wein und Vorrat vollständig geleert.' },
+      { type: 'fixed',    text: 'Datumsangaben nach Mitternacht landen nicht mehr auf dem Vortag.' },
+      { type: 'fixed',    text: 'Barcode-Scanner kann die App beim schnellen Schließen nicht mehr abstürzen lassen; die Kamera wird zuverlässig freigegeben.' },
+      { type: 'fixed',    text: 'Rezept-Vorschläge auf der Startseite öffnen direkt das Rezept.' },
+      { type: 'improved', text: 'Zurück-Geste bzw. -Taste wechselt zum vorherigen Bereich, statt die App zu schließen.' },
+      { type: 'improved', text: 'Deutlich weniger Neuladen im Hintergrund – spart Datenvolumen und verhindert kurzes Flackern.' },
+      { type: 'improved', text: 'Bei Verbindungsproblemen bleibt der zuletzt geladene Stand sichtbar, statt leerer Listen.' },
+    ],
+  },
+  {
     version: '2.9.0',
     date: '2026-10-02',
     entries: [

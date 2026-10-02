@@ -5,6 +5,12 @@
 [functions]
   directory = "netlify/functions"
 
+# QR-Etiketten verlinken auf /pantry/<id> → App ausliefern
+[[redirects]]
+  from = "/pantry/*"
+  to = "/index.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

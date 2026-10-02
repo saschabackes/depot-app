@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '../../lib/supabase'
 import useStore from '../../store/useStore'
+import { synced, syncedAll, reportSyncError } from '../../lib/sync'
+import { localISODate } from '../../utils/date'
 
 function logActivity(action, target, detail) {
   try { useStore.getState()._logActivity(action, target, detail) } catch {}
@@ -52,7 +54,7 @@ export function autoCategory(name) {
 }
 
 function uid(p = 'pt') { return p + '_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36) }
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return localISODate() }
 
 function locationToJS(row) {
   return {
@@ -127,14 +129,17 @@ export const usePantry = create(
       closeForm() { set({ formOpen: false, formPrefill: null }) },
 
       async _loadFromSupabase(householdId) {
-        const [{ data: locData }, { data: itemsData }] = await Promise.all([
+        const results = await Promise.all([
           supabase.from('pantry_locations').select('*').eq('household_id', householdId).order('sort_order'),
           supabase.from('pantry_items').select('*').eq('household_id', householdId).order('name'),
         ])
+        const failed = results.find(r => r.error)
+        if (failed) throw failed.error
+        const [{ data: locData }, { data: itemsData }] = results
         const locations = (locData ?? []).map(locationToJS)
         const items = (itemsData ?? []).map(itemToJS)
         const patch = { locations, items, _loaded: true }
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = useStore.getState().user
         if (user?.user_metadata?.pantry_setup_done || locations.length > 0 || items.length > 0) {
           patch.setupDone = true
         }
@@ -149,29 +154,29 @@ export const usePantry = create(
         set(s => ({ locations: [...s.locations, { ...loc, sortOrder: s.locations.length }] }))
         if (h) supabase.from('pantry_locations').insert([{
           id: loc.id, household_id: h.id, label, emoji, shelves: loc.shelves, sort_order: get().locations.length - 1,
-        }]).then(({ error }) => { if (error) console.error('addLocation:', error) })
+        }]).then(...synced('addLocation'))
         return loc.id
       },
       renameLocation(id, label, emoji) {
         set(s => ({ locations: s.locations.map(l => l.id === id ? { ...l, label, emoji: emoji ?? l.emoji } : l) }))
         const patch = { label }
         if (emoji) patch.emoji = emoji
-        supabase.from('pantry_locations').update(patch).eq('id', id).then(() => {})
+        supabase.from('pantry_locations').update(patch).eq('id', id).then(...synced('pantry_locations'))
       },
       reorderLocations(reordered) {
         const updated = reordered.map((l, i) => ({ ...l, sortOrder: i }))
         set({ locations: updated })
-        Promise.all(updated.map(l =>
+        syncedAll('reorderLocations', updated.map(l =>
           supabase.from('pantry_locations').update({ sort_order: l.sortOrder }).eq('id', l.id)
-        )).catch(e => console.error('reorderLocations:', e))
+        ))
       },
       removeLocation(id) {
         set(s => ({
           locations: s.locations.filter(l => l.id !== id),
           items: s.items.filter(it => it.locationId !== id),
         }))
-        supabase.from('pantry_locations').delete().eq('id', id).then(() => {})
-        supabase.from('pantry_items').delete().eq('location_id', id).then(() => {})
+        supabase.from('pantry_locations').delete().eq('id', id).then(...synced('pantry_locations'))
+        supabase.from('pantry_items').delete().eq('location_id', id).then(...synced('pantry_items'))
       },
       addShelf(locationId, label) {
         const newShelf = { id: uid('sh'), label }
@@ -180,7 +185,7 @@ export const usePantry = create(
             ? { ...l, shelves: [...l.shelves, newShelf] } : l)
         }))
         const loc = get().locations.find(l => l.id === locationId)
-        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(() => {})
+        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(...synced('pantry_locations'))
       },
       renameShelf(locationId, shelfId, label) {
         set(s => ({
@@ -188,7 +193,7 @@ export const usePantry = create(
             ? { ...l, shelves: l.shelves.map(sh => sh.id === shelfId ? { ...sh, label } : sh) } : l)
         }))
         const loc = get().locations.find(l => l.id === locationId)
-        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(() => {})
+        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(...synced('pantry_locations'))
       },
       removeShelf(locationId, shelfId) {
         set(s => ({
@@ -197,8 +202,8 @@ export const usePantry = create(
           items: s.items.filter(it => !(it.locationId === locationId && it.shelfId === shelfId)),
         }))
         const loc = get().locations.find(l => l.id === locationId)
-        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(() => {})
-        supabase.from('pantry_items').delete().eq('location_id', locationId).eq('shelf_id', shelfId).then(() => {})
+        if (loc) supabase.from('pantry_locations').update({ shelves: loc.shelves }).eq('id', locationId).then(...synced('pantry_locations'))
+        supabase.from('pantry_items').delete().eq('location_id', locationId).eq('shelf_id', shelfId).then(...synced('pantry_items'))
       },
 
       // ── Items ────────────────────────────────────────────────────────────
@@ -224,7 +229,7 @@ export const usePantry = create(
         if (h) supabase.from('pantry_items').insert([{ id: item.id, household_id: h.id, ...itemToDB(item) }])
           .then(({ error }) => {
             if (error) {
-              console.error('addItem:', error)
+              reportSyncError('addItem', error)
               set(s => ({ items: s.items.filter(it => it.id !== item.id) }))
             }
           })
@@ -247,7 +252,7 @@ export const usePantry = create(
         if ('photoData' in patch) dbPatch.photo_data = patch.photoData
         if ('barcode' in patch) dbPatch.barcode = patch.barcode
         if ('needsRestock' in patch) dbPatch.needs_restock = patch.needsRestock
-        if (Object.keys(dbPatch).length) supabase.from('pantry_items').update(dbPatch).eq('id', id).then(() => {})
+        if (Object.keys(dbPatch).length) supabase.from('pantry_items').update(dbPatch).eq('id', id).then(...synced('pantry_items'))
       },
 
       disposeItem(id, reason) {
@@ -255,21 +260,21 @@ export const usePantry = create(
         if (!item) return
         const disposedAt = today()
         set(s => ({ items: s.items.map(it => it.id === id ? { ...it, disposedAt, disposalReason: reason, quantity: 0 } : it) }))
-        supabase.from('pantry_items').update({ disposed_at: disposedAt, disposal_reason: reason, quantity: 0 }).eq('id', id).then(() => {})
+        supabase.from('pantry_items').update({ disposed_at: disposedAt, disposal_reason: reason, quantity: 0 }).eq('id', id).then(...synced('pantry_items'))
         logActivity('pantry_disposed', item.name, reason)
       },
 
       removeItem(id) {
         const item = get().items.find(it => it.id === id)
         set(s => ({ items: s.items.filter(it => it.id !== id) }))
-        supabase.from('pantry_items').delete().eq('id', id).then(() => {})
+        supabase.from('pantry_items').delete().eq('id', id).then(...synced('pantry_items'))
         if (item) logActivity('pantry_deleted', item.name)
       },
 
       bulkDeleteItems(ids) {
         if (!ids.length) return
         set(s => ({ items: s.items.filter(it => !ids.includes(it.id)) }))
-        supabase.from('pantry_items').delete().in('id', ids).then(() => {})
+        supabase.from('pantry_items').delete().in('id', ids).then(...synced('pantry_items'))
         logActivity('pantry_deleted', `${ids.length} Einträge gelöscht`)
       },
 
@@ -277,7 +282,7 @@ export const usePantry = create(
         const item = get().items.find(it => it.id === id)
         const val = !item?.needsRestock
         set(s => ({ items: s.items.map(it => it.id === id ? { ...it, needsRestock: val } : it) }))
-        supabase.from('pantry_items').update({ needs_restock: val }).eq('id', id).then(() => {})
+        supabase.from('pantry_items').update({ needs_restock: val }).eq('id', id).then(...synced('pantry_items'))
       },
 
       clearAllItems() {
@@ -285,7 +290,7 @@ export const usePantry = create(
         const count = get().items.length
         if (!count) return
         set({ items: [] })
-        if (h) supabase.from('pantry_items').delete().eq('household_id', h.id).then(() => {})
+        if (h) supabase.from('pantry_items').delete().eq('household_id', h.id).then(...synced('pantry_items'))
         logActivity('pantry_deleted', `Alle ${count} Einträge gelöscht`)
       },
 
@@ -294,8 +299,8 @@ export const usePantry = create(
         set({ locations: [], items: [], setupDone: false })
         supabase.auth.updateUser({ data: { pantry_setup_done: false } })
         if (h) {
-          supabase.from('pantry_items').delete().eq('household_id', h.id).then(() => {})
-          supabase.from('pantry_locations').delete().eq('household_id', h.id).then(() => {})
+          supabase.from('pantry_items').delete().eq('household_id', h.id).then(...synced('pantry_items'))
+          supabase.from('pantry_locations').delete().eq('household_id', h.id).then(...synced('pantry_locations'))
         }
       },
     }),

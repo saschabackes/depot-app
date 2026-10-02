@@ -25,15 +25,48 @@ import { MODULES_ENABLED, APP_NAME } from './branding'
 import { hasUnseenChangelog } from './changelog'
 import ChangelogView from './components/ChangelogView'
 
+const RELOAD_ON_FOCUS_AFTER_MS = 60_000
+
+// QR-Etiketten verlinken auf /pantry/<id>
+function readDeepLink() {
+  const m = window.location.pathname.match(/^\/pantry\/([A-Za-z0-9_-]+)\/?$/)
+  return m ? { module: 'pantry', pantryId: m[1] } : null
+}
+
 export default function App() {
-  const { user, authLoading, init } = useStore()
+  const user = useStore(s => s.user)
+  const authLoading = useStore(s => s.authLoading)
+  const init = useStore(s => s.init)
   const onboardingReplay = useStore(s => s.onboardingReplay)
   const finishOnboarding = useStore(s => s.finishOnboarding)
   const dataError = useStore(s => s.dataError)
-  const currentUser = useStore(s => s.currentUser())
-  const [module, setModule] = useState('dashboard')
+  const syncError = useStore(s => s.syncError)
+  const dismissSyncError = useStore(s => s.dismissSyncError)
+  const [deepLink] = useState(readDeepLink)
+  const [module, setModuleState] = useState(deepLink?.module ?? 'dashboard')
   const [focusRecipeId, setFocusRecipeId] = useState(null)
+  const [focusPantryId, setFocusPantryId] = useState(deepLink?.pantryId ?? null)
   const [view, setView] = useState('bestand')
+
+  // Modulwechsel als Verlaufseintrag → Zurück-Geste/-Taste wechselt das Modul statt die App zu schließen
+  function setModule(next) {
+    if (next === module) return
+    window.history.pushState({ module: next }, '')
+    setModuleState(next)
+  }
+
+  useEffect(() => {
+    window.history.replaceState({ module }, '', deepLink ? '/' : window.location.href)
+    const onPop = e => setModuleState(e.state?.module ?? 'dashboard')
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => {
+    if (!syncError) return
+    const t = setTimeout(dismissSyncError, 6000)
+    return () => clearTimeout(t)
+  }, [syncError])
 
   function handleModuleAdd(modId) {
     if (modId === 'spices')  { setEditingSpice(null); setShowAddForm(true) }
@@ -64,15 +97,16 @@ export default function App() {
     const invite = params.get('invite')
     if (invite) {
       setPendingInvite(invite.toUpperCase().replace(/[^A-Z0-9]/g, ''))
-      window.history.replaceState({}, '', window.location.pathname)
+      window.history.replaceState(window.history.state, '', window.location.pathname)
     }
   }, [])
 
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && useStore.getState().user) {
-        useStore.getState().loadData()
-      }
+      const s = useStore.getState()
+      if (document.visibilityState !== 'visible' || !s.user) return
+      if (Date.now() - (s._lastLoadAt ?? 0) < RELOAD_ON_FOCUS_AFTER_MS) return
+      s.loadData()
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
@@ -212,14 +246,23 @@ export default function App() {
       )}
 
       {dataError && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-start gap-2">
+        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 px-4 py-2 flex items-start gap-2">
           <span className="text-red-500 mt-0.5 flex-none">⚠️</span>
-          <p className="text-xs text-red-700 flex-1">{dataError}</p>
+          <p className="text-xs text-red-700 dark:text-red-300 flex-1">{dataError}</p>
           <button
             onClick={() => useStore.setState({ dataError: null })}
             className="text-red-400 hover:text-red-600 flex-none text-lg leading-none"
             aria-label="Fehlermeldung schließen"
           >×</button>
+        </div>
+      )}
+
+      {syncError && (
+        <div role="alert" className="fixed left-4 right-4 z-[80] max-w-md mx-auto bg-gray-900 dark:bg-gray-700 text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3 fade-enter"
+          style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+          <span className="flex-none">⚠️</span>
+          <p className="text-sm flex-1">{syncError}</p>
+          <button onClick={dismissSyncError} className="flex-none text-white/70 text-lg leading-none" aria-label="Hinweis schließen">×</button>
         </div>
       )}
 
@@ -253,8 +296,8 @@ export default function App() {
         )}
         {module === 'freezer'  && <FreezerView />}
         {module === 'cellar'   && <CellarView />}
-        {module === 'pantry'   && <PantryView />}
-        {module === 'recipes'  && <RecipesView />}
+        {module === 'pantry'   && <PantryView focusId={focusPantryId} onFocusHandled={() => setFocusPantryId(null)} />}
+        {module === 'recipes'  && <RecipesView focusId={focusRecipeId} onFocusHandled={() => setFocusRecipeId(null)} />}
         {module === 'shopping' && <UnifiedShoppingList />}
       </main>
 
@@ -396,8 +439,12 @@ function LoadingScreen() {
 // ── Benutzermenü ──────────────────────────────────────────────────────────────
 
 function UserMenu() {
-  const { signOut } = useStore()
-  const currentUser = useStore(s => s.currentUser())
+  const signOut = useStore(s => s.signOut)
+  const user = useStore(s => s.user)
+  const currentUser = user && {
+    name:  user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Benutzer',
+    email: user.email,
+  }
   const [open, setOpen] = useState(false)
 
   return (

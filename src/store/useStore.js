@@ -5,6 +5,23 @@ import { cookidooVerify, cookidooFetchCollections, cookidooFetchFavorites, cooki
 import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { usePantry } from '../modules/pantry/store'
+import { synced, syncedAll, reportSyncError } from '../lib/sync'
+import { localISODate } from '../utils/date'
+
+let resyncTimer
+let bringRefreshInFlight = null
+let loadWaiters = []
+
+// Setzt TK, Wein und Vorrat inkl. lokal gespeicherter Warteschlangen zurück
+function resetModuleStores() {
+  for (const store of [useFreezer, useCellar, usePantry]) store.setState(store.getInitialState(), true)
+}
+
+const EMPTY_HOUSEHOLD_DATA = {
+  household: null, spices: [], shoppingItems: [], locations: [], categories: [],
+  pendingInventory: [], recipes: [], activityLog: [], bringItems: [],
+  dataError: null, syncError: null,
+}
 
 // ── DB (snake_case) ↔ JS (camelCase) Mapper ──────────────────────────────────
 
@@ -256,15 +273,21 @@ const useStore = create((set, get) => ({
     set({ user: session?.user ?? null, authLoading: false })
     if (session?.user) get()._loadIntegrations()
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       const user = session?.user ?? null
-      const userChanged = user?.id !== get()._integrationsUserId
+      const previousUserId = get().user?.id
       set({ user })
-      if (user) {
-        if (userChanged) get()._loadIntegrations()
-        get().loadData()
+      if (!user) {
+        resetModuleStores()
+        set({ ...EMPTY_HOUSEHOLD_DATA, bringSettings: null, cookidooSettings: null, _integrationsUserId: null, _bringAuth: null })
+        return
       }
-      else set({ household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null, _integrationsUserId: null })
+      if (user.id !== get()._integrationsUserId) get()._loadIntegrations()
+      // Token-Erneuerung und Profiländerungen ändern keine Haushaltsdaten
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return
+      // Supabase meldet SIGNED_IN auch beim Zurückkehren in den Tab
+      if (event === 'SIGNED_IN' && previousUserId === user.id && get().household) return
+      get().loadData()
     })
   },
 
@@ -330,7 +353,8 @@ const useStore = create((set, get) => ({
 
   async signOut() {
     await supabase.auth.signOut({ scope: 'local' })
-    set({ user: null, household: null, spices: [], shoppingItems: [], locations: [], categories: [], pendingInventory: [], recipes: [], bringSettings: null, cookidooSettings: null, _integrationsUserId: null, _bringAuth: null, _initialized: false })
+    resetModuleStores()
+    set({ ...EMPTY_HOUSEHOLD_DATA, user: null, bringSettings: null, cookidooSettings: null, _integrationsUserId: null, _bringAuth: null, _initialized: false })
   },
 
   currentUser() {
@@ -390,7 +414,8 @@ const useStore = create((set, get) => ({
       throw new Error('Beitritt fehlgeschlagen. Bitte später erneut versuchen.')
     }
 
-    set({ household: null, spices: [], shoppingItems: [], locations: [] })
+    resetModuleStores()
+    set({ ...EMPTY_HOUSEHOLD_DATA })
     await get().loadData()
 
     return data.name
@@ -406,7 +431,8 @@ const useStore = create((set, get) => ({
       .eq('user_id', user.id)
       .eq('household_id', household.id)
 
-    set({ household: null, spices: [], shoppingItems: [], locations: [] })
+    resetModuleStores()
+    set({ ...EMPTY_HOUSEHOLD_DATA })
     await get().loadData()
   },
 
@@ -453,7 +479,13 @@ const useStore = create((set, get) => ({
 
   // Access-Token via refresh_token erneuern; aktualisiert State + user_integrations.
   // Gibt den neuen Token zurück oder null.
-  async _refreshBringToken() {
+  // Parallele 401-Fehler teilen sich eine Erneuerung
+  _refreshBringToken() {
+    bringRefreshInFlight ??= get()._doRefreshBringToken().finally(() => { bringRefreshInFlight = null })
+    return bringRefreshInFlight
+  },
+
+  async _doRefreshBringToken() {
     const { bringSettings } = get()
     if (!bringSettings?.refreshToken) return null
     try {
@@ -493,17 +525,12 @@ const useStore = create((set, get) => ({
     const { bringSettings } = get()
     if (!bringSettings?.listUuid || !bringSettings?.accessToken) return
     try {
-      const { items, debugInfo } = await bringGetItems(
+      const items = await bringGetItems(
         bringSettings.listUuid,
         bringSettings.accessToken,
         bringSettings.userUuid ?? ''
       )
-      set({
-        bringItems: items,
-        bringItemsError: items.length === 0
-          ? `Keine Artikel gefunden. API-Antwort: ${debugInfo}`
-          : null,
-      })
+      set({ bringItems: items, bringItemsError: null })
       // Nachkauf-Abgleich: abgehakte Gewürze → 'ready'
       get()._reconcilePending(items.map(i => i.name))
     } catch (e) {
@@ -567,7 +594,7 @@ const useStore = create((set, get) => ({
     set(s => ({ pendingInventory: [row, ...s.pendingInventory] }))
     supabase.from('pending_inventory').insert([{
       id, household_id: household.id, name: cleanName, brand, spice_id: spiceId, status: 'shopping', seen_on_list: false,
-    }]).then(({ error }) => { if (error) console.error('addPending:', error) })
+    }]).then(...synced('addPending'))
   },
 
   // Abgleich mit der aktuellen Bring!-Liste: abgehakte Gewürze → 'ready'
@@ -578,10 +605,10 @@ const useStore = create((set, get) => ({
       const onList = active.has(p.name.toLowerCase())
       if (onList && !p.seenOnList) {
         set(s => ({ pendingInventory: s.pendingInventory.map(x => x.id === p.id ? { ...x, seenOnList: true } : x) }))
-        supabase.from('pending_inventory').update({ seen_on_list: true }).eq('id', p.id).then(() => {})
+        supabase.from('pending_inventory').update({ seen_on_list: true }).eq('id', p.id).then(...synced('pending_inventory'))
       } else if (!onList && p.seenOnList) {
         set(s => ({ pendingInventory: s.pendingInventory.map(x => x.id === p.id ? { ...x, status: 'ready' } : x) }))
-        supabase.from('pending_inventory').update({ status: 'ready' }).eq('id', p.id).then(() => {})
+        supabase.from('pending_inventory').update({ status: 'ready' }).eq('id', p.id).then(...synced('pending_inventory'))
       }
     })
   },
@@ -592,7 +619,7 @@ const useStore = create((set, get) => ({
     const existing = pendingInventory.find(p => p.name.toLowerCase() === name.trim().toLowerCase())
     if (existing) {
       set(s => ({ pendingInventory: s.pendingInventory.map(x => x.id === existing.id ? { ...x, status: 'ready' } : x) }))
-      supabase.from('pending_inventory').update({ status: 'ready' }).eq('id', existing.id).then(() => {})
+      supabase.from('pending_inventory').update({ status: 'ready' }).eq('id', existing.id).then(...synced('pending_inventory'))
     } else {
       const { household } = get()
       if (!household) return
@@ -601,14 +628,14 @@ const useStore = create((set, get) => ({
       set(s => ({ pendingInventory: [row, ...s.pendingInventory] }))
       supabase.from('pending_inventory').insert([{
         id, household_id: household.id, name: name.trim(), brand, spice_id: spiceId, status: 'ready', seen_on_list: true,
-      }]).then(() => {})
+      }]).then(...synced('pending_inventory'))
     }
   },
 
   // Nachkauf-Eintrag entfernen (eingeräumt oder verworfen)
   resolvePending(id) {
     set(s => ({ pendingInventory: s.pendingInventory.filter(p => p.id !== id) }))
-    supabase.from('pending_inventory').delete().eq('id', id).then(() => {})
+    supabase.from('pending_inventory').delete().eq('id', id).then(...synced('pending_inventory'))
   },
 
   // Offenen Nachkauf zu einem Namen verwerfen (z.B. „nur entfernt, nicht gekauft")
@@ -619,71 +646,115 @@ const useStore = create((set, get) => ({
     if (household) {
       supabase.from('pending_inventory').delete()
         .eq('household_id', household.id).ilike('name', name.trim())
-        .then(() => {})
+        .then(...synced('pending_inventory'))
     }
   },
 
   // ── Data ─────────────────────────────────────────────────────────────
 
+  // Lädt alle Daten des Haushalts. Läuft schon ein Ladevorgang, wird einer nachgeholt.
+  // Bei Lesefehlern bleibt der bisherige Stand erhalten.
   async loadData() {
     const { user } = get()
-    if (!user || get()._dataLoadingLock) return
-    set({ dataLoading: true, dataError: null, _dataLoadingLock: true })
-
-    const household = await get()._ensureHousehold()
-    if (!household) { set({ dataLoading: false, _dataLoadingLock: false }); return }
-
-    const [{ data: spicesData }, { data: shopData }, { data: locData }, { data: catData }, { data: pendData }, { data: recipeData }] = await Promise.all([
-      supabase.from('spices').select('*').eq('household_id', household.id).order('name'),
-      supabase.from('shopping_items').select('*').eq('household_id', household.id).order('created_at'),
-      supabase.from('storage_locations').select('*').eq('household_id', household.id).order('sort_order, name'),
-      supabase.from('spice_categories').select('*').eq('household_id', household.id).order('sort_order, name'),
-      supabase.from('pending_inventory').select('*').eq('household_id', household.id).order('created_at', { ascending: false }),
-      supabase.from('recipes').select('*').eq('household_id', household.id).order('created_at', { ascending: false }),
-    ])
-
-    const spices = (spicesData ?? []).map(toJS)
-    const patch = {
-      household,
-      spices,
-      shoppingItems: (shopData   ?? []).map(shopToJS),
-      locations:     (locData    ?? []).map(locToJS),
-      categories:    (catData    ?? []).map(catToJS),
-      pendingInventory: (pendData ?? []).map(get()._pendingToJS),
-      recipes:       (recipeData ?? []).map(recipeToJS),
-      dataLoading:   false,
-      _dataLoadingLock: false,
+    if (!user) return
+    if (get()._dataLoadingLock) {
+      set({ _reloadQueued: true })
+      return new Promise(resolve => loadWaiters.push(resolve))
     }
-    if (!get().spiceSetupDone && spices.length > 0) {
-      localStorage.setItem('spice-setup-done', '1')
-      patch.spiceSetupDone = true
-    }
-    set(patch)
+    set({ dataLoading: true, _dataLoadingLock: true, _reloadQueued: false, _lastLoadAt: Date.now() })
 
-    // ── Freezer + Cellar: Supabase laden + localStorage-Migration ──────
-    const freezer = useFreezer.getState()
-    const cellar  = useCellar.getState()
-    const pantry  = usePantry.getState()
+    try {
+      const household = await get()._ensureHousehold()
+      if (!household) return
 
-    const [freezerResult, cellarResult] = await Promise.all([
-      freezer._loadFromSupabase(household.id),
-      cellar._loadFromSupabase(household.id),
-      pantry._loadFromSupabase(household.id),
-    ])
+      const previousId = get().household?.id
+      if (previousId && previousId !== household.id) resetModuleStores()
 
-    if ((!freezerResult.storages.length && !freezerResult.items.length)) {
-      await freezer._migrateFromLocalStorage(household.id)
-      if (localStorage.getItem('_migrated_haushalt-freezer-v3')) {
-        await useFreezer.getState()._loadFromSupabase(household.id)
+      const results = await Promise.all([
+        supabase.from('spices').select('*').eq('household_id', household.id).order('name'),
+        supabase.from('shopping_items').select('*').eq('household_id', household.id).order('created_at'),
+        supabase.from('storage_locations').select('*').eq('household_id', household.id).order('sort_order, name'),
+        supabase.from('spice_categories').select('*').eq('household_id', household.id).order('sort_order, name'),
+        supabase.from('pending_inventory').select('*').eq('household_id', household.id).order('created_at', { ascending: false }),
+        supabase.from('recipes').select('*').eq('household_id', household.id).order('created_at', { ascending: false }),
+      ])
+      const failed = results.find(r => r.error)
+      if (failed) throw failed.error
+      const [spicesData, shopData, locData, catData, pendData, recipeData] = results.map(r => r.data ?? [])
+
+      const spices = spicesData.map(toJS)
+      const patch = {
+        household,
+        spices,
+        shoppingItems:    shopData.map(shopToJS),
+        locations:        locData.map(locToJS),
+        categories:       catData.map(catToJS),
+        pendingInventory: pendData.map(get()._pendingToJS),
+        recipes:          recipeData.map(recipeToJS),
+        dataError:        null,
       }
-    }
-    if ((!cellarResult.racks.length && !cellarResult.bottles.length)) {
-      await cellar._migrateFromLocalStorage(household.id)
-      if (localStorage.getItem('_migrated_haushalt-cellar-v6')) {
-        await useCellar.getState()._loadFromSupabase(household.id)
+      if (!get().spiceSetupDone && spices.length > 0) {
+        localStorage.setItem('spice-setup-done', '1')
+        patch.spiceSetupDone = true
+      }
+      set(patch)
+
+      // Profil frisch holen: Einstellungen (Setup, Shelly, Klassifikationen) können von anderen Geräten stammen
+      const { data: fresh } = await supabase.auth.getUser()
+      if (fresh?.user) set({ user: fresh.user })
+
+      const freezer = useFreezer.getState()
+      const cellar  = useCellar.getState()
+      const pantry  = usePantry.getState()
+
+      const [freezerResult, cellarResult] = await Promise.all([
+        freezer._loadFromSupabase(household.id),
+        cellar._loadFromSupabase(household.id),
+        pantry._loadFromSupabase(household.id),
+      ])
+
+      if (!freezerResult.storages.length && !freezerResult.items.length) {
+        await freezer._migrateFromLocalStorage(household.id)
+        if (localStorage.getItem('_migrated_haushalt-freezer-v3')) {
+          await useFreezer.getState()._loadFromSupabase(household.id)
+        }
+      }
+      if (!cellarResult.racks.length && !cellarResult.bottles.length) {
+        await cellar._migrateFromLocalStorage(household.id)
+        if (localStorage.getItem('_migrated_haushalt-cellar-v6')) {
+          await useCellar.getState()._loadFromSupabase(household.id)
+        }
+      }
+    } catch (e) {
+      console.error('🔴 loadData:', e)
+      set({ dataError: navigator.onLine === false
+        ? 'Keine Internetverbindung – angezeigt wird der zuletzt geladene Stand.'
+        : 'Daten konnten nicht geladen werden. Bitte später erneut versuchen.' })
+    } finally {
+      set({ dataLoading: false, _dataLoadingLock: false })
+      if (get()._reloadQueued) {
+        await get().loadData()
+      } else {
+        const waiters = loadWaiters
+        loadWaiters = []
+        waiters.forEach(resolve => resolve())
       }
     }
   },
+
+  // ── Speicherfehler ───────────────────────────────────────────────────
+  // Eine Änderung wurde lokal angezeigt, aber nicht gespeichert →
+  // Hinweis zeigen und den echten Stand vom Server holen.
+  syncError: null,
+  _handleSyncError() {
+    const offline = navigator.onLine === false
+    set({ syncError: offline
+      ? 'Keine Internetverbindung – deine letzte Änderung wurde nicht gespeichert.'
+      : 'Eine Änderung konnte nicht gespeichert werden. Der aktuelle Stand wurde neu geladen.' })
+    clearTimeout(resyncTimer)
+    if (!offline) resyncTimer = setTimeout(() => get().loadData(), 500)
+  },
+  dismissSyncError() { set({ syncError: null }) },
 
   // ── Rezepte ──────────────────────────────────────────────────────────
 
@@ -696,7 +767,7 @@ const useStore = create((set, get) => ({
     set(s => ({ recipes: [newRecipe, ...s.recipes] }))
     supabase.from('recipes')
       .insert([{ id, ...recipeToDB(data), household_id: household.id, created_by: user?.id }])
-      .then(({ error }) => { if (error) console.error('addRecipe:', error) })
+      .then(...synced('addRecipe'))
     if (data.sourceUrl) get()._logApiUsage('recipe_import', `${data.sourceType || 'web'}: ${data.title || ''}`.slice(0, 100))
     return id
   },
@@ -705,13 +776,13 @@ const useStore = create((set, get) => ({
     set(s => ({ recipes: s.recipes.map(r => r.id === id ? { ...r, ...data } : r) }))
     supabase.from('recipes').update(recipeToDB({ ...get().recipes.find(r => r.id === id), ...data }))
       .eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateRecipe:', error) })
+      .then(...synced('updateRecipe'))
   },
 
   deleteRecipe(id) {
     set(s => ({ recipes: s.recipes.filter(r => r.id !== id) }))
     supabase.from('recipes').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('deleteRecipe:', error) })
+      .then(...synced('deleteRecipe'))
   },
 
   toggleFavorite(id) {
@@ -719,7 +790,7 @@ const useStore = create((set, get) => ({
     const recipe = get().recipes.find(r => r.id === id)
     if (recipe) {
       supabase.from('recipes').update({ favorite: recipe.favorite }).eq('id', id)
-        .then(({ error }) => { if (error) console.error('toggleFavorite:', error) })
+        .then(...synced('toggleFavorite'))
     }
   },
 
@@ -782,9 +853,7 @@ const useStore = create((set, get) => ({
       .insert([{ id, ...toDB(data), household_id: household.id, created_by: user?.id }])
       .then(({ error }) => {
         if (error) {
-          console.error('🔴 addSpice – Supabase Insert fehlgeschlagen:', error)
-          set({ dataError: `Gewürz speichern fehlgeschlagen: ${error.message}` })
-          // Optimistisches Update rückgängig machen
+          reportSyncError('addSpice', error)
           set(s => ({ spices: s.spices.filter(sp => sp.id !== id) }))
         }
       })
@@ -800,7 +869,7 @@ const useStore = create((set, get) => ({
     supabase.from('spices')
       .update({ ...toDB(data), updated_at: now })
       .eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateSpice:', error) })
+      .then(...synced('updateSpice'))
     get()._logActivity('spice_updated', data.name ?? prev?.name ?? '')
   },
 
@@ -812,17 +881,17 @@ const useStore = create((set, get) => ({
       spices: s.spices.map(sp => sp.id === id ? { ...sp, fillLevel: clamped } : sp),
     }))
     supabase.from('spices').update({ fill_level: clamped }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateFillLevel:', error) })
+      .then(...synced('updateFillLevel'))
     if (sp) get()._logActivity('fill_changed', sp.name, FILL_LABELS[clamped])
   },
 
   disposeSpice(id, reason) {
     const sp = get().spices.find(s => s.id === id)
     if (!sp) return
-    const disposedAt = new Date().toISOString().slice(0, 10)
+    const disposedAt = localISODate()
     set(s => ({ spices: s.spices.map(sp => sp.id === id ? { ...sp, disposedAt, disposalReason: reason, fillLevel: 0 } : sp) }))
     supabase.from('spices').update({ disposed_at: disposedAt, disposal_reason: reason, fill_level: 0 }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('disposeSpice:', error) })
+      .then(...synced('disposeSpice'))
     get()._logActivity('spice_disposed', sp.name, reason)
   },
 
@@ -830,7 +899,7 @@ const useStore = create((set, get) => ({
     const sp = get().spices.find(s => s.id === id)
     set(s => ({ spices: s.spices.filter(sp => sp.id !== id) }))
     supabase.from('spices').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('deleteSpice:', error) })
+      .then(...synced('deleteSpice'))
     if (sp) get()._logActivity('spice_deleted', sp.name)
   },
 
@@ -838,7 +907,7 @@ const useStore = create((set, get) => ({
     if (!ids.length) return
     set(s => ({ spices: s.spices.filter(sp => !ids.includes(sp.id)) }))
     supabase.from('spices').delete().in('id', ids)
-      .then(({ error }) => { if (error) console.error('bulkDeleteSpices:', error) })
+      .then(...synced('bulkDeleteSpices'))
     get()._logActivity('spice_deleted', `${ids.length} Gewürze gelöscht`)
   },
 
@@ -848,7 +917,7 @@ const useStore = create((set, get) => ({
     const count = get().spices.length
     set({ spices: [] })
     supabase.from('spices').delete().eq('household_id', household.id)
-      .then(({ error }) => { if (error) console.error('clearAllSpices:', error) })
+      .then(...synced('clearAllSpices'))
     get()._logActivity('spice_deleted', `Alle ${count} Gewürze gelöscht`)
   },
 
@@ -861,7 +930,7 @@ const useStore = create((set, get) => ({
     set(s => ({ locations: [...s.locations, newLoc] }))
     supabase.from('storage_locations')
       .insert([{ id, name: data.name, description: data.description || null, sort_order: data.sortOrder ?? 0, household_id: household?.id }])
-      .then(({ error }) => { if (error) console.error('addLocation:', error) })
+      .then(...synced('addLocation'))
   },
 
   updateLocation(id, data) {
@@ -871,7 +940,7 @@ const useStore = create((set, get) => ({
     supabase.from('storage_locations')
       .update({ name: data.name, description: data.description || null, sort_order: data.sortOrder ?? 0 })
       .eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateLocation:', error) })
+      .then(...synced('updateLocation'))
   },
 
   deleteLocation(id) {
@@ -880,15 +949,15 @@ const useStore = create((set, get) => ({
       spices:    s.spices.map(sp => sp.locationId === id ? { ...sp, locationId: null } : sp),
     }))
     supabase.from('storage_locations').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('deleteLocation:', error) })
+      .then(...synced('deleteLocation'))
   },
 
   reorderLocations(reordered) {
     const updated = reordered.map((l, i) => ({ ...l, sortOrder: i }))
     set({ locations: updated })
-    Promise.all(updated.map(l =>
+    syncedAll('reorderLocations', updated.map(l =>
       supabase.from('storage_locations').update({ sort_order: l.sortOrder }).eq('id', l.id)
-    )).catch(e => console.error('reorderLocations:', e))
+    ))
   },
 
   // ── Kategorien ────────────────────────────────────────────────────────
@@ -900,7 +969,7 @@ const useStore = create((set, get) => ({
     set(s => ({ categories: [...s.categories, newCat] }))
     supabase.from('spice_categories')
       .insert([{ id, name: data.name, color: data.color || 'gray', sort_order: categories.length, household_id: household?.id }])
-      .then(({ error }) => { if (error) console.error('addCategory:', error) })
+      .then(...synced('addCategory'))
   },
 
   updateCategory(id, data) {
@@ -908,7 +977,7 @@ const useStore = create((set, get) => ({
     supabase.from('spice_categories')
       .update({ name: data.name, color: data.color })
       .eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateCategory:', error) })
+      .then(...synced('updateCategory'))
   },
 
   deleteCategory(id) {
@@ -917,10 +986,10 @@ const useStore = create((set, get) => ({
       spices:     s.spices.map(sp => sp.category === id ? { ...sp, category: null } : sp),
     }))
     supabase.from('spice_categories').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('deleteCategory:', error) })
+      .then(...synced('deleteCategory'))
     // Kategorie-Zuweisung bei betroffenen Gewürzen entfernen
     supabase.from('spices').update({ category: null }).eq('category', id)
-      .then(({ error }) => { if (error) console.error('deleteCategory/spices:', error) })
+      .then(...synced('deleteCategory/spices'))
   },
 
   // ── Shopping ─────────────────────────────────────────────────────────
@@ -958,7 +1027,7 @@ const useStore = create((set, get) => ({
     set(s => ({ shoppingItems: [...s.shoppingItems, item] }))
     supabase.from('shopping_items')
       .insert([{ id, name: name.trim(), amount: amount.trim() || null, added_by: user?.id, household_id: household?.id }])
-      .then(({ error }) => { if (error) console.error('addShoppingItem:', error) })
+      .then(...synced('addShoppingItem'))
     get()._logActivity('shopping_added', name.trim())
   },
 
@@ -968,7 +1037,7 @@ const useStore = create((set, get) => ({
     const checked = !item.checked
     set(s => ({ shoppingItems: s.shoppingItems.map(i => i.id === id ? { ...i, checked } : i) }))
     supabase.from('shopping_items').update({ checked }).eq('id', id)
-      .then(({ error }) => { if (error) console.error('toggleShoppingItem:', error) })
+      .then(...synced('toggleShoppingItem'))
   },
 
   updateShoppingItem(id, updates) {
@@ -977,13 +1046,13 @@ const useStore = create((set, get) => ({
     if (updates.name   !== undefined) dbUpdates.name   = updates.name
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount || null
     supabase.from('shopping_items').update(dbUpdates).eq('id', id)
-      .then(({ error }) => { if (error) console.error('updateShoppingItem:', error) })
+      .then(...synced('updateShoppingItem'))
   },
 
   deleteShoppingItem(id) {
     set(s => ({ shoppingItems: s.shoppingItems.filter(i => i.id !== id) }))
     supabase.from('shopping_items').delete().eq('id', id)
-      .then(({ error }) => { if (error) console.error('deleteShoppingItem:', error) })
+      .then(...synced('deleteShoppingItem'))
   },
 
   clearCheckedShopping() {
@@ -991,7 +1060,7 @@ const useStore = create((set, get) => ({
     if (!ids.length) return
     set(s => ({ shoppingItems: s.shoppingItems.filter(i => !i.checked) }))
     supabase.from('shopping_items').delete().in('id', ids)
-      .then(({ error }) => { if (error) console.error('clearCheckedShopping:', error) })
+      .then(...synced('clearCheckedShopping'))
   },
 
   // ── Export ────────────────────────────────────────────────────────────

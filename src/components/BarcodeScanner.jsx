@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { lookupBarcode } from '../utils/productLookup'
 
+// stop() wirft synchron, wenn der Scanner (noch) nicht läuft
+async function safeStop(scanner) {
+  try { if (scanner?.isScanning) await scanner.stop() } catch { /* bereits gestoppt */ }
+}
+
 export default function BarcodeScanner({ onDetected, onClose }) {
   const instanceRef = useRef(null)
+  const runRef = useRef({ cancelled: false })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [looking, setLooking] = useState(false)
@@ -15,8 +21,11 @@ export default function BarcodeScanner({ onDetected, onClose }) {
   const detectedRef = useRef(false)
 
   useEffect(() => {
-    startScanner(null)
-    return () => { instanceRef.current?.stop().catch(() => {}) }
+    // Eigenes Token pro Effekt-Durchlauf (StrictMode mountet doppelt)
+    const run = { cancelled: false }
+    runRef.current = run
+    startScanner(null, run)
+    return () => { run.cancelled = true; safeStop(instanceRef.current) }
   }, [])
 
   // Erstes start()-Argument: Kamera-Wahl – MUSS genau einen Key haben
@@ -54,19 +63,22 @@ export default function BarcodeScanner({ onDetected, onClose }) {
     if (detectedRef.current) return
     detectedRef.current = true
     if (navigator.vibrate) navigator.vibrate(100)
-    instanceRef.current?.pause(true)
+    try { instanceRef.current?.pause(true) } catch { /* Kamera lief noch nicht (manuelle Eingabe) */ }
     setLooking(true)
     const productData = await lookupBarcode(decodedText)
+    if (runRef.current.cancelled) return
     setLooking(false)
     onDetected(decodedText, productData)
   }
 
-  async function startScanner(cameraId) {
+  async function startScanner(cameraId, run = runRef.current) {
     try {
       const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode')
+      if (run.cancelled) return
 
       if (!cameraId) {
         const devices = await Html5Qrcode.getCameras()
+        if (run.cancelled) return
         if (!devices?.length) { setError('Keine Kamera gefunden.'); setLoading(false); return }
         setCameras(devices)
         const back = devices.find(d => /back|rear|environment|rück/i.test(d.label))
@@ -100,6 +112,8 @@ export default function BarcodeScanner({ onDetected, onClose }) {
         handleDecode,
         () => {}
       )
+      // Während des Kamerastarts geschlossen → Kamera sofort wieder freigeben
+      if (run.cancelled) { await safeStop(scanner); return }
 
       setTimeout(() => {
         const canvas = document.querySelector('#qr-reader-container canvas')
@@ -109,6 +123,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
 
       setLoading(false)
     } catch (err) {
+      if (run.cancelled) return
       const msg = err?.message ?? String(err)
       if (/permission|NotAllowed/i.test(msg)) setError('Kamerazugriff verweigert.')
       else if (/NotFound|no device/i.test(msg)) setError('Keine Kamera gefunden.')
@@ -118,7 +133,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
   }
 
   async function switchCamera(camId) {
-    await instanceRef.current?.stop().catch(() => {})
+    await safeStop(instanceRef.current)
     instanceRef.current = null
     detectedRef.current = false
     setTorchOn(false)

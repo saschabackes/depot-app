@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '../../lib/supabase'
 import useStore from '../../store/useStore'
+import { synced, syncedAll, reportSyncError } from '../../lib/sync'
+import { localISODate } from '../../utils/date'
 
 function logActivity(action, target, detail) {
   try { useStore.getState()._logActivity(action, target, detail) } catch {}
@@ -34,10 +36,10 @@ export const CATEGORIES = [
 ]
 
 function uid(p='tk') { return p + '_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36) }
-function today()     { return new Date().toISOString().slice(0,10) }
+function today()     { return localISODate() }
 function calcExpiry(category, frozenAt) {
   const days = FREEZER_SHELF_LIFE[category] ?? 180
-  const d = new Date(frozenAt); d.setDate(d.getDate() + days)
+  const d = new Date(frozenAt); d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
 
@@ -191,14 +193,17 @@ export const useFreezer = create(
 
       // ── Data Loading (von useStore.loadData aufgerufen) ───────────────────
       async _loadFromSupabase(householdId) {
-        const [{ data: storagesData }, { data: itemsData }] = await Promise.all([
+        const results = await Promise.all([
           supabase.from('freezer_storages').select('*').eq('household_id', householdId).order('sort_order'),
           supabase.from('freezer_items').select('*').eq('household_id', householdId).order('name'),
         ])
+        const failed = results.find(r => r.error)
+        if (failed) throw failed.error
+        const [{ data: storagesData }, { data: itemsData }] = results
         const storages = (storagesData ?? []).map(storageToJS)
         const items = (itemsData ?? []).map(itemToJS)
         const patch = { storages, items, _loaded: true }
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = useStore.getState().user
         if (user?.user_metadata?.freezer_setup_done || storages.length > 0 || items.length > 0) {
           patch.setupDone = true
         }
@@ -255,7 +260,7 @@ export const useFreezer = create(
           items: s.items.map(x => x.id === itemId ? { ...x, needsRestock: false } : x),
         }))
         const h = getHousehold()
-        if (h) supabase.from('freezer_items').update({ needs_restock: false }).eq('id', itemId).then(() => {})
+        if (h) supabase.from('freezer_items').update({ needs_restock: false }).eq('id', itemId).then(...synced('freezer_items'))
         return pid
       },
       addPendingByName(name) {
@@ -274,29 +279,29 @@ export const useFreezer = create(
         set(st => ({ storages: [...st.storages, { ...s, sortOrder: st.storages.length }] }))
         if (h) supabase.from('freezer_storages').insert([{
           id: s.id, household_id: h.id, label, emoji, compartments: s.compartments, sort_order: get().storages.length - 1,
-        }]).then(({ error }) => { if (error) console.error('addStorage:', error) })
+        }]).then(...synced('addStorage'))
         return s.id
       },
       renameStorage(id, label, emoji) {
         set(st => ({ storages: st.storages.map(s => s.id===id ? { ...s, label, emoji: emoji ?? s.emoji } : s) }))
         const patch = { label }
         if (emoji) patch.emoji = emoji
-        supabase.from('freezer_storages').update(patch).eq('id', id).then(() => {})
+        supabase.from('freezer_storages').update(patch).eq('id', id).then(...synced('freezer_storages'))
       },
       reorderStorages(reordered) {
         const updated = reordered.map((s, i) => ({ ...s, sortOrder: i }))
         set({ storages: updated })
-        Promise.all(updated.map(s =>
+        syncedAll('reorderStorages', updated.map(s =>
           supabase.from('freezer_storages').update({ sort_order: s.sortOrder }).eq('id', s.id)
-        )).catch(e => console.error('reorderStorages:', e))
+        ))
       },
       removeStorage(id) {
         set(st => ({
           storages: st.storages.filter(s => s.id !== id),
           items: st.items.filter(it => it.storageId !== id),
         }))
-        supabase.from('freezer_storages').delete().eq('id', id).then(() => {})
-        supabase.from('freezer_items').delete().eq('storage_id', id).then(() => {})
+        supabase.from('freezer_storages').delete().eq('id', id).then(...synced('freezer_storages'))
+        supabase.from('freezer_items').delete().eq('storage_id', id).then(...synced('freezer_items'))
       },
       addCompartment(storageId, label) {
         const newComp = { id: uid('c'), label }
@@ -305,7 +310,7 @@ export const useFreezer = create(
             ? { ...s, compartments: [...s.compartments, newComp] } : s)
         }))
         const s = get().storages.find(s => s.id === storageId)
-        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(() => {})
+        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(...synced('freezer_storages'))
       },
       renameCompartment(storageId, compartmentId, label) {
         set(st => ({
@@ -313,7 +318,7 @@ export const useFreezer = create(
             ? { ...s, compartments: s.compartments.map(c => c.id===compartmentId ? { ...c, label } : c) } : s)
         }))
         const s = get().storages.find(s => s.id === storageId)
-        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(() => {})
+        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(...synced('freezer_storages'))
       },
       removeCompartment(storageId, compartmentId) {
         set(st => ({
@@ -322,8 +327,8 @@ export const useFreezer = create(
           items: st.items.filter(it => !(it.storageId===storageId && it.compartmentId===compartmentId)),
         }))
         const s = get().storages.find(s => s.id === storageId)
-        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(() => {})
-        supabase.from('freezer_items').delete().eq('storage_id', storageId).eq('compartment_id', compartmentId).then(() => {})
+        if (s) supabase.from('freezer_storages').update({ compartments: s.compartments }).eq('id', storageId).then(...synced('freezer_storages'))
+        supabase.from('freezer_items').delete().eq('storage_id', storageId).eq('compartment_id', compartmentId).then(...synced('freezer_items'))
       },
 
       // ── Items ─────────────────────────────────────────────────────────────
@@ -355,7 +360,7 @@ export const useFreezer = create(
         if (h) supabase.from('freezer_items').insert([{ id: item.id, household_id: h.id, ...itemToDB(item) }])
           .then(({ error }) => {
             if (error) {
-              console.error('addItem:', error)
+              reportSyncError('addItem', error)
               set(s => ({ items: s.items.filter(it => it.id !== item.id) }))
             }
           })
@@ -380,22 +385,22 @@ export const useFreezer = create(
             .filter(it => it.portions > 0),
         }))
         if (newPortions > 0) {
-          supabase.from('freezer_items').update({ portions: newPortions }).eq('id', id).then(() => {})
+          supabase.from('freezer_items').update({ portions: newPortions }).eq('id', id).then(...synced('freezer_items'))
         } else {
-          supabase.from('freezer_items').delete().eq('id', id).then(() => {})
+          supabase.from('freezer_items').delete().eq('id', id).then(...synced('freezer_items'))
         }
         if (item) logActivity('freezer_consumed', item.name)
       },
       removeItem(id) {
         const item = get().items.find(it => it.id === id)
         set(s => ({ items: s.items.filter(it => it.id !== id) }))
-        supabase.from('freezer_items').delete().eq('id', id).then(() => {})
+        supabase.from('freezer_items').delete().eq('id', id).then(...synced('freezer_items'))
         if (item) logActivity('freezer_deleted', item.name)
       },
       bulkDeleteItems(ids) {
         if (!ids.length) return
         set(s => ({ items: s.items.filter(it => !ids.includes(it.id)) }))
-        supabase.from('freezer_items').delete().in('id', ids).then(() => {})
+        supabase.from('freezer_items').delete().in('id', ids).then(...synced('freezer_items'))
         logActivity('freezer_deleted', `${ids.length} Einträge gelöscht`)
       },
       clearAllItems() {
@@ -403,7 +408,7 @@ export const useFreezer = create(
         const count = get().items.length
         if (!count) return
         set({ items: [] })
-        if (h) supabase.from('freezer_items').delete().eq('household_id', h.id).then(() => {})
+        if (h) supabase.from('freezer_items').delete().eq('household_id', h.id).then(...synced('freezer_items'))
         logActivity('freezer_deleted', `Alle ${count} Einträge gelöscht`)
       },
 
@@ -421,19 +426,19 @@ export const useFreezer = create(
         if ('expiryDate' in patch)    dbPatch.expiry_date = patch.expiryDate
         if ('photoData' in patch)     dbPatch.photo_data = patch.photoData
         if ('needsRestock' in patch)  dbPatch.needs_restock = patch.needsRestock
-        if (Object.keys(dbPatch).length) supabase.from('freezer_items').update(dbPatch).eq('id', id).then(() => {})
+        if (Object.keys(dbPatch).length) supabase.from('freezer_items').update(dbPatch).eq('id', id).then(...synced('freezer_items'))
       },
       toggleRestock(id) {
         const item = get().items.find(it => it.id === id)
         const val = !item?.needsRestock
         set(s => ({ items: s.items.map(it => it.id === id ? { ...it, needsRestock: val } : it) }))
-        supabase.from('freezer_items').update({ needs_restock: val }).eq('id', id).then(() => {})
+        supabase.from('freezer_items').update({ needs_restock: val }).eq('id', id).then(...synced('freezer_items'))
       },
 
       // ── Demo + Reset ──────────────────────────────────────────────────────
       seedDemoData() {
         const h = getHousehold()
-        const oldDate = (days) => { const d = new Date(); d.setDate(d.getDate() - days); return d.toISOString().slice(0,10) }
+        const oldDate = (days) => { const d = new Date(); d.setDate(d.getDate() - days); return localISODate(d) }
         const defaultStorages = DEFAULT_STORAGES.map((s, i) => ({ ...s, sortOrder: i }))
         const samples = [
           { name: 'Hähnchenbrust',  category: 'geflügel',      storageId: 's_eg', compartmentId: 'eg_1', portions: 3, portionSize: '150 g', frozenAt: oldDate(45)  },
@@ -460,24 +465,24 @@ export const useFreezer = create(
         if (h) {
           supabase.from('freezer_storages').upsert(defaultStorages.map((s, i) => ({
             id: s.id, household_id: h.id, label: s.label, emoji: s.emoji, compartments: s.compartments, sort_order: i,
-          })), { onConflict: 'id' }).then(() => {})
+          })), { onConflict: 'id' }).then(...synced('freezer_storages'))
           supabase.from('freezer_items').upsert(samples.map(it => ({
             id: it.id, household_id: h.id, ...itemToDB(it),
-          })), { onConflict: 'id' }).then(() => {})
+          })), { onConflict: 'id' }).then(...synced('freezer_items'))
         }
       },
       clear() {
         const h = getHousehold()
         set({ items: [], recentNames: [], lastUsedCompartment: null })
-        if (h) supabase.from('freezer_items').delete().eq('household_id', h.id).then(() => {})
+        if (h) supabase.from('freezer_items').delete().eq('household_id', h.id).then(...synced('freezer_items'))
       },
       resetSetup() {
         const h = getHousehold()
         set({ storages: [], items: [], recentNames: [], lastUsedCompartment: null, setupDone: false })
         supabase.auth.updateUser({ data: { freezer_setup_done: false } })
         if (h) {
-          supabase.from('freezer_items').delete().eq('household_id', h.id).then(() => {})
-          supabase.from('freezer_storages').delete().eq('household_id', h.id).then(() => {})
+          supabase.from('freezer_items').delete().eq('household_id', h.id).then(...synced('freezer_items'))
+          supabase.from('freezer_storages').delete().eq('household_id', h.id).then(...synced('freezer_storages'))
         }
       },
     }),

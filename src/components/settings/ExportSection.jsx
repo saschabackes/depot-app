@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useStore from '../../store/useStore'
 import { useFreezer } from '../../modules/freezer/store'
 import { useCellar } from '../../modules/cellar/store'
+import { localISODate } from '../../utils/date'
 
 // ── Datensicherung ────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ function ExportSection() {
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href     = url
-    a.download = `haushalt-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `haushalt-backup-${localISODate()}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

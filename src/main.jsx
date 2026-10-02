@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import ShareView from './modules/cellar/ShareView'
+import ErrorBoundary from './components/ErrorBoundary'
 import './index.css'
 import { APP_NAME, APP_DESCRIPTION } from './branding'
 
@@ -23,6 +24,8 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Root />
+    <ErrorBoundary>
+      <Root />
+    </ErrorBoundary>
   </React.StrictMode>
 )

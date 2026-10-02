@@ -5,6 +5,7 @@ import { WINE_COUNTRIES_TOP, WINE_COUNTRIES_MORE, isSparkling, CountryPicker, Cl
 import { estimateDrinkWindow } from './drinkWindow'
 import AutocompleteInput from '../../components/AutocompleteInput'
 import BarcodeScanner from '../../components/BarcodeScanner'
+import { localISODate } from '../../utils/date'
 
 const COLORS = [
   { id: 'rot',    label: '🍷 Rot' },
@@ -81,7 +82,7 @@ export default function CellarForm({ prefilled, onClose }) {
 
   const [retailer, setRetailer] = useState('')
   const [priceEur, setPriceEur] = useState('')
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10))
+  const [purchaseDate, setPurchaseDate] = useState(localISODate())
   const [link, setLink] = useState('')
 
   const startRackId = prefilled?.rackId || lastUsedRack?.rackId || racks[0]?.id

@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 import { supabase } from '../../lib/supabase'
 import useStore from '../../store/useStore'
 import { estimateDrinkWindow } from './drinkWindow'
+import { synced, syncedAll, reportSyncError } from '../../lib/sync'
+import { localISODate } from '../../utils/date'
 
 function uid(p='w') { return p + '_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36) }
 
@@ -225,7 +227,7 @@ export const useCellar = create(
             : r),
         }))
         const merged = get().racks.find(r => r.id === rackId)?.conditions
-        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', rackId).then(() => {})
+        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', rackId).then(...synced('cellar_racks'))
       },
       updateSensorReading(rackId, reading) {
         set(s => ({ sensorReadings: { ...s.sensorReadings, [rackId]: { ...reading, fetchedAt: Date.now() } } }))
@@ -236,14 +238,17 @@ export const useCellar = create(
 
       // ── Data Loading (von useStore.loadData aufgerufen) ───────────────────
       async _loadFromSupabase(householdId) {
-        const [{ data: racksData }, { data: bottlesData }] = await Promise.all([
+        const results = await Promise.all([
           supabase.from('cellar_racks').select('*').eq('household_id', householdId).order('sort_order'),
           supabase.from('cellar_bottles').select('*').eq('household_id', householdId).order('name'),
         ])
+        const failed = results.find(r => r.error)
+        if (failed) throw failed.error
+        const [{ data: racksData }, { data: bottlesData }] = results
         const racks = (racksData ?? []).map(rackToJS)
         const bottles = (bottlesData ?? []).map(bottleToJS)
         const patch = { racks, bottles, _loaded: true }
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = useStore.getState().user
         const meta = user?.user_metadata ?? {}
         if (meta.cellar_setup_done || racks.length > 0 || bottles.length > 0) {
           patch.setupDone = true
@@ -310,7 +315,7 @@ export const useCellar = create(
           }],
           bottles: s.bottles.map(x => x.id === bottleId ? { ...x, restock: false } : x),
         }))
-        supabase.from('cellar_bottles').update({ restock: false }).eq('id', bottleId).then(() => {})
+        supabase.from('cellar_bottles').update({ restock: false }).eq('id', bottleId).then(...synced('cellar_bottles'))
         return pid
       },
       addPendingByName(name) {
@@ -357,7 +362,7 @@ export const useCellar = create(
           bottles: s.bottles.map(b => b.id === bottleId
             ? { ...b, count: newCount, restock: false } : b),
         }))
-        supabase.from('cellar_bottles').update({ count: newCount, restock: false }).eq('id', bottleId).then(() => {})
+        supabase.from('cellar_bottles').update({ count: newCount, restock: false }).eq('id', bottleId).then(...synced('cellar_bottles'))
       },
 
       // ── Racks ──────────────────────────────────────────────────────────────
@@ -367,12 +372,12 @@ export const useCellar = create(
         set(s => ({ racks: [...s.racks, r] }))
         if (h) supabase.from('cellar_racks').insert([{
           id: r.id, household_id: h.id, label, emoji, slots: r.slots, rows: 0, cols: 0, conditions: r.conditions, sort_order: r.sortOrder,
-        }]).then(({ error }) => { if (error) console.error('addRack:', error) })
+        }]).then(...synced('addRack'))
         return r.id
       },
       setRackGrid(id, rows, cols) {
         set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, rows, cols } : r) }))
-        supabase.from('cellar_racks').update({ rows, cols }).eq('id', id).then(() => {})
+        supabase.from('cellar_racks').update({ rows, cols }).eq('id', id).then(...synced('cellar_racks'))
       },
       toggleBlockedCell(id, row, col) {
         const key = `${row}-${col}`
@@ -386,38 +391,38 @@ export const useCellar = create(
           })
         }))
         const merged = get().racks.find(r => r.id === id)?.conditions
-        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', id).then(() => {})
+        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', id).then(...synced('cellar_racks'))
       },
       setRackConditions(id, conditions) {
         set(s => ({ racks: s.racks.map(r => r.id === id ? { ...r, conditions: { ...(r.conditions || DEFAULT_CONDITIONS), ...conditions } } : r) }))
         const merged = get().racks.find(r => r.id === id)?.conditions
-        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', id).then(() => {})
+        if (merged) supabase.from('cellar_racks').update({ conditions: merged }).eq('id', id).then(...synced('cellar_racks'))
       },
       renameRack(id, label, emoji) {
         set(s => ({ racks: s.racks.map(r => r.id===id ? { ...r, label, emoji: emoji ?? r.emoji } : r) }))
         const patch = { label }
         if (emoji) patch.emoji = emoji
-        supabase.from('cellar_racks').update(patch).eq('id', id).then(() => {})
+        supabase.from('cellar_racks').update(patch).eq('id', id).then(...synced('cellar_racks'))
       },
       reorderRacks(reordered) {
         const updated = reordered.map((r, i) => ({ ...r, sortOrder: i }))
         set({ racks: updated })
-        Promise.all(updated.map(r =>
+        syncedAll('reorderRacks', updated.map(r =>
           supabase.from('cellar_racks').update({ sort_order: r.sortOrder }).eq('id', r.id)
-        )).catch(e => console.error('reorderRacks:', e))
+        ))
       },
       removeRack(id) {
         set(s => ({
           racks: s.racks.filter(r => r.id !== id),
           bottles: s.bottles.filter(b => b.rackId !== id),
         }))
-        supabase.from('cellar_racks').delete().eq('id', id).then(() => {})
-        supabase.from('cellar_bottles').delete().eq('rack_id', id).then(() => {})
+        supabase.from('cellar_racks').delete().eq('id', id).then(...synced('cellar_racks'))
+        supabase.from('cellar_bottles').delete().eq('rack_id', id).then(...synced('cellar_bottles'))
       },
       addSlot(rackId, label) {
         set(s => ({ racks: s.racks.map(r => r.id===rackId ? { ...r, slots: [...r.slots, label] } : r) }))
         const r = get().racks.find(r => r.id === rackId)
-        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(() => {})
+        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(...synced('cellar_racks'))
       },
       renameSlot(rackId, oldLabel, newLabel) {
         set(s => ({
@@ -427,8 +432,8 @@ export const useCellar = create(
           bottles: s.bottles.map(b => b.rackId===rackId && b.slot===oldLabel ? { ...b, slot: newLabel } : b),
         }))
         const r = get().racks.find(r => r.id === rackId)
-        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(() => {})
-        supabase.from('cellar_bottles').update({ slot: newLabel }).eq('rack_id', rackId).eq('slot', oldLabel).then(() => {})
+        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(...synced('cellar_racks'))
+        supabase.from('cellar_bottles').update({ slot: newLabel }).eq('rack_id', rackId).eq('slot', oldLabel).then(...synced('cellar_bottles'))
       },
       removeSlot(rackId, label) {
         set(s => ({
@@ -437,8 +442,8 @@ export const useCellar = create(
           bottles: s.bottles.filter(b => !(b.rackId===rackId && b.slot===label)),
         }))
         const r = get().racks.find(r => r.id === rackId)
-        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(() => {})
-        supabase.from('cellar_bottles').delete().eq('rack_id', rackId).eq('slot', label).then(() => {})
+        if (r) supabase.from('cellar_racks').update({ slots: r.slots }).eq('id', rackId).then(...synced('cellar_racks'))
+        supabase.from('cellar_bottles').delete().eq('rack_id', rackId).eq('slot', label).then(...synced('cellar_bottles'))
       },
 
       // ── Bottles ────────────────────────────────────────────────────────────
@@ -497,7 +502,7 @@ export const useCellar = create(
           if (h) supabase.from('cellar_bottles').insert([{ id: b.id, household_id: h.id, ...bottleToDB(b) }])
             .then(({ error }) => {
               if (error) {
-                console.error('addBottle:', error)
+                reportSyncError('addBottle', error)
                 set(s => ({ bottles: s.bottles.filter(x => x.id !== b.id) }))
               }
             })
@@ -547,13 +552,13 @@ export const useCellar = create(
         if ('history' in patch)        dbPatch.history = patch.history
         if ('archived' in patch)       dbPatch.archived = patch.archived
         if ('bought' in patch)         dbPatch.bought = patch.bought
-        if (Object.keys(dbPatch).length) supabase.from('cellar_bottles').update(dbPatch).eq('id', id).then(() => {})
+        if (Object.keys(dbPatch).length) supabase.from('cellar_bottles').update(dbPatch).eq('id', id).then(...synced('cellar_bottles'))
       },
 
       toggleRestock(id) {
         const val = !get().bottles.find(b => b.id === id)?.restock
         set(s => ({ bottles: s.bottles.map(b => b.id === id ? { ...b, restock: val } : b) }))
-        supabase.from('cellar_bottles').update({ restock: val }).eq('id', id).then(() => {})
+        supabase.from('cellar_bottles').update({ restock: val }).eq('id', id).then(...synced('cellar_bottles'))
       },
 
       quickAddByName(name) {
@@ -564,7 +569,7 @@ export const useCellar = create(
       },
 
       drinkOne(id, entry = {}) {
-        const date = entry.date || new Date().toISOString().slice(0, 10)
+        const date = entry.date || localISODate()
         const rating = Number(entry.rating) || undefined
         const bottle = get().bottles.find(x => x.id === id)
         const newHistory = [...(bottle?.history || []), {
@@ -587,19 +592,19 @@ export const useCellar = create(
         const dbPatch = { count: newCount, history: newHistory }
         if (rating) dbPatch.rating = rating
         if (entry.note) dbPatch.tasting_notes = entry.note
-        supabase.from('cellar_bottles').update(dbPatch).eq('id', id).then(() => {})
+        supabase.from('cellar_bottles').update(dbPatch).eq('id', id).then(...synced('cellar_bottles'))
         if (bottle) logActivity('wine_consumed', bottle.name)
       },
       removeBottle(id) {
         const b = get().bottles.find(x => x.id === id)
         set(s => ({ bottles: s.bottles.filter(x => x.id !== id) }))
-        supabase.from('cellar_bottles').delete().eq('id', id).then(() => {})
+        supabase.from('cellar_bottles').delete().eq('id', id).then(...synced('cellar_bottles'))
         if (b) logActivity('wine_deleted', b.name)
       },
       bulkDeleteBottles(ids) {
         if (!ids.length) return
         set(s => ({ bottles: s.bottles.filter(b => !ids.includes(b.id)) }))
-        supabase.from('cellar_bottles').delete().in('id', ids).then(() => {})
+        supabase.from('cellar_bottles').delete().in('id', ids).then(...synced('cellar_bottles'))
         logActivity('wine_deleted', `${ids.length} Weine gelöscht`)
       },
       clearAllBottles() {
@@ -607,7 +612,7 @@ export const useCellar = create(
         const count = get().bottles.length
         if (!count) return
         set({ bottles: [] })
-        if (h) supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(() => {})
+        if (h) supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(...synced('cellar_bottles'))
         logActivity('wine_deleted', `Alle ${count} Weine gelöscht`)
       },
 
@@ -682,24 +687,24 @@ export const useCellar = create(
         if (h) {
           supabase.from('cellar_racks').upsert(defaultRacks.map((r, i) => ({
             id: r.id, household_id: h.id, label: r.label, emoji: r.emoji, slots: r.slots, conditions: r.conditions, sort_order: i,
-          })), { onConflict: 'id' }).then(() => {})
+          })), { onConflict: 'id' }).then(...synced('cellar_racks'))
           supabase.from('cellar_bottles').upsert(bottleRows.map(b => ({
             id: b.id, household_id: h.id, ...bottleToDB(b),
-          })), { onConflict: 'id' }).then(() => {})
+          })), { onConflict: 'id' }).then(...synced('cellar_bottles'))
         }
       },
       clear() {
         const h = getHousehold()
         set({ bottles: [], recentNames: [], lastUsedRack: null })
-        if (h) supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(() => {})
+        if (h) supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(...synced('cellar_bottles'))
       },
       resetSetup() {
         const h = getHousehold()
         set({ racks: [], bottles: [], recentNames: [], lastUsedRack: null, setupDone: false })
         supabase.auth.updateUser({ data: { cellar_setup_done: false } })
         if (h) {
-          supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(() => {})
-          supabase.from('cellar_racks').delete().eq('household_id', h.id).then(() => {})
+          supabase.from('cellar_bottles').delete().eq('household_id', h.id).then(...synced('cellar_bottles'))
+          supabase.from('cellar_racks').delete().eq('household_id', h.id).then(...synced('cellar_racks'))
         }
       },
     }),

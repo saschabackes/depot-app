@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import useStore from '../store/useStore'
 import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
@@ -12,8 +12,9 @@ const SORT_OPTIONS = [
   { id: 'avail',   label: 'Verfügbarkeit' },
 ]
 
-export default function RecipesView() {
-  const { recipes, toggleFavorite } = useStore()
+export default function RecipesView({ focusId = null, onFocusHandled = () => {} }) {
+  const recipes = useStore(s => s.recipes)
+  const toggleFavorite = useStore(s => s.toggleFavorite)
   const spices = useStore(s => s.spices)
   const freezerItems = useFreezer(s => s.items)
   const bottles = useCellar(s => s.bottles)
@@ -32,6 +33,15 @@ export default function RecipesView() {
   const [showFilters, setShowFilters] = useState(false)
 
   const selected = recipes.find(r => r.id === selectedId)
+
+  useEffect(() => {
+    if (!focusId) return
+    if (recipes.some(r => r.id === focusId)) {
+      setSelectedId(focusId)
+      setMode('detail')
+    }
+    onFocusHandled()
+  }, [focusId])
 
   // Availability map
   const availMap = useMemo(() => {

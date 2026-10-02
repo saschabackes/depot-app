@@ -4,6 +4,7 @@ import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
 import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
 import { estimateDrinkWindow } from './drinkWindow'
 import { isSafeUrl } from '../../utils/safeUrl'
+import { localISODate } from '../../utils/date'
 
 const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
 const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
@@ -347,7 +348,7 @@ function DrinkSheet({ bottle, onClose, onSave }) {
   const [rating, setRating]     = useState(bottle.rating || 0)
   const [occasion, setOccasion] = useState('')
   const [note, setNote]         = useState('')
-  const [date, setDate]         = useState(new Date().toISOString().slice(0,10))
+  const [date, setDate]         = useState(localISODate())
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
