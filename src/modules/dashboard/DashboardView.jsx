@@ -1,185 +1,176 @@
-import { useState, useCallback } from 'react'
-import useDashboardData from './useDashboardData'
-import { MHD_STYLES } from '../../utils/mhd'
+import { useState, useCallback, useMemo } from 'react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { de } from 'date-fns/locale'
+import useDashboardData from './useDashboardData'
+import useStore from '../../store/useStore'
+import { useFreezer } from '../freezer/store'
+import { useCellar } from '../cellar/store'
+import { usePantry } from '../pantry/store'
+import { APP_NAME } from '../../branding'
+import Screen from '../../ui/Screen'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow, IconTile } from '../../ui/List'
+import { SearchField, StatusPill } from '../../ui/Controls'
 
-const MODULE_CARDS = [
-  { id: 'spices',  key: 'spices',  label: 'Gewürze', emoji: '🌿' },
-  { id: 'freezer', key: 'freezer', label: 'TK',      emoji: '❄️' },
-  { id: 'cellar',  key: 'cellar',  label: 'Wein',    emoji: '🍷' },
-  { id: 'recipes', key: 'recipes', label: 'Rezepte', emoji: '📖' },
+const TYPE_META = {
+  spice:   { icon: 'leaf',   tone: 'spices',  section: 'spices',  label: 'Gewürze' },
+  freezer: { icon: 'snow',   tone: 'freezer', section: 'freezer', label: 'Tiefkühl' },
+  cellar:  { icon: 'wine',   tone: 'cellar',  section: 'cellar',  label: 'Wein' },
+  pantry:  { icon: 'pantry', tone: 'pantry',  section: 'pantry',  label: 'Vorrat' },
+  recipe:  { icon: 'pot',    tone: 'accent',  section: 'recipes', label: 'Rezept' },
+}
+
+const TILES = [
+  { type: 'spice',   key: 'spices',  unit: n => (n === 1 ? 'Gewürz' : 'Gewürze') },
+  { type: 'freezer', key: 'freezer', unit: () => 'Tiefkühl' },
+  { type: 'cellar',  key: 'cellar',  unit: n => (n === 1 ? 'Flasche Wein' : 'Flaschen Wein') },
+  { type: 'pantry',  key: 'pantry',  unit: () => 'Vorrat' },
 ]
 
 const ALL_SECTIONS = [
-  { id: 'counts',    label: 'Module',              emoji: '📊' },
-  { id: 'dailyfact', label: 'Wusstest du?',        emoji: '💡' },
-  { id: 'attention', label: 'Braucht Aufmerksamkeit', emoji: '⚠️' },
-  { id: 'cooking',   label: 'Heute kochen',        emoji: '🍳' },
-  { id: 'activity',  label: 'Letzte Aktivität',    emoji: '🕐' },
+  { id: 'attention', label: 'Braucht Aufmerksamkeit' },
+  { id: 'counts',    label: 'Bestand' },
+  { id: 'cooking',   label: 'Heute kochen' },
+  { id: 'dailyfact', label: 'Wusstest du?' },
+  { id: 'activity',  label: 'Letzte Aktivität' },
 ]
 
-const STORAGE_KEY = 'depot_dashboard_config'
-
-function loadConfig() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch { return null }
-}
-
-function saveConfig(cfg) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg))
-}
+const STORAGE_KEY = 'depot_dashboard_config_v2'
 
 function getConfig() {
-  const saved = loadConfig()
-  if (saved?.order && saved?.visible) return saved
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+    if (saved?.order && saved?.visible) return saved
+  } catch { /* Standard verwenden */ }
   return { order: ALL_SECTIONS.map(s => s.id), visible: Object.fromEntries(ALL_SECTIONS.map(s => [s.id, true])) }
 }
 
-export default function DashboardView({ onNavigate }) {
+function initials(user) {
+  const name = user?.user_metadata?.name ?? user?.email ?? ''
+  return name.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?'
+}
+
+export default function DashboardView({ onNavigate, onOpenProfile }) {
   const data = useDashboardData()
+  const user = useStore(s => s.user)
   const [config, setConfig] = useState(getConfig)
   const [editing, setEditing] = useState(false)
+  const [query, setQuery] = useState('')
 
-  const updateConfig = useCallback((fn) => {
+  const updateConfig = useCallback(fn => {
     setConfig(prev => {
       const next = fn(prev)
-      saveConfig(next)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
-  const toggleSection = (id) => {
-    updateConfig(c => ({ ...c, visible: { ...c.visible, [id]: !c.visible[id] } }))
-  }
-
-  const moveSection = (id, dir) => {
-    updateConfig(c => {
-      const order = [...c.order]
-      const idx = order.indexOf(id)
-      const target = idx + dir
-      if (target < 0 || target >= order.length) return c
-      ;[order[idx], order[target]] = [order[target], order[idx]]
-      return { ...c, order }
-    })
-  }
-
+  const today = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' })
   const sections = config.order.map(id => ALL_SECTIONS.find(s => s.id === id)).filter(Boolean)
 
   return (
-    <div className="px-4 py-4 space-y-5 overflow-y-auto flex-1">
-      {/* Edit toggle */}
-      <div className="flex justify-end">
-        <button
-          onClick={() => setEditing(e => !e)}
-          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-            editing ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-          }`}
-        >
-          {editing ? 'Fertig' : 'Anpassen'}
+    <Screen
+      eyebrow={today}
+      title={APP_NAME}
+      actions={
+        <button onClick={onOpenProfile} aria-label="Profil und Einstellungen"
+          className="w-11 h-11 rounded-full flex items-center justify-center">
+          <span className="w-9 h-9 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-500 dark:text-primary-200 text-[14px] font-bold flex items-center justify-center">
+            {initials(user)}
+          </span>
         </button>
+      }
+    >
+      <div className="px-4 pb-4">
+        <SearchField value={query} onChange={setQuery} placeholder="Überall suchen" label="In allen Bereichen suchen" />
       </div>
 
-      {editing ? (
-        <div className="space-y-2">
-          <p className="text-xs text-gray-400 mb-1">Sektionen ein-/ausblenden und Reihenfolge ändern</p>
-          {sections.map((s, idx) => (
-            <div key={s.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-xl px-3 py-2.5 shadow-sm">
-              <button
-                onClick={() => toggleSection(s.id)}
-                aria-label={config.visible[s.id] ? `${s.label} ausblenden` : `${s.label} einblenden`}
-                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-none transition-colors ${
-                  config.visible[s.id]
-                    ? 'bg-primary-600 border-primary-600 text-white'
-                    : 'border-gray-300 dark:border-gray-500'
-                }`}
-              >
-                {config.visible[s.id] && (
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                    <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </button>
-              <span className="text-base">{s.emoji}</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-100 flex-1">{s.label}</span>
-              <div className="flex gap-0.5">
-                <button
-                  onClick={() => moveSection(s.id, -1)}
-                  disabled={idx === 0}
-                  aria-label={`${s.label} nach oben verschieben`}
-                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-20 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-                <button
-                  onClick={() => moveSection(s.id, 1)}
-                  disabled={idx === sections.length - 1}
-                  aria-label={`${s.label} nach unten verschieben`}
-                  className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-20 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {query.trim() ? (
+        <GlobalSearchResults query={query.trim()} onNavigate={onNavigate} />
+      ) : editing ? (
+        <EditSections sections={sections} config={config} updateConfig={updateConfig} onDone={() => setEditing(false)} />
       ) : (
-        sections.map(s => {
-          if (!config.visible[s.id]) return null
-          switch (s.id) {
-            case 'counts':    return <CountsSection key={s.id} counts={data.counts} onNavigate={onNavigate} />
-            case 'dailyfact': return <DailyFactSection key={s.id} fact={data.dailyFact} />
-            case 'attention': return data.attention.length > 0 ? <AttentionSection key={s.id} items={data.attention} /> : null
-            case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} counts={data.counts} onNavigate={onNavigate} />
-            case 'activity':  return data.recentActivity.length > 0 ? <ActivitySection key={s.id} items={data.recentActivity} /> : null
-            default: return null
-          }
-        })
+        <div className="space-y-6">
+          {sections.map(s => {
+            if (!config.visible[s.id]) return null
+            switch (s.id) {
+              case 'attention': return <AttentionSection key={s.id} items={data.attention} onNavigate={onNavigate} />
+              case 'counts':    return <CountsSection key={s.id} counts={data.counts} onNavigate={onNavigate} />
+              case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} counts={data.counts} onNavigate={onNavigate} />
+              case 'dailyfact': return <DailyFactSection key={s.id} fact={data.dailyFact} />
+              case 'activity':  return data.recentActivity.length > 0 ? <ActivitySection key={s.id} items={data.recentActivity} /> : null
+              default: return null
+            }
+          })}
+          <div className="flex justify-center">
+            <button onClick={() => setEditing(true)} className="min-h-[44px] px-4 text-callout font-semibold text-primary-500 dark:text-primary-300">
+              Startseite anpassen
+            </button>
+          </div>
+        </div>
       )}
+    </Screen>
+  )
+}
+
+function SectionTitle({ children, action }) {
+  return (
+    <div className="flex items-baseline justify-between px-5 pb-2">
+      <h2 className="text-headline text-gray-900 dark:text-gray-100">{children}</h2>
+      {action}
     </div>
+  )
+}
+
+function AttentionSection({ items, onNavigate }) {
+  if (items.length === 0) {
+    return (
+      <section>
+        <SectionTitle>Braucht Aufmerksamkeit</SectionTitle>
+        <ListGroup>
+          <ListRow leading={<IconTile icon="check" tone="accent" />} title="Alles im grünen Bereich" subtitle="Nichts läuft ab, nichts ist leer." />
+        </ListGroup>
+      </section>
+    )
+  }
+  return (
+    <section>
+      <SectionTitle>Braucht Aufmerksamkeit</SectionTitle>
+      <ListGroup>
+        {items.slice(0, 5).map(item => {
+          const meta = TYPE_META[item.type]
+          return (
+            <ListRow key={`${item.type}-${item.id}`}
+              onClick={() => onNavigate(meta.section, item.id)}
+              leading={<IconTile icon={meta.icon} tone={meta.tone} />}
+              title={item.name}
+              subtitle={meta.label}
+              trailing={<StatusPill tone={item.status === 'expired' ? 'expired' : 'soon'}>{item.label}</StatusPill>}
+            />
+          )
+        })}
+      </ListGroup>
+    </section>
   )
 }
 
 function CountsSection({ counts, onNavigate }) {
   return (
-    <div className="grid grid-cols-4 gap-2">
-      {MODULE_CARDS.map(m => (
-        <button
-          key={m.id}
-          onClick={() => onNavigate(m.id)}
-          className="bg-white dark:bg-gray-700 rounded-2xl p-3 text-center shadow-sm active:scale-95 transition-transform"
-        >
-          <div className="text-2xl mb-1">{m.emoji}</div>
-          <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{counts[m.key]}</div>
-          <div className="text-[10px] text-gray-400 font-medium">{m.label}</div>
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function AttentionSection({ items }) {
-  return (
     <section>
-      <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-1.5">
-        <span>⚠️</span> Braucht Aufmerksamkeit
-      </h2>
-      <div className="space-y-1.5">
-        {items.map(item => {
-          const style = MHD_STYLES[item.status] || MHD_STYLES.critical
+      <SectionTitle>Bestand</SectionTitle>
+      <div className="grid grid-cols-2 gap-2.5 px-4">
+        {TILES.map(t => {
+          const meta = TYPE_META[t.type]
+          const n = counts[t.key] ?? 0
           return (
-            <div key={item.id} className="flex items-center gap-2.5 bg-white dark:bg-gray-700 rounded-xl px-3 py-2.5 shadow-sm">
-              <span className="text-lg flex-none">{item.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{item.name}</p>
+            <button key={t.type} onClick={() => onNavigate(meta.section)}
+              className="bg-white dark:bg-gray-800 rounded-card p-3.5 text-left flex flex-col gap-2.5 active:bg-gray-100 dark:active:bg-gray-700">
+              <IconTile icon={meta.icon} tone={meta.tone} size={32} />
+              <div>
+                <div className="text-[26px] leading-8 font-bold tracking-tight text-gray-900 dark:text-gray-50">{n}</div>
+                <div className="text-callout text-gray-500 dark:text-gray-400">{t.unit(n)}</div>
               </div>
-              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-none ${style.bg} ${style.text}`}>
-                {item.label}
-              </span>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -189,137 +180,149 @@ function AttentionSection({ items }) {
 
 function CookingSection({ suggestions, counts, onNavigate }) {
   if (suggestions.length === 0) {
-    if (counts.recipes === 0) {
-      return (
-        <section className="text-center py-6">
-          <p className="text-3xl mb-2">📖</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Speichere Rezepte unter "Kochen", um hier Vorschläge zu erhalten.
-          </p>
-        </section>
-      )
-    }
-    return null
+    if (counts.recipes > 0) return null
+    return (
+      <section>
+        <SectionTitle>Heute kochen</SectionTitle>
+        <ListGroup>
+          <ListRow onClick={() => onNavigate('recipes')} chevron leading={<IconTile icon="pot" />}
+            title="Rezepte sammeln" subtitle="Dann schlägt Depot vor, was du mit deinem Bestand kochen kannst." />
+        </ListGroup>
+      </section>
+    )
   }
-
   return (
     <section>
-      <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-1.5">
-        <span>🍳</span> Heute kochen
-      </h2>
-      <div className="space-y-2">
-        {suggestions.map(s => (
-          <button
-            key={s.recipe.id}
-            onClick={() => onNavigate('recipes', s.recipe.id)}
-            className="w-full bg-white dark:bg-gray-700 rounded-xl shadow-sm overflow-hidden flex items-stretch text-left active:scale-[0.98] transition-transform"
-          >
-            {s.recipe.thumbnailUrl ? (
-              <img src={s.recipe.thumbnailUrl} alt="" className="w-20 h-20 object-cover flex-none" />
-            ) : (
-              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-600 flex items-center justify-center flex-none text-2xl">📖</div>
-            )}
-            <div className="flex-1 min-w-0 p-2.5 flex flex-col justify-center">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{s.recipe.title}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <AvailBar found={s.totalFound} missing={s.totalMissing} />
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-none">
-                  {s.totalFound}/{s.totalFound + s.totalMissing}
-                </span>
+      <SectionTitle>Heute kochen</SectionTitle>
+      <div className="space-y-2 px-4">
+        {suggestions.slice(0, 3).map(s => {
+          const total = s.totalFound + s.totalMissing
+          return (
+            <button key={s.recipe.id} onClick={() => onNavigate('recipes', s.recipe.id)}
+              className="w-full bg-white dark:bg-gray-800 rounded-card p-2.5 flex items-center gap-3 text-left active:bg-gray-100 dark:active:bg-gray-700">
+              {s.recipe.thumbnailUrl
+                ? <img src={s.recipe.thumbnailUrl} alt="" className="w-16 h-16 rounded-xl object-cover flex-none" />
+                : <IconTile icon="pot" size={64} />}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <p className="text-body font-semibold text-gray-900 dark:text-gray-100 truncate">{s.recipe.title}</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                    <div className="h-full bg-primary-500 dark:bg-primary-300" style={{ width: `${total ? (s.totalFound / total) * 100 : 0}%` }} />
+                  </div>
+                  <span className="text-footnote text-gray-500 dark:text-gray-400 flex-none">{s.totalFound} von {total} da</span>
+                </div>
+                {s.matchedExpiring > 0 && <StatusPill tone="soon">Verbraucht {s.matchedExpiring}× bald Ablaufendes</StatusPill>}
               </div>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {s.matchedExpiring > 0 && (
-                  <span className="text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full px-1.5 py-0.5">
-                    {s.matchedExpiring}x bald ablaufend
-                  </span>
-                )}
-                {s.winePairing && (
-                  <span className="text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full px-1.5 py-0.5">
-                    🍷 {s.winePairing.wine.name}
-                  </span>
-                )}
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
     </section>
   )
+}
+
+function DailyFactSection({ fact }) {
+  if (!fact) return null
+  return (
+    <section>
+      <SectionTitle>Wusstest du?</SectionTitle>
+      <div className="mx-4 bg-white dark:bg-gray-800 rounded-card p-4 flex gap-3">
+        <span className="text-primary-500 dark:text-primary-300 mt-0.5"><Icon name="sparkle" size={20} /></span>
+        <p className="text-callout text-gray-700 dark:text-gray-200 leading-relaxed">{fact.text}</p>
+      </div>
+    </section>
+  )
+}
+
+const ACTION_LABELS = {
+  spice_added: 'hat hinzugefügt', spice_updated: 'hat aktualisiert', spice_deleted: 'hat gelöscht', spice_disposed: 'hat entsorgt',
+  fill_changed: 'Füllstand geändert', shopping_added: 'auf die Einkaufsliste', shopping_checked: 'abgehakt', shopping_deleted: 'entfernt',
+  freezer_added: 'eingefroren', freezer_removed: 'entnommen', cellar_added: 'eingelagert', cellar_removed: 'entnommen',
+  wine_added: 'eingelagert', recipe_added: 'Rezept gespeichert', pantry_added: 'in den Vorrat',
 }
 
 function ActivitySection({ items }) {
   return (
     <section>
-      <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-1.5">
-        <span>🕐</span> Letzte Aktivität
-      </h2>
-      <div className="space-y-1">
+      <SectionTitle>Letzte Aktivität</SectionTitle>
+      <ListGroup>
         {items.map(a => (
-          <div key={a.id} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-medium text-gray-700 dark:text-gray-300">{a.userName}</span>
-            <span className="truncate flex-1">{actionLabel(a.action)} {a.target}</span>
-            <span className="flex-none">{timeAgo(a.createdAt)}</span>
+          <ListRow key={a.id} title={a.target || '—'}
+            subtitle={`${a.userName} · ${ACTION_LABELS[a.action] ?? a.action}`}
+            trailing={<span className="text-footnote text-gray-500 dark:text-gray-400 flex-none">{timeAgo(a.createdAt)}</span>} />
+        ))}
+      </ListGroup>
+    </section>
+  )
+}
+
+function timeAgo(dateStr) {
+  try { return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: de }) } catch { return '' }
+}
+
+function EditSections({ sections, config, updateConfig, onDone }) {
+  const move = (id, dir) => updateConfig(c => {
+    const order = [...c.order]
+    const i = order.indexOf(id), j = i + dir
+    if (j < 0 || j >= order.length) return c
+    ;[order[i], order[j]] = [order[j], order[i]]
+    return { ...c, order }
+  })
+  return (
+    <div className="space-y-4">
+      <ListGroup title="Bereiche der Startseite" footer="Ein- und ausblenden, Reihenfolge mit den Pfeilen ändern.">
+        {sections.map((s, i) => (
+          <div key={s.id} className="flex items-center gap-2 px-4 min-h-[50px]">
+            <label className="flex-1 flex items-center gap-3 min-h-[44px]">
+              <input type="checkbox" checked={!!config.visible[s.id]}
+                onChange={() => updateConfig(c => ({ ...c, visible: { ...c.visible, [s.id]: !c.visible[s.id] } }))}
+                className="w-5 h-5 accent-primary-500" />
+              <span className="text-body text-gray-900 dark:text-gray-100">{s.label}</span>
+            </label>
+            <button onClick={() => move(s.id, -1)} disabled={i === 0} aria-label={`${s.label} nach oben`}
+              className="w-11 h-11 flex items-center justify-center text-gray-500 disabled:opacity-25"><Icon name="back" size={20} className="rotate-90" /></button>
+            <button onClick={() => move(s.id, 1)} disabled={i === sections.length - 1} aria-label={`${s.label} nach unten`}
+              className="w-11 h-11 flex items-center justify-center text-gray-500 disabled:opacity-25"><Icon name="back" size={20} className="-rotate-90" /></button>
           </div>
         ))}
-      </div>
-    </section>
-  )
-}
-
-const CAT_STYLE = {
-  wine:    { emoji: '🍷', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800' },
-  spice:   { emoji: '🌿', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800' },
-  food:    { emoji: '🍽️', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800' },
-  general: { emoji: '💡', bg: 'bg-sky-50 dark:bg-sky-900/20', border: 'border-sky-200 dark:border-sky-800' },
-}
-
-function DailyFactSection({ fact }) {
-  if (!fact) return null
-  const style = CAT_STYLE[fact.cat] || CAT_STYLE.general
-  return (
-    <section>
-      <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-1.5">
-        <span>💡</span> Wusstest du?
-      </h2>
-      <div className={`${style.bg} border ${style.border} rounded-2xl p-4 shadow-sm`}>
-        <div className="flex gap-3">
-          <span className="text-2xl flex-none mt-0.5">{style.emoji}</span>
-          <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">{fact.text}</p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function AvailBar({ found, missing }) {
-  const total = found + missing
-  const pct = total > 0 ? (found / total) * 100 : 0
-  return (
-    <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-      <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </ListGroup>
+      <div className="px-4"><button onClick={onDone} className="btn-primary w-full">Fertig</button></div>
     </div>
   )
 }
 
-const ACTION_LABELS = {
-  spice_added: 'hat hinzugefügt:',
-  spice_updated: 'hat aktualisiert:',
-  spice_deleted: 'hat gelöscht:',
-  fill_changed: 'Füllstand geändert:',
-  shopping_added: 'auf Einkaufsliste:',
-  shopping_checked: 'abgehakt:',
-  shopping_deleted: 'entfernt:',
-  freezer_added: 'eingefroren:',
-  freezer_removed: 'entnommen:',
-  cellar_added: 'eingelagert:',
-  cellar_removed: 'entnommen:',
-  recipe_added: 'Rezept gespeichert:',
-}
-function actionLabel(action) { return ACTION_LABELS[action] || action }
+function GlobalSearchResults({ query, onNavigate }) {
+  const spices = useStore(s => s.spices)
+  const recipes = useStore(s => s.recipes)
+  const freezerItems = useFreezer(s => s.items)
+  const bottles = useCellar(s => s.bottles)
+  const pantryItems = usePantry(s => s.items)
 
-function timeAgo(dateStr) {
-  if (!dateStr) return ''
-  try {
-    return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: de })
-  } catch { return '' }
+  const results = useMemo(() => {
+    const q = query.toLowerCase()
+    const hit = (...fields) => fields.some(f => f && String(f).toLowerCase().includes(q))
+    return [
+      ...spices.filter(s => !s.disposedAt && hit(s.name, s.brand)).map(s => ({ type: 'spice', id: s.id, name: s.name, sub: s.brand })),
+      ...freezerItems.filter(i => hit(i.name, i.note)).map(i => ({ type: 'freezer', id: i.id, name: i.name, sub: `${i.portions}× ${i.portionSize || 'Portion'}` })),
+      ...bottles.filter(b => hit(b.name, b.winery, b.grape, b.region)).map(b => ({ type: 'cellar', id: b.id, name: b.name, sub: [b.winery, b.vintage].filter(Boolean).join(' · ') })),
+      ...pantryItems.filter(i => !i.disposedAt && hit(i.name, i.note)).map(i => ({ type: 'pantry', id: i.id, name: i.name, sub: `${i.quantity}× ${i.unit}` })),
+      ...recipes.filter(r => hit(r.title, ...(r.tags ?? []))).map(r => ({ type: 'recipe', id: r.id, name: r.title, sub: (r.tags ?? []).join(', ') })),
+    ].slice(0, 30)
+  }, [query, spices, recipes, freezerItems, bottles, pantryItems])
+
+  if (results.length === 0) {
+    return <p className="px-6 py-8 text-center text-callout text-gray-500 dark:text-gray-400">Nichts gefunden für „{query}“.</p>
+  }
+  return (
+    <ListGroup title={`${results.length} Treffer`}>
+      {results.map(r => {
+        const meta = TYPE_META[r.type]
+        return (
+          <ListRow key={`${r.type}-${r.id}`} onClick={() => onNavigate(meta.section, r.id)} chevron
+            leading={<IconTile icon={meta.icon} tone={meta.tone} />}
+            title={r.name} subtitle={[meta.label, r.sub].filter(Boolean).join(' · ')} />
+        )
+      })}
+    </ListGroup>
+  )
 }

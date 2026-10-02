@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import useStore from './store/useStore'
 import Login from './components/Login'
-import Navigation from './components/Navigation'
 import SpiceList from './components/SpiceList'
 import SpiceForm from './components/SpiceForm'
 import ExpiryView from './components/ExpiryView'
@@ -11,7 +10,7 @@ import ActivityView from './components/ActivityView'
 import OnboardingView from './components/OnboardingView'
 import InventoryReviewView from './components/InventoryReviewView'
 import RecipesView from './components/RecipesView'
-import SubTabs from './components/SubTabs'
+import MoreView from './components/MoreView'
 import FreezerView from './modules/freezer/FreezerView'
 import CellarView from './modules/cellar/CellarView'
 import PantryView from './modules/pantry/PantryView'
@@ -19,18 +18,34 @@ import UnifiedShoppingList from './modules/shopping/UnifiedShoppingList'
 import SpiceSettings from './components/SpiceSettings'
 import SpiceSetup from './components/SpiceSetup'
 import DashboardView from './modules/dashboard/DashboardView'
+import BestandView, { SectionBar } from './modules/bestand/BestandView'
 import { useFreezer } from './modules/freezer/store'
 import { useCellar } from './modules/cellar/store'
+import { usePantry } from './modules/pantry/store'
 import { MODULES_ENABLED, APP_NAME } from './branding'
 import { hasUnseenChangelog } from './changelog'
 import ChangelogView from './components/ChangelogView'
+import TabBar from './ui/TabBar'
+import { BarButton } from './ui/Screen'
+import { Segmented } from './ui/Controls'
+import { FeedbackHost } from './ui/feedback'
 
 const RELOAD_ON_FOCUS_AFTER_MS = 60_000
+
+const TABS = [
+  { id: 'start',   label: 'Start',   icon: 'home' },
+  { id: 'bestand', label: 'Bestand', icon: 'boxes' },
+  { id: 'kochen',  label: 'Kochen',  icon: 'pot' },
+  { id: 'einkauf', label: 'Einkauf', icon: 'cart' },
+  { id: 'mehr',    label: 'Mehr',    icon: 'more' },
+]
+
+const SECTION_TITLES = { spices: 'Gewürze', freezer: 'Tiefkühl', cellar: 'Wein', pantry: 'Vorrat' }
 
 // QR-Etiketten verlinken auf /pantry/<id>
 function readDeepLink() {
   const m = window.location.pathname.match(/^\/pantry\/([A-Za-z0-9_-]+)\/?$/)
-  return m ? { module: 'pantry', pantryId: m[1] } : null
+  return m ? { tab: 'bestand', section: 'pantry', pantryId: m[1] } : null
 }
 
 export default function App() {
@@ -43,21 +58,29 @@ export default function App() {
   const syncError = useStore(s => s.syncError)
   const dismissSyncError = useStore(s => s.dismissSyncError)
   const [deepLink] = useState(readDeepLink)
-  const [module, setModuleState] = useState(deepLink?.module ?? 'dashboard')
+  const [route, setRouteState] = useState({ tab: deepLink?.tab ?? 'start', section: deepLink?.section ?? null })
   const [focusRecipeId, setFocusRecipeId] = useState(null)
   const [focusPantryId, setFocusPantryId] = useState(deepLink?.pantryId ?? null)
-  const [view, setView] = useState('bestand')
+  const [spiceView, setSpiceView] = useState('bestand')
 
-  // Modulwechsel als Verlaufseintrag → Zurück-Geste/-Taste wechselt das Modul statt die App zu schließen
-  function setModule(next) {
-    if (next === module) return
-    window.history.pushState({ module: next }, '')
-    setModuleState(next)
+  // Jeder Wechsel ist ein Verlaufseintrag → Zurück-Geste/-Taste navigiert statt die App zu schließen
+  function navigate(tab, section = null) {
+    if (tab === route.tab && section === route.section) return
+    window.history.pushState({ tab, section }, '')
+    setRouteState({ tab, section })
+  }
+
+  // Ziele aus Startseite/Suche: Bereich + optional Eintrag
+  function openTarget(target, id) {
+    if (target === 'recipes') { if (id) setFocusRecipeId(id); return navigate('kochen') }
+    if (target === 'shopping') return navigate('einkauf')
+    if (target === 'pantry' && id) setFocusPantryId(id)
+    navigate('bestand', target)
   }
 
   useEffect(() => {
-    window.history.replaceState({ module }, '', deepLink ? '/' : window.location.href)
-    const onPop = e => setModuleState(e.state?.module ?? 'dashboard')
+    window.history.replaceState(route, '', deepLink ? '/' : window.location.href)
+    const onPop = e => setRouteState({ tab: e.state?.tab ?? 'start', section: e.state?.section ?? null })
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -68,10 +91,11 @@ export default function App() {
     return () => clearTimeout(t)
   }, [syncError])
 
-  function handleModuleAdd(modId) {
-    if (modId === 'spices')  { setEditingSpice(null); setShowAddForm(true) }
-    if (modId === 'freezer') { useFreezer.getState().openForm() }
-    if (modId === 'cellar')  { useCellar.getState().openForm() }
+  function handleSectionAdd(section) {
+    if (section === 'spices')  { setEditingSpice(null); setShowAddForm(true) }
+    if (section === 'freezer') useFreezer.getState().openForm()
+    if (section === 'cellar')  useCellar.getState().openForm()
+    if (section === 'pantry')  usePantry.getState().openForm()
   }
   function handleSpiceAddInline() { setEditingSpice(null); setShowAddForm(true) }
   const [showAddForm, setShowAddForm] = useState(false)
@@ -84,10 +108,10 @@ export default function App() {
   const [showSpiceSettings, setShowSpiceSettings] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [swUpdate, setSwUpdate] = useState(false)
-  const reviewCount = useStore(s => s.pendingInventory.filter(p => p.status === 'ready').length)
   const resolvePending = useStore(s => s.resolvePending)
   const spiceSetupDone = useStore(s => s.spiceSetupDone)
   const completeSpiceSetup = useStore(s => s.completeSpiceSetup)
+  const shoppingOpen = useStore(s => s.shoppingItems.filter(i => !i.checked).length)
 
   const [pendingInvite, setPendingInvite] = useState(null)
 
@@ -132,19 +156,12 @@ export default function App() {
     })
   }, [])
 
-  // Supabase-Session wird geprüft → Ladebildschirm
   if (authLoading) return <LoadingScreen />
-
-  // Nicht eingeloggt → Login anzeigen
   if (!user) return <Login />
 
-  // Erstnutzer (oder erneut gestartet) → Willkommens-Tour
   // localStorage als Fallback, damit onAuthStateChange-Zwischenzustände keinen Flash erzeugen
   const onboardingDone = user.user_metadata?.onboarding_done || localStorage.getItem('depot_onboarding_done') === '1'
-  const showOnboarding = !onboardingDone || onboardingReplay
-  if (showOnboarding) {
-    return <OnboardingView onFinish={finishOnboarding} />
-  }
+  if (!onboardingDone || onboardingReplay) return <OnboardingView onFinish={finishOnboarding} />
 
   function handleEditSpice(spice) {
     setEditingSpice(spice)
@@ -165,188 +182,99 @@ export default function App() {
     setShowAddForm(true)
   }
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-800">
-      <header
-        className="bg-primary-600 text-white px-4 pb-3 flex items-center justify-between sticky top-0 z-30"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
-      >
-        <div className="flex items-center gap-2">
-          {MODULES_ENABLED
-            ? <svg viewBox="0 0 40 40" width="28" height="28" className="flex-none"><rect x="6" y="10" width="28" height="4" rx="1.5" fill="currentColor" opacity="0.9"/><rect x="6" y="18" width="28" height="4" rx="1.5" fill="currentColor" opacity="0.7"/><rect x="6" y="26" width="28" height="4" rx="1.5" fill="currentColor" opacity="0.5"/></svg>
-            : <span className="text-xl">🌿</span>
-          }
-          <h1 className="text-lg font-bold tracking-tight">{APP_NAME}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowReview(true)}
-            className="relative p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
-            title="Einräumen"
-            aria-label="Einräumen"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4l-2 3H10l-2-3H4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            {reviewCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center border border-primary-600">
-                {reviewCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setShowActivity(true)}
-            className="p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
-            title="Verlauf"
-            aria-label="Verlauf"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="9"/>
-              <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <button
-            onClick={() => setShowHelp(true)}
-            className="p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
-            title="Hilfe"
-            aria-label="Hilfe"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="17" r=".5" fill="currentColor"/>
-            </svg>
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="relative p-1.5 rounded-full bg-primary-700 hover:bg-primary-800 transition-colors"
-            title="Einstellungen"
-            aria-label="Einstellungen"
-          >
-            {/* Hinweispunkt: neue Version, Changelog noch nicht gesehen */}
-            {!showSettings && hasUnseenChangelog() && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full border border-primary-600" />
-            )}
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          <UserMenu />
-        </div>
-      </header>
+  // Gewürzmanager (ohne Module) zeigt nur die Gewürze, Depot die volle Navigation
+  const tab = MODULES_ENABLED ? route.tab : 'bestand'
+  const section = MODULES_ENABLED ? route.section : 'spices'
 
+  const spicesContent = !spiceSetupDone
+    ? <SpiceSetup onComplete={completeSpiceSetup} />
+    : spiceView === 'bestand'
+      ? <SpiceList onEdit={handleEditSpice} onAdd={handleSpiceAddInline} />
+      : <ExpiryView onEdit={handleEditSpice} />
+
+  const sectionActions = section && (
+    <>
+      {section === 'spices' && spiceSetupDone && <BarButton icon="settings" label="Lagerorte und Kategorien" onClick={() => setShowSpiceSettings(true)} />}
+      {!MODULES_ENABLED && <BarButton icon="more" label="Einstellungen" onClick={() => setShowSettings(true)} />}
+      {(section !== 'spices' || spiceSetupDone) && <BarButton icon="plus" label={`${SECTION_TITLES[section]} hinzufügen`} onClick={() => handleSectionAdd(section)} />}
+    </>
+  )
+
+  return (
+    <div className="h-[100dvh] flex flex-col bg-gray-50 dark:bg-gray-900">
       {swUpdate && (
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-primary-600 text-white text-xs font-semibold px-4 py-2 w-full text-center border-b border-primary-700"
-        >
-          Neue Version verfügbar — jetzt aktualisieren
+        <button onClick={() => window.location.reload()}
+          className="flex-none bg-primary-500 text-white text-footnote font-semibold px-4 py-2 w-full text-center"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.5rem)' }}>
+          Neue Version verfügbar – jetzt aktualisieren
         </button>
       )}
 
       {dataError && (
-        <div className="bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 px-4 py-2 flex items-start gap-2">
-          <span className="text-red-500 mt-0.5 flex-none">⚠️</span>
-          <p className="text-xs text-red-700 dark:text-red-300 flex-1">{dataError}</p>
-          <button
-            onClick={() => useStore.setState({ dataError: null })}
-            className="text-red-400 hover:text-red-600 flex-none text-lg leading-none"
-            aria-label="Fehlermeldung schließen"
-          >×</button>
+        <div className="flex-none bg-expired-soft dark:bg-expired-dark-soft px-4 py-2 flex items-start gap-2" role="alert">
+          <p className="text-footnote text-expired dark:text-expired-dark flex-1">{dataError}</p>
+          <button onClick={() => useStore.setState({ dataError: null })}
+            className="text-expired dark:text-expired-dark flex-none text-lg leading-none w-8 h-8" aria-label="Fehlermeldung schließen">×</button>
         </div>
       )}
 
       {syncError && (
-        <div role="alert" className="fixed left-4 right-4 z-[80] max-w-md mx-auto bg-gray-900 dark:bg-gray-700 text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3 fade-enter"
+        <div role="alert" className="fixed left-4 right-4 z-[80] max-w-md mx-auto bg-gray-900 dark:bg-gray-700 text-white rounded-[14px] shadow-xl px-4 py-3 flex items-start gap-3 fade-enter"
           style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
-          <span className="flex-none">⚠️</span>
-          <p className="text-sm flex-1">{syncError}</p>
+          <p className="text-callout flex-1">{syncError}</p>
           <button onClick={dismissSyncError} className="flex-none text-white/70 text-lg leading-none" aria-label="Hinweis schließen">×</button>
         </div>
       )}
 
-      <main className="flex-1 overflow-hidden flex flex-col pb-20">
-        {module === 'dashboard' && (
-          <DashboardView onNavigate={(mod, recipeId) => {
-            setModule(mod)
-            if (recipeId) setFocusRecipeId(recipeId)
-          }} />
+      <main className="flex-1 min-h-0 min-w-0 flex flex-col overflow-x-hidden">
+        {tab === 'start' && (
+          <DashboardView onNavigate={openTarget} onOpenProfile={() => navigate('mehr')} />
         )}
-        {module === 'spices' && !spiceSetupDone && (
-          <SpiceSetup onComplete={completeSpiceSetup} />
+
+        {tab === 'bestand' && !section && (
+          <BestandView onOpen={s => navigate('bestand', s)} onReview={() => setShowReview(true)} />
         )}
-        {module === 'spices' && spiceSetupDone && (
+
+        {tab === 'bestand' && section && (
           <>
-            <SubTabs
-              tabs={[
-                { id: 'bestand', label: '📦 Bestand' },
-                { id: 'ablauf',  label: '⏰ Ablauf' },
-              ]}
-              active={view}
-              onChange={setView}
-              trailing={
-                <button onClick={() => setShowSpiceSettings(true)}
-                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg flex-none" title="Lagerorte & Kategorien" aria-label="Lagerorte & Kategorien">⚙️</button>
-              }
-            />
-            {view === 'bestand' && <SpiceList onEdit={handleEditSpice} onAdd={handleSpiceAddInline} />}
-            {view === 'ablauf'  && <ExpiryView onEdit={handleEditSpice} />}
+            <SectionBar title={MODULES_ENABLED ? SECTION_TITLES[section] : APP_NAME}
+              onBack={MODULES_ENABLED ? () => navigate('bestand') : null} actions={sectionActions}>
+              {section === 'spices' && spiceSetupDone && (
+                <Segmented label="Ansicht" value={spiceView} onChange={setSpiceView}
+                  options={[{ id: 'bestand', label: 'Bestand' }, { id: 'ablauf', label: 'Ablauf' }]} />
+              )}
+            </SectionBar>
+            <div className="flex-1 min-h-0 flex flex-col" style={{ paddingBottom: MODULES_ENABLED ? 'calc(50px + env(safe-area-inset-bottom, 0px))' : 0 }}>
+              {section === 'spices'  && spicesContent}
+              {section === 'freezer' && <FreezerView />}
+              {section === 'cellar'  && <CellarView />}
+              {section === 'pantry'  && <PantryView focusId={focusPantryId} onFocusHandled={() => setFocusPantryId(null)} />}
+            </div>
           </>
         )}
-        {module === 'freezer'  && <FreezerView />}
-        {module === 'cellar'   && <CellarView />}
-        {module === 'pantry'   && <PantryView focusId={focusPantryId} onFocusHandled={() => setFocusPantryId(null)} />}
-        {module === 'recipes'  && <RecipesView focusId={focusRecipeId} onFocusHandled={() => setFocusRecipeId(null)} />}
-        {module === 'shopping' && <UnifiedShoppingList />}
+
+        {tab === 'kochen' && <RecipesView focusId={focusRecipeId} onFocusHandled={() => setFocusRecipeId(null)} />}
+        {tab === 'einkauf' && <UnifiedShoppingList />}
+        {tab === 'mehr' && (
+          <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
+            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} />
+        )}
       </main>
 
-      {/* Floating-+ für Module ohne eigenen Add-Button (Rezepte hat einen eigenen) */}
-      {['spices', 'freezer', 'cellar'].includes(module) && (module !== 'spices' || spiceSetupDone) && (
-        <button
-          onClick={() => handleModuleAdd(module)}
-          className="fixed bottom-24 right-5 bg-primary-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg active:opacity-80 transition-colors z-20"
-          aria-label="Hinzufügen"
-        >
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-      )}
-
       {MODULES_ENABLED && (
-        <Navigation currentModule={module} onModuleChange={setModule} />
+        <TabBar tabs={TABS.map(t => t.id === 'einkauf' ? { ...t, badge: shoppingOpen } : t)} active={tab}
+          onChange={t => navigate(t)} />
       )}
 
-      {showAddForm && (
-        <SpiceForm spice={editingSpice} prefill={formPrefill} onClose={handleFormClose} />
-      )}
-
-      {showReview && (
-        <InventoryReviewView onClose={() => setShowReview(false)} onNewPackage={handleNewPackage} />
-      )}
-
-      {showSpiceSettings && (
-        <SpiceSettings onClose={() => setShowSpiceSettings(false)} />
-      )}
-
-      {showSettings && (
-        <SettingsView onClose={() => setShowSettings(false)} />
-      )}
-
-      {showHelp && (
-        <HelpView onClose={() => setShowHelp(false)} />
-      )}
-
-      {showActivity && (
-        <ActivityView onClose={() => setShowActivity(false)} />
-      )}
-
-      {pendingInvite && (
-        <InviteJoinDialog code={pendingInvite} onClose={() => setPendingInvite(null)} />
-      )}
-
-      {showChangelog && (
-        <ChangelogView onClose={() => setShowChangelog(false)} />
-      )}
+      {showAddForm && <SpiceForm spice={editingSpice} prefill={formPrefill} onClose={handleFormClose} />}
+      {showReview && <InventoryReviewView onClose={() => setShowReview(false)} onNewPackage={handleNewPackage} />}
+      {showSpiceSettings && <SpiceSettings onClose={() => setShowSpiceSettings(false)} />}
+      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
+      {showHelp && <HelpView onClose={() => setShowHelp(false)} />}
+      {showActivity && <ActivityView onClose={() => setShowActivity(false)} />}
+      {pendingInvite && <InviteJoinDialog code={pendingInvite} onClose={() => setPendingInvite(null)} />}
+      {showChangelog && <ChangelogView onClose={() => setShowChangelog(false)} />}
+      <FeedbackHost />
     </div>
   )
 }
@@ -418,8 +346,6 @@ function InviteJoinDialog({ code, onClose }) {
   )
 }
 
-// SpicesSubNav entfernt – jetzt nutzt alles die gemeinsame SubTabs-Komponente
-
 // ── Ladebildschirm ────────────────────────────────────────────────────────────
 
 function LoadingScreen() {
@@ -432,57 +358,6 @@ function LoadingScreen() {
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
       </div>
-    </div>
-  )
-}
-
-// ── Benutzermenü ──────────────────────────────────────────────────────────────
-
-function UserMenu() {
-  const signOut = useStore(s => s.signOut)
-  const user = useStore(s => s.user)
-  const currentUser = user && {
-    name:  user.user_metadata?.name ?? user.email?.split('@')[0] ?? 'Benutzer',
-    email: user.email,
-  }
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 bg-primary-700 rounded-full px-3 py-1.5 text-sm font-medium active:bg-primary-800 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-        </svg>
-        <span className="max-w-[80px] truncate">{currentUser?.name}</span>
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-          <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 min-w-[180px] fade-enter">
-            <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700">
-              <p className="text-xs text-gray-400 font-medium">Angemeldet als</p>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{currentUser?.name}</p>
-              <p className="text-xs text-gray-400 truncate">{currentUser?.email}</p>
-            </div>
-            <button
-              onClick={() => { signOut(); setOpen(false) }}
-              className="w-full text-left px-4 py-2.5 text-sm text-red-600 font-medium hover:bg-red-50 flex items-center gap-2 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Abmelden
-            </button>
-          </div>
-        </>
-      )}
     </div>
   )
 }

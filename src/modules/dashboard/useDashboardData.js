@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import useStore from '../../store/useStore'
 import { useFreezer, FREEZER_SHELF_LIFE } from '../freezer/store'
 import { useCellar } from '../cellar/store'
+import { usePantry } from '../pantry/store'
 import { getMhdStatus } from '../../utils/mhd'
 import { computeRecipeAvailability } from '../../utils/inventoryMatch'
 import { getPersonalizedFact } from './dailyFacts'
@@ -13,12 +14,17 @@ export default function useDashboardData() {
   const activityLog = useStore(s => s.activityLog)
   const freezerItems = useFreezer(s => s.items)
   const bottles = useCellar(s => s.bottles)
+  const pantryItems = usePantry(s => s.items)
 
   return useMemo(() => {
+    const activeSpices = spices.filter(sp => !sp.disposedAt)
+    const activePantry = pantryItems.filter(it => !it.disposedAt)
     const counts = {
-      spices: spices.length,
+      spices: activeSpices.length,
       freezer: freezerItems.length,
-      cellar: bottles.length,
+      cellar: bottles.reduce((n, b) => n + (b.count ?? 1), 0),
+      pantry: activePantry.length,
+      spicesLow: activeSpices.filter(sp => sp.fillLevel <= 1).length,
       shopping: shoppingItems.filter(i => !i.checked).length,
       recipes: recipes.length,
     }
@@ -27,10 +33,21 @@ export default function useDashboardData() {
     const now = new Date()
     const year = now.getFullYear()
 
-    spices.forEach(sp => {
+    const dayLabel = d => d < 0 ? 'Abgelaufen' : d === 0 ? 'Heute' : d === 1 ? 'Morgen' : `Noch ${d} Tage`
+
+    activeSpices.forEach(sp => {
       const mhd = getMhdStatus(sp.expiryDate)
       if (mhd.status === 'critical' || mhd.status === 'expired') {
-        attention.push({ type: 'spice', id: sp.id, name: sp.name, emoji: '🌿', status: mhd.status, label: mhd.label, days: mhd.days })
+        attention.push({ type: 'spice', id: sp.id, name: sp.name, emoji: '🌿', status: mhd.status, label: dayLabel(mhd.days), days: mhd.days })
+      } else if (sp.fillLevel <= 1) {
+        attention.push({ type: 'spice', id: sp.id, name: sp.name, emoji: '🌿', status: 'critical', label: 'Fast leer', days: 45 })
+      }
+    })
+
+    activePantry.forEach(it => {
+      const mhd = getMhdStatus(it.bestBefore)
+      if (mhd.status === 'critical' || mhd.status === 'expired') {
+        attention.push({ type: 'pantry', id: it.id, name: it.name, emoji: '📦', status: mhd.status, label: dayLabel(mhd.days), days: mhd.days })
       }
     })
 
@@ -41,13 +58,13 @@ export default function useDashboardData() {
       expiry.setDate(expiry.getDate() + days)
       const remaining = Math.floor((expiry - now) / 86400000)
       if (remaining < 30) {
-        attention.push({ type: 'freezer', id: item.id, name: item.name, emoji: '❄️', status: remaining < 0 ? 'expired' : 'critical', label: remaining < 0 ? `${Math.abs(remaining)}d über` : `${remaining}d`, days: remaining })
+        attention.push({ type: 'freezer', id: item.id, name: item.name, emoji: '❄️', status: remaining < 0 ? 'expired' : 'critical', label: dayLabel(remaining), days: remaining })
       }
     })
 
     bottles.forEach(b => {
       if (b.drinkUntil && b.drinkUntil <= year) {
-        attention.push({ type: 'cellar', id: b.id, name: b.name, emoji: '🍷', status: b.drinkUntil < year ? 'expired' : 'critical', label: b.drinkUntil < year ? 'Trinkfenster vorbei' : 'Letztes Jahr', days: (b.drinkUntil - year) * 365 })
+        attention.push({ type: 'cellar', id: b.id, name: b.name, emoji: '🍷', status: b.drinkUntil < year ? 'expired' : 'critical', label: b.drinkUntil < year ? 'Trinkfenster vorbei' : 'Bald trinken', days: (b.drinkUntil - year) * 365 })
       }
     })
 
@@ -78,5 +95,5 @@ export default function useDashboardData() {
     const dailyFact = getPersonalizedFact(dayOfYear, inventory)
 
     return { counts, attention: topAttention, suggestions, recentActivity, dailyFact }
-  }, [spices, freezerItems, bottles, shoppingItems, recipes, activityLog])
+  }, [spices, freezerItems, bottles, pantryItems, shoppingItems, recipes, activityLog])
 }

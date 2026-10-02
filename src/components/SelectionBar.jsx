@@ -1,56 +1,34 @@
-import { useState } from 'react'
+import { confirmAction } from '../ui/feedback'
 
+// Leiste im Auswahlmodus (über der Tab-Leiste)
 export default function SelectionBar({ count, onDelete, onCancel, label = 'Löschen' }) {
-  const [confirming, setConfirming] = useState(false)
-
-  if (!count) return null
+  async function handleDelete() {
+    const ok = await confirmAction({
+      title: `${count} ${count === 1 ? 'Eintrag' : 'Einträge'} ${label.toLowerCase()}?`,
+      message: 'Das lässt sich nicht rückgängig machen.',
+      confirmLabel: label, destructive: true,
+    })
+    if (ok) onDelete()
+  }
 
   return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-full shadow-xl px-5 py-2.5 flex items-center gap-3 text-sm font-medium">
-      <span>{count} ausgewählt</span>
-      {confirming ? (
-        <>
-          <button onClick={() => { onDelete(); setConfirming(false) }}
-            className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-            Ja, {label.toLowerCase()}
-          </button>
-          <button onClick={() => setConfirming(false)}
-            className="text-gray-300 dark:text-gray-500 px-2 py-1 text-xs">
-            Abbrechen
-          </button>
-        </>
-      ) : (
-        <>
-          <button onClick={() => setConfirming(true)}
-            className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-            {label}
-          </button>
-          <button onClick={onCancel}
-            className="text-gray-300 dark:text-gray-500 px-2 py-1 text-xs">
-            ✕
-          </button>
-        </>
-      )}
+    <div className="fixed inset-x-3 z-40 max-w-md mx-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-[14px] shadow-xl flex items-center gap-2 pl-4 pr-1.5 py-1.5"
+      style={{ bottom: 'calc(58px + env(safe-area-inset-bottom, 0px))' }}>
+      <span className="flex-1 text-callout font-semibold text-gray-900 dark:text-gray-100">{count} ausgewählt</span>
+      <button onClick={handleDelete} disabled={!count}
+        className="min-h-[40px] px-3 rounded-lg text-callout font-semibold text-expired dark:text-expired-dark disabled:opacity-40">{label}</button>
+      <button onClick={onCancel} className="min-h-[40px] px-3 rounded-lg text-callout font-semibold text-primary-500 dark:text-primary-300">Fertig</button>
     </div>
   )
 }
 
 export function ClearAllButton({ onClear, label, count }) {
-  const [confirming, setConfirming] = useState(false)
-
   if (!count) return null
-
-  return confirming ? (
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-red-600 font-medium">Alle {count} löschen?</span>
-      <button onClick={() => { onClear(); setConfirming(false) }}
-        className="bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">Ja</button>
-      <button onClick={() => setConfirming(false)}
-        className="text-gray-400 text-xs">Nein</button>
-    </div>
-  ) : (
-    <button onClick={() => setConfirming(true)}
-      className="text-xs text-red-500 hover:text-red-700 font-medium">
+  async function handle() {
+    if (await confirmAction({ title: `Alle ${count} löschen?`, message: 'Das lässt sich nicht rückgängig machen.', confirmLabel: 'Alle löschen', destructive: true })) onClear()
+  }
+  return (
+    <button onClick={handle} className="min-h-[44px] px-2 text-footnote font-semibold text-expired dark:text-expired-dark">
       {label}
     </button>
   )
