@@ -52,7 +52,7 @@ export default function BestandView({ onOpen, onReview }) {
         footer="Was du auf der Einkaufsliste abgehakt hast, landet hier – bis es im Regal steht.">
         <ListRow onClick={onReview} chevron
           leading={<IconTile icon="inbox" tone="accent" />}
-          title="Eingekauft, noch nicht eingeräumt"
+          title="Noch einzuräumen"
           trailing={<span className="text-callout font-semibold text-gray-500 dark:text-gray-400">{reviewCount}</span>} />
       </ListGroup>
     </Screen>
