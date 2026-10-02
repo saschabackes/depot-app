@@ -1,345 +1,387 @@
 import { useState, useMemo, useRef } from 'react'
-import { useFreezer, CATEGORIES } from './store'
-import AutocompleteInput from '../../components/AutocompleteInput'
+import { useFreezer } from './store'
 import FreezerForm from './FreezerForm'
 import FreezerSetup from './FreezerSetup'
 import QuickAddBar from './QuickAddBar'
 import StorageSettings from './StorageSettings'
 import ExcelImport from './ExcelImport'
-import SubTabs from '../../components/SubTabs'
 import SelectionBar from '../../components/SelectionBar'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow } from '../../ui/List'
+import { SearchField, StatusPill, Segmented } from '../../ui/Controls'
+import { confirmAction, showToast } from '../../ui/feedback'
+import { categoryOf, expiryInfo, expiryClass, portionsText, locationOf, formatDate, ItemThumb, Switch } from './parts'
 
-function daysUntil(dateStr) {
-  if (!dateStr) return null
-  return Math.round((new Date(dateStr).getTime() - Date.now()) / (1000*60*60*24))
-}
-function expiryBadge(item) {
-  const d = daysUntil(item.expiryDate)
-  if (d === null) return null
-  if (d < 0)   return { text: `${-d} T überfällig`, cls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' }
-  if (d <= 14) return { text: `noch ${d} T`,        cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' }
-  if (d <= 60) return { text: `noch ${d} T`,        cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' }
-  return            { text: `noch ${d} T`,        cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' }
-}
-function catLabel(id) {
-  const c = CATEGORIES.find(c => c.id === id)
-  return c ? `${c.emoji} ${c.label}` : id
-}
+const STATUS_FILTERS = [
+  { id: 'all',     label: 'Alle' },
+  { id: 'expired', label: 'Abgelaufen' },
+  { id: 'soon',    label: 'Bald' },
+  { id: 'restock', label: 'Nachkaufen' },
+]
+
+const byExpiry = (a, b) => (a.expiryDate || '9999').localeCompare(b.expiryDate || '9999')
 
 export default function FreezerView() {
-  const { storages, items, consumePortion, removeItem, toggleRestock,
-          setupDone, completeSetup, formOpen, formPrefill, openForm, closeForm,
-          bulkDeleteItems, updateItem } = useFreezer()
-  const [tab, setTab] = useState('bestand')
-  const [activeStorageId, setActiveStorageId] = useState(storages[0]?.id)
+  const { storages, items, consumePortion, setupDone, completeSetup, formOpen, formPrefill, openForm, closeForm, bulkDeleteItems } = useFreezer()
+
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('all')
+  const [sort, setSort] = useState('location')
+  const [storageFilter, setStorageFilter] = useState('all')
+  const [category, setCategory] = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState(new Set())
-  const [editingItem, setEditingItem] = useState(null)
+  const [detailId, setDetailId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
 
-  const activeStorage = storages.find(s => s.id === activeStorageId) || storages[0]
-  const drawersOfActive = activeStorage?.compartments || []
+  const counts = useMemo(() => ({
+    all: items.length,
+    expired: items.filter(i => expiryInfo(i).tone === 'expired').length,
+    soon: items.filter(i => expiryInfo(i).tone === 'soon').length,
+    restock: items.filter(i => i.needsRestock).length,
+  }), [items])
 
-  const byCompartment = useMemo(() => {
-    const map = Object.fromEntries(drawersOfActive.map(c => [c.id, []]))
-    items.filter(it => it.storageId === activeStorage?.id).forEach(it => {
-      (map[it.compartmentId] ||= []).push(it)
+  const filtered = useMemo(() => {
+    let list = items
+    if (status === 'expired') list = list.filter(i => expiryInfo(i).tone === 'expired')
+    if (status === 'soon') list = list.filter(i => expiryInfo(i).tone === 'soon')
+    if (status === 'restock') list = list.filter(i => i.needsRestock)
+    if (storageFilter !== 'all') list = list.filter(i => i.storageId === storageFilter)
+    if (category !== 'all') list = list.filter(i => i.category === category)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter(i => i.name.toLowerCase().includes(q) || (i.note ?? '').toLowerCase().includes(q) || categoryOf(i.category).label.toLowerCase().includes(q))
+    }
+    return list
+  }, [items, status, storageFilter, category, search])
+
+  // Nach Gefrierschrank gruppieren (Fach-Reihenfolge, dann Ablauf) – oder eine Liste nach Ablaufdatum
+  const groups = useMemo(() => {
+    if (sort === 'mhd') return [{ id: 'all', title: 'Nach Ablaufdatum', items: [...filtered].sort(byExpiry) }]
+    const byStorage = storages.map(s => {
+      const order = Object.fromEntries(s.compartments.map((c, i) => [c.id, i]))
+      const list = filtered.filter(i => i.storageId === s.id)
+        .sort((a, b) => ((order[a.compartmentId] ?? 999) - (order[b.compartmentId] ?? 999)) || byExpiry(a, b))
+      return { id: s.id, title: `${s.emoji} ${s.label}`, items: list }
     })
-    Object.values(map).forEach(arr => arr.sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate)))
-    return map
-  }, [drawersOfActive, items, activeStorage])
+    const known = new Set(storages.map(s => s.id))
+    const rest = filtered.filter(i => !known.has(i.storageId)).sort(byExpiry)
+    return [...byStorage, { id: 'none', title: 'Ohne Gefrierschrank', items: rest }].filter(g => g.items.length)
+  }, [filtered, storages, sort])
 
-  const byExpiry = useMemo(
-    () => [...items].sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate)),
-    [items]
-  )
-  const totalPortions = items.reduce((s,i) => s + i.portions, 0)
+  const totalPortions = items.reduce((s, i) => s + (i.portions || 0), 0)
+  const extraFilters = [storageFilter, category].filter(v => v !== 'all').length + (sort === 'mhd' ? 1 : 0)
+  const detailItem = detailId ? items.find(i => i.id === detailId) : null
+  const editingItem = editingId ? items.find(i => i.id === editingId) : null
+
+  function toggleSelect(id) {
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
+  }
+
+  function consume(item) {
+    consumePortion(item.id)
+    if (navigator.vibrate) navigator.vibrate(20)
+    showToast(item.portions <= 1 ? `Letzte Portion „${item.name}“ entnommen – Eintrag entfernt.` : `1 Portion „${item.name}“ entnommen, noch ${item.portions - 1}.`, { duration: 3000 })
+  }
 
   if (!setupDone) {
     return <FreezerSetup onComplete={completeSetup} />
   }
 
   return (
-    <div className="flex-1 overflow-y-auto pb-24 bg-gray-50 dark:bg-gray-900">
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">❄️ Tiefkühl</p>
-            <p className="text-xs text-gray-400">
-              {items.length} Eintrag{items.length === 1 ? '' : 'e'} · {totalPortions} Portionen · {storages.length} Schrank{storages.length===1?'':'e'}
-            </p>
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 pt-3 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <SearchField value={search} onChange={setSearch} placeholder="Tiefkühl durchsuchen" />
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => { setSelectMode(m => !m); setSelected(new Set()) }}
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                selectMode ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {selectMode ? 'Fertig' : 'Auswählen'}
-            </button>
-            <button onClick={() => setShowImport(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Excel-Import" aria-label="Excel-Import">📥</button>
-            <button onClick={() => setShowSettings(true)}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full p-2 text-lg" title="Schränke verwalten" aria-label="Schränke verwalten">⚙️</button>
-          </div>
+          <button onClick={() => setShowFilters(true)} aria-label="Filtern und sortieren"
+            className="relative w-11 h-11 flex-none rounded-[10px] bg-gray-200/70 dark:bg-gray-700 text-primary-500 dark:text-primary-300 flex items-center justify-center">
+            <Icon name="filter" size={22} strokeWidth={2.1} />
+            {extraFilters > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary-500 text-white text-[11px] font-bold leading-[18px] text-center">{extraFilters}</span>}
+          </button>
+          <button onClick={() => setShowSettings(true)} aria-label="Gefrierschränke verwalten"
+            className="w-11 h-11 flex-none rounded-[10px] bg-gray-200/70 dark:bg-gray-700 text-primary-500 dark:text-primary-300 flex items-center justify-center">
+            <Icon name="settings" size={21} strokeWidth={2} />
+          </button>
         </div>
-      </div>
-
-      <SubTabs
-        tabs={[
-          { id: 'bestand', label: '📦 Bestand' },
-          { id: 'ablauf',  label: '⏰ Ablauf' },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-
-      <QuickAddBar />
-
-      {items.length === 0 && (
-        <div className="m-4 p-5 rounded-2xl bg-white dark:bg-gray-800 text-center">
-          <p className="text-3xl mb-2">❄️</p>
-          <p className="text-gray-700 dark:text-gray-200 font-medium">Noch nichts im TK.</p>
-          <p className="text-xs text-gray-400 mt-1">Tippe auf + um den ersten Eintrag anzulegen.</p>
-        </div>
-      )}
-
-      {/* Schubladen-Ansicht (pro Storage) */}
-      {tab === 'bestand' && (
-        <>
-          {/* Storage-Switcher */}
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar px-4 pb-3">
-            {storages.map(s => {
-              const count = items.filter(it => it.storageId === s.id).length
-              const active = activeStorage?.id === s.id
+        {items.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+            {STATUS_FILTERS.filter(f => f.id === 'all' || counts[f.id] > 0 || status === f.id).map(f => {
+              const on = status === f.id
               return (
-                <button key={s.id}
-                  onClick={() => setActiveStorageId(s.id)}
-                  className={`flex-none flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    active ? 'bg-primary-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-                  }`}
-                >
-                  <span>{s.emoji}</span>
-                  <span>{s.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-white/30' : 'bg-gray-100 dark:bg-gray-700'}`}>{count}</span>
+                <button key={f.id} onClick={() => setStatus(f.id)}
+                  className={`flex-none min-h-[34px] px-3.5 rounded-full text-[14px] font-semibold ${
+                    on ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}>
+                  {f.label} <span className={on ? 'opacity-70' : 'text-gray-500 dark:text-gray-400'}>{counts[f.id]}</span>
                 </button>
               )
             })}
           </div>
+        )}
+      </div>
 
-          {activeStorage && (
-            <div className="px-4 space-y-3">
-              {drawersOfActive.map(c => (
-                <div key={c.id} className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-bold text-gray-800 dark:text-gray-100">{c.label}</div>
-                    <button
-                      onClick={() => openForm({ storageId: activeStorage.id, compartmentId: c.id })}
-                      className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2.5 py-1 rounded-full"
-                    >+ Eintrag</button>
-                  </div>
-                  {(byCompartment[c.id] || []).length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">Leer</p>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {byCompartment[c.id].map(it => <ItemRow key={it.id} item={it} onConsume={consumePortion} onRemove={removeItem} onRestock={toggleRestock} onEdit={() => setEditingItem(it)}
-                        selectMode={selectMode} isSelected={selected.has(it.id)} onToggleSelect={() => setSelected(prev => { const next = new Set(prev); next.has(it.id) ? next.delete(it.id) : next.add(it.id); return next })} />)}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      <div className="pt-3 pb-28 space-y-5">
+        {!selectMode && <QuickAddBar />}
 
-      {/* Expiry-Ansicht */}
-      {tab === 'ablauf' && items.length > 0 && (
-        <div className="px-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 shadow-sm">
-            <ul className="space-y-1.5">
-              {byExpiry.map(it => {
-                const st = storages.find(s => s.id === it.storageId)
-                const c = st?.compartments.find(c => c.id === it.compartmentId)
-                return <ItemRow key={it.id} item={it} onConsume={consumePortion} onRemove={removeItem} onRestock={toggleRestock} onEdit={() => setEditingItem(it)}
-                  location={`${st?.emoji || ''} ${c?.label || ''}`}
-                  selectMode={selectMode} isSelected={selected.has(it.id)} onToggleSelect={() => setSelected(prev => { const next = new Set(prev); next.has(it.id) ? next.delete(it.id) : next.add(it.id); return next })} />
+        {items.length === 0 ? (
+          <EmptyState hasItems={false} onAdd={() => openForm()} />
+        ) : filtered.length === 0 ? (
+          <EmptyState hasItems />
+        ) : (
+          groups.map(g => (
+            <ListGroup key={g.id} title={g.title}>
+              {g.items.map(item => {
+                const exp = expiryInfo(item)
+                const { storage, compartment } = locationOf(storages, item)
+                const where = sort === 'mhd' ? [storage?.label, compartment?.label].filter(Boolean).join(' · ') : compartment?.label
+                return (
+                  <SwipeRow key={item.id} disabled={selectMode} onSwipe={() => consume(item)}>
+                    <ListRow
+                      onClick={() => (selectMode ? toggleSelect(item.id) : setDetailId(item.id))}
+                      leading={selectMode
+                        ? <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-none ${selected.has(item.id) ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 dark:border-gray-600'}`}>
+                            {selected.has(item.id) && <Icon name="check" size={14} strokeWidth={3} />}
+                          </span>
+                        : <ItemThumb item={item} />}
+                      title={item.name}
+                      subtitle={[portionsText(item), where].filter(Boolean).join(' · ')}
+                      trailing={
+                        <div className="flex items-center gap-1.5 flex-none">
+                          {item.needsRestock && <Icon name="cart" size={17} title="Nachkaufen" className="text-primary-500 dark:text-primary-300" />}
+                          {exp.text && <span className={`text-footnote ${expiryClass(exp.tone)}`}>{exp.text}</span>}
+                        </div>
+                      } />
+                  </SwipeRow>
+                )
               })}
-            </ul>
-          </div>
-        </div>
+            </ListGroup>
+          ))
+        )}
+
+        {items.length > 0 && (
+          <p className="px-8 text-center text-footnote text-gray-500 dark:text-gray-400">
+            {items.length} {items.length === 1 ? 'Eintrag' : 'Einträge'} · {totalPortions} Portionen · {storages.length} {storages.length === 1 ? 'Gefrierschrank' : 'Gefrierschränke'}
+            <br />Nach links wischen entnimmt eine Portion.
+          </p>
+        )}
+      </div>
+
+      {showFilters && (
+        <FilterSheet onClose={() => setShowFilters(false)}
+          sort={sort} setSort={setSort} storageFilter={storageFilter} setStorageFilter={setStorageFilter}
+          category={category} setCategory={setCategory} storages={storages}
+          categories={[...new Set(items.map(i => i.category))].map(categoryOf).sort((a, b) => a.label.localeCompare(b.label, 'de'))}
+          onSelectMode={() => { setShowFilters(false); setSelectMode(true); setSelected(new Set()) }} />
       )}
 
-
-
-      {formOpen && (
-        <FreezerForm prefilled={formPrefill} onClose={closeForm} />
+      {detailItem && (
+        <FreezerDetailSheet item={detailItem} onClose={() => setDetailId(null)} onConsume={() => consume(detailItem)}
+          onEdit={() => { setEditingId(detailItem.id); setDetailId(null) }} />
       )}
+
+      {formOpen && <FreezerForm prefilled={formPrefill} onClose={closeForm} />}
+      {editingItem && <FreezerForm item={editingItem} onClose={() => setEditingId(null)} />}
       {showSettings && (
-        <StorageSettings onClose={() => setShowSettings(false)} />
+        <StorageSettings onClose={() => setShowSettings(false)} onImport={() => { setShowSettings(false); setShowImport(true) }} />
       )}
-      {showImport && (
-        <ExcelImport onClose={() => setShowImport(false)} />
-      )}
-      {editingItem && (
-        <FreezerEditSheet item={editingItem} storages={storages} items={items} onClose={() => setEditingItem(null)}
-          onSave={(patch) => { updateItem(editingItem.id, patch); setEditingItem(null) }} />
-      )}
+      {showImport && <ExcelImport onClose={() => setShowImport(false)} />}
 
       {selectMode && (
-        <SelectionBar
-          count={selected.size}
+        <SelectionBar count={selected.size}
           onDelete={() => { bulkDeleteItems([...selected]); setSelected(new Set()); setSelectMode(false) }}
-          onCancel={() => { setSelected(new Set()); setSelectMode(false) }}
-        />
+          onCancel={() => { setSelected(new Set()); setSelectMode(false) }} />
       )}
     </div>
   )
 }
 
-function ItemRow({ item, onConsume, onRemove, onRestock, onEdit, location, selectMode, isSelected, onToggleSelect }) {
-  const badge = expiryBadge(item)
-  const [touchX, setTouchX] = useState(null)
+// Nach links wischen = eine Portion entnehmen
+function SwipeRow({ children, onSwipe, disabled }) {
+  const start = useRef(null)
+  const moved = useRef(false)
   const [dx, setDx] = useState(0)
+  const [dragging, setDragging] = useState(false)
 
-  function onTouchStart(e)  { if (selectMode) return; setTouchX(e.touches[0].clientX); setDx(0) }
-  function onTouchMove(e)   { if (touchX !== null) setDx(e.touches[0].clientX - touchX) }
-  function onTouchEnd()     {
-    if (dx < -70) { onConsume(item.id) }
-    setTouchX(null); setDx(0)
+  function onTouchStart(e) {
+    if (disabled) return
+    start.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null }
+    moved.current = false
+    setDragging(true)
+  }
+  function onTouchMove(e) {
+    const s = start.current
+    if (!s) return
+    const x = e.touches[0].clientX - s.x
+    const y = e.touches[0].clientY - s.y
+    if (s.horizontal === null && (Math.abs(x) > 8 || Math.abs(y) > 8)) s.horizontal = Math.abs(x) > Math.abs(y)
+    if (!s.horizontal) return
+    if (Math.abs(x) > 8) moved.current = true
+    setDx(Math.min(0, Math.max(x, -110)))
+  }
+  function onTouchEnd() {
+    if (dx < -70) onSwipe()
+    start.current = null
+    setDragging(false)
+    setDx(0)
   }
 
-  const swipeBg = dx < -20 ? 'bg-primary-100 dark:bg-primary-900/40' : ''
-
   return (
-    <li className={`relative overflow-hidden rounded-lg ${swipeBg}`}
-        onClick={selectMode ? onToggleSelect : undefined}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-      <div className="flex items-center gap-2 py-1.5"
-        style={{ transform: dx < 0 ? `translateX(${Math.max(dx, -80)}px)` : 'none', transition: touchX===null ? 'transform 0.2s' : 'none' }}>
-        {selectMode && (
-          <div className={`flex-none w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-            isSelected ? 'bg-primary-600 border-primary-600 text-white' : 'border-gray-300 dark:border-gray-600'
-          }`}>
-            {isSelected && <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
-        )}
-        {item.photoData && <img src={item.photoData} className="w-9 h-9 rounded object-cover flex-none" alt="" />}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-800 dark:text-gray-100 truncate">{item.name}</span>
-            <span className="text-xs text-gray-400">{catLabel(item.category)}</span>
-          </div>
-          <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-2 flex-wrap">
-            <span>{item.portions}× {item.portionSize || 'Portion'}</span>
-            <span>eingefr. {item.frozenAt}</span>
-            {location && <span>📦 {location}</span>}
-            {badge && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${badge.cls}`}>{badge.text}</span>}
-            {item.needsRestock && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 rounded">🛒 nachkaufen</span>}
-          </div>
+    <div className="relative overflow-hidden"
+      onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
+      onClickCapture={e => { if (moved.current) { e.stopPropagation(); e.preventDefault(); moved.current = false } }}>
+      {dx < 0 && (
+        <div className={`absolute inset-0 flex items-center justify-end pr-5 gap-1.5 text-callout font-semibold text-white ${dx < -70 ? 'bg-primary-500' : 'bg-primary-300 dark:bg-primary-700'}`}>
+          <Icon name="minus" size={18} strokeWidth={2.4} />1 Portion
         </div>
-        {!selectMode && <>
-          <button onClick={() => onEdit?.()} className="flex-none text-gray-400 hover:text-gray-600 px-1" title="Bearbeiten" aria-label="Bearbeiten">✎</button>
-          <button onClick={() => onRestock?.(item.id)}
-            className={`flex-none text-xs font-semibold px-2 py-1 rounded-full ${
-              item.needsRestock ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
-            }`}
-            title="In Einkaufsliste" aria-label="In Einkaufsliste">🛒</button>
-          <button onClick={() => onConsume(item.id)}
-            className="flex-none text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2.5 py-1 rounded-full"
-            title="Eine Portion verbraucht" aria-label="Eine Portion verbraucht">−1</button>
-          <button onClick={() => { if (confirm('Eintrag löschen?')) onRemove(item.id) }}
-            className="flex-none text-gray-300 hover:text-red-500 px-1" title="Löschen" aria-label="Löschen">✕</button>
-        </>}
+      )}
+      <div className="relative bg-white dark:bg-gray-800"
+        style={{ transform: dx ? `translateX(${dx}px)` : undefined, transition: dragging ? 'none' : 'transform 0.2s' }}>
+        {children}
       </div>
-    </li>
+    </div>
   )
 }
 
-function FreezerEditSheet({ item, storages, items, onClose, onSave }) {
-  const nameSuggestions = useMemo(() => [...new Set(items.map(i => i.name).filter(Boolean))].sort(), [items])
-  const portionSizeSuggestions = useMemo(() => [...new Set(items.map(i => i.portionSize).filter(Boolean))].sort(), [items])
-  const [name, setName] = useState(item.name)
-  const [category, setCategory] = useState(item.category)
-  const [storageId, setStorageId] = useState(item.storageId)
-  const [compartmentId, setCompartmentId] = useState(item.compartmentId)
-  const [portions, setPortions] = useState(item.portions)
-  const [portionSize, setPortionSize] = useState(item.portionSize || '')
-  const [note, setNote] = useState(item.note || '')
+function FreezerDetailSheet({ item, onClose, onConsume, onEdit }) {
+  const storages = useFreezer(s => s.storages)
+  const toggleRestock = useFreezer(s => s.toggleRestock)
+  const removeItem = useFreezer(s => s.removeItem)
+  const [zoom, setZoom] = useState(false)
 
-  const storage = storages.find(s => s.id === storageId)
-  const compartments = storage?.compartments || []
+  const exp = expiryInfo(item)
+  const cat = categoryOf(item.category)
+  const { storage, compartment } = locationOf(storages, item)
+
+  const facts = [
+    ['Portionen', String(item.portions)],
+    ['Portionsgröße', item.portionSize || '–'],
+    ['Eingefroren am', formatDate(item.frozenAt)],
+    ['Haltbar bis', formatDate(item.expiryDate)],
+  ]
+
+  async function remove() {
+    const ok = await confirmAction({ title: `„${item.name}“ löschen?`, message: `Alle ${item.portions} ${item.portions === 1 ? 'Portion' : 'Portionen'} werden entfernt.`, confirmLabel: 'Löschen', destructive: true })
+    if (ok) { removeItem(item.id); onClose() }
+  }
+
+  function take() {
+    const last = item.portions <= 1
+    onConsume()
+    if (last) onClose()
+  }
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col">
-        <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="text-lg font-bold">✎ Eintrag bearbeiten</h3>
-          <button onClick={onClose} aria-label="Schließen">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div>
-            <label className="label">Name</label>
-            <AutocompleteInput className="input text-sm" value={name} onChange={setName} suggestions={nameSuggestions} />
-          </div>
-          <div>
-            <label className="label">Kategorie</label>
-            <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map(c => (
-                <button key={c.id} type="button" onClick={() => setCategory(c.id)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    category === c.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}>{c.emoji} {c.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Portionen</label>
-              <input type="number" min="1" className="input text-sm" value={portions} onChange={e => setPortions(Number(e.target.value))} />
-            </div>
-            <div>
-              <label className="label">Portionsgröße</label>
-              <AutocompleteInput className="input text-sm" value={portionSize} onChange={setPortionSize} suggestions={portionSizeSuggestions} />
-            </div>
-          </div>
-          <div>
-            <label className="label">📦 Lagerort</label>
-            <div className="flex flex-wrap gap-1.5">
-              {storages.map(s => (
-                <button key={s.id} type="button"
-                  onClick={() => { setStorageId(s.id); setCompartmentId(s.compartments[0]?.id) }}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-                    storageId === s.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}>{s.emoji} {s.label}</button>
-              ))}
-            </div>
-            {compartments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {compartments.map(c => (
-                  <button key={c.id} type="button" onClick={() => setCompartmentId(c.id)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      compartmentId === c.id ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}>{c.label}</button>
-                ))}
-              </div>
+      <Sheet title={item.name} onClose={onClose} cancelLabel="Schließen" confirmLabel="Bearbeiten" onConfirm={onEdit}>
+        <div className="space-y-5">
+          <div className="px-5 flex items-start gap-4">
+            {item.photoData && (
+              <button onClick={() => setZoom(true)} aria-label="Foto vergrößern" className="flex-none w-20 h-20 rounded-card bg-white dark:bg-gray-800 overflow-hidden">
+                <img src={item.photoData} alt="" className="w-full h-full object-cover" />
+              </button>
             )}
+            <div className="min-w-0 pt-1">
+              <p className="text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{cat.emoji} {cat.label}</p>
+              <h3 className="text-title text-gray-900 dark:text-gray-50">{item.name}</h3>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {exp.tone && <StatusPill tone={exp.tone}>{exp.tone === 'expired' ? `Abgelaufen seit ${-exp.days} ${exp.days === -1 ? 'Tag' : 'Tagen'}` : exp.text}</StatusPill>}
+                {item.needsRestock && <StatusPill tone="accent">Nachkaufen</StatusPill>}
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="label">Notiz</label>
-            <input className="input text-sm" value={note} onChange={e => setNote(e.target.value)} />
+
+          <div className="px-4 grid grid-cols-2 gap-2.5">
+            {facts.map(([k, v]) => (
+              <div key={k} className="bg-white dark:bg-gray-800 rounded-[14px] px-3.5 py-3">
+                <div className="text-footnote text-gray-500 dark:text-gray-400">{k}</div>
+                <div className="text-[17px] font-semibold text-gray-900 dark:text-gray-100 mt-0.5 break-words">{v}</div>
+              </div>
+            ))}
+            <div className="col-span-2 bg-white dark:bg-gray-800 rounded-[14px] px-3.5 py-3">
+              <div className="text-footnote text-gray-500 dark:text-gray-400">Lagerort</div>
+              <div className="text-[17px] font-semibold text-gray-900 dark:text-gray-100 mt-0.5 break-words">
+                {storage ? `${storage.emoji} ${storage.label}${compartment ? ` · ${compartment.label}` : ''}` : 'Ohne Gefrierschrank'}
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2 pt-2 pb-4">
-            <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-            <button onClick={() => onSave({ name, category, storageId, compartmentId, portions, portionSize, note })}
-              className="btn-primary flex-1">Speichern</button>
+
+          <div className="px-4">
+            <button onClick={take} className="btn-primary w-full">
+              <Icon name="minus" size={20} strokeWidth={2.4} />{item.portions <= 1 ? 'Letzte Portion entnehmen' : 'Portion entnehmen'}
+            </button>
+          </div>
+
+          <ListGroup footer="Markierte Einträge erscheinen auf der Einkaufsliste.">
+            <ListRow
+              leading={<Icon name="cart" size={20} className="text-primary-500 dark:text-primary-300" />}
+              title="Nachkaufen"
+              trailing={<Switch checked={!!item.needsRestock} onChange={() => toggleRestock(item.id)} label="Nachkaufen" />} />
+          </ListGroup>
+
+          {item.note && <p className="px-6 text-callout text-gray-600 dark:text-gray-300">{item.note}</p>}
+
+          <div className="flex justify-center">
+            <button onClick={remove} className="min-h-[44px] px-4 text-callout font-semibold text-expired dark:text-expired-dark">Eintrag löschen</button>
           </div>
         </div>
-      </div>
+      </Sheet>
+
+      {zoom && (
+        <div className="fixed inset-0 z-[75] bg-black/85 flex flex-col items-center justify-center p-6 fade-enter" onClick={() => setZoom(false)}>
+          <img src={item.photoData} alt={item.name} className="max-w-full max-h-[70vh] object-contain rounded-card" />
+          <button className="mt-5 min-h-[44px] px-6 rounded-full bg-white/15 text-white font-semibold">Schließen</button>
+        </div>
+      )}
     </>
+  )
+}
+
+function FilterSheet({ onClose, sort, setSort, storageFilter, setStorageFilter, category, setCategory, storages, categories, onSelectMode }) {
+  const Option = ({ label, on, onClick }) => (
+    <ListRow title={<span className="font-normal">{label}</span>} onClick={onClick}
+      trailing={on ? <Icon name="check" size={20} strokeWidth={2.4} className="text-primary-500 dark:text-primary-300" /> : null} />
+  )
+  const reset = () => { setSort('location'); setStorageFilter('all'); setCategory('all') }
+  return (
+    <Sheet title="Filtern & sortieren" onClose={onClose} cancelLabel="Schließen" confirmLabel="Fertig" onConfirm={onClose}>
+      <div className="space-y-5">
+        <div className="px-4">
+          <Segmented label="Sortierung" value={sort} onChange={setSort}
+            options={[{ id: 'location', label: 'Nach Lagerort' }, { id: 'mhd', label: 'Nach Ablaufdatum' }]} />
+        </div>
+        {storages.length > 1 && (
+          <ListGroup title="Gefrierschrank">
+            <Option label="Alle" on={storageFilter === 'all'} onClick={() => setStorageFilter('all')} />
+            {storages.map(s => <Option key={s.id} label={`${s.emoji} ${s.label}`} on={storageFilter === s.id} onClick={() => setStorageFilter(s.id)} />)}
+          </ListGroup>
+        )}
+        {categories.length > 1 && (
+          <ListGroup title="Kategorie">
+            <Option label="Alle" on={category === 'all'} onClick={() => setCategory('all')} />
+            {categories.map(c => <Option key={c.id} label={`${c.emoji} ${c.label}`} on={category === c.id} onClick={() => setCategory(c.id)} />)}
+          </ListGroup>
+        )}
+        <ListGroup>
+          <ListRow onClick={reset} tone="accent" title="Alle Filter zurücksetzen" />
+          <ListRow onClick={onSelectMode} tone="accent" title="Mehrere auswählen …" />
+        </ListGroup>
+      </div>
+    </Sheet>
+  )
+}
+
+function EmptyState({ hasItems, onAdd }) {
+  return (
+    <div className="flex flex-col items-center text-center px-8 py-12 gap-3">
+      <span className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 text-gray-400 flex items-center justify-center"><Icon name={hasItems ? 'search' : 'snow'} size={30} /></span>
+      <h3 className="text-headline text-gray-900 dark:text-gray-100">{hasItems ? 'Nichts gefunden' : 'Noch nichts eingefroren'}</h3>
+      <p className="text-callout text-gray-500 dark:text-gray-400">{hasItems ? 'Passe Suche oder Filter an.' : 'Nutze die Schnelleingabe oben oder lege einen Eintrag mit allen Details an.'}</p>
+      {!hasItems && <button onClick={onAdd} className="btn-primary px-6 mt-2"><Icon name="plus" size={20} />Eintrag anlegen</button>}
+    </div>
   )
 }

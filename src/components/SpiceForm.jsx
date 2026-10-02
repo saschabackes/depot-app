@@ -5,6 +5,7 @@ import BarcodeScanner from './BarcodeScanner'
 import { searchProductImages } from '../utils/productLookup'
 import AutocompleteInput from './AutocompleteInput'
 import FillBar, { FILL_LABELS } from './FillBar'
+import Sheet from '../ui/Sheet'
 
 const DEFAULT_FORM = {
   name: '',
@@ -55,12 +56,6 @@ export default function SpiceForm({ spice, prefill, onClose }) {
   const gramsRef = useRef(null)
   const imageFileRef = useRef(null)
   const suggestionTimeout = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
 
   useEffect(() => {
     const t = setTimeout(() => nameRef.current?.focus(), 350)
@@ -159,25 +154,9 @@ export default function SpiceForm({ spice, prefill, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200" />
-        </div>
-
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            {isEdit ? 'Gewürz bearbeiten' : 'Gewürz hinzufügen'}
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:bg-gray-700 transition-colors">
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-5 pb-safe">
+      <Sheet title={isEdit ? 'Gewürz bearbeiten' : 'Neues Gewürz'} onClose={onClose}
+        confirmLabel="Sichern" onConfirm={() => handleSubmit({ preventDefault() {} })} confirmDisabled={!form.name.trim()}>
+        <form onSubmit={handleSubmit} className="px-5 space-y-5">
 
           {/* ── Produktbild ─────────────────────────────────────── */}
           <div>
@@ -248,7 +227,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                 {/* Bild entfernen */}
                 {form.imageUrl && (
                   <button type="button" onClick={() => set('imageUrl', '')}
-                    className="text-xs text-red-400 hover:text-red-600 dark:text-red-400 transition-colors">
+                    className="text-footnote font-semibold text-expired dark:text-expired-dark min-h-[44px] transition-colors">
                     Bild entfernen
                   </button>
                 )}
@@ -267,12 +246,12 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                       type="button"
                       onClick={() => selectSearchImage(r.fullUrl)}
                       title={[r.brand, r.name].filter(Boolean).join(' – ')}
-                      className="w-20 h-20 rounded-xl border-2 border-transparent hover:border-green-400 active:border-green-500 overflow-hidden bg-gray-50 dark:bg-gray-800 transition-all shadow-sm block"
+                      className="w-20 h-20 rounded-xl border-2 border-transparent hover:border-primary-300 active:border-primary-500 overflow-hidden bg-gray-50 dark:bg-gray-800 transition-all shadow-sm block"
                     >
                       <img src={r.thumbUrl} alt={r.name} className="w-full h-full object-contain" loading="lazy" />
                     </button>
                     {r.brand && (
-                      <p className="text-[10px] text-gray-400 truncate mt-1 leading-tight">{r.brand}</p>
+                      <p className="text-[11px] text-gray-400 truncate mt-1 leading-tight">{r.brand}</p>
                     )}
                   </div>
                 ))}
@@ -314,7 +293,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                   >
                     {suggestions.map(s => (
                       <button key={s} type="button"
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 dark:bg-green-900/30 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary-50 dark:hover:bg-primary-900 transition-colors first:rounded-t-xl last:rounded-b-xl"
                         onClick={() => { set('name', s); setShowSuggestions(false) }}
                       >{s}</button>
                     ))}
@@ -367,11 +346,11 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                 <button key={o.id} type="button" onClick={() => set('form', o.id)}
                   className={`rounded-xl py-2.5 px-2 text-center border-2 transition-all ${
                     form.form === o.id
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900'
                       : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
                   }`}>
                   <div className="font-semibold text-sm text-gray-800 dark:text-gray-100">{o.label}</div>
-                  <div className="text-[10px] text-gray-400 leading-tight mt-0.5">{o.hint}</div>
+                  <div className="text-[11px] text-gray-400 leading-tight mt-0.5">{o.hint}</div>
                 </button>
               ))}
             </div>
@@ -391,7 +370,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                   <input
                     ref={gramsRef}
                     type="number"
-                    className={`input pr-10 ${lookupStatus === 'found-no-weight' ? 'ring-2 ring-blue-400' : ''}`}
+                    className={`input pr-10 ${lookupStatus === 'found-no-weight' ? 'ring-2 ring-primary-300' : ''}`}
                     placeholder="z.B. 25"
                     min="0" step="0.1"
                     value={form.amountGrams}
@@ -432,12 +411,12 @@ export default function SpiceForm({ spice, prefill, onClose }) {
                   onClick={() => set('fillLevel', lvl)}
                   className={`flex-1 py-2.5 rounded-xl flex flex-col items-center gap-1.5 border-2 transition-all ${
                     form.fillLevel === lvl
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900'
                       : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <FillBar level={lvl} />
-                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-none">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium leading-none">
                     {FILL_LABELS[lvl]}
                   </span>
                 </button>
@@ -514,7 +493,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
 
           {/* ── Lookup-Status ───────────────────────────────────── */}
           {lookupStatus === 'found' && (
-            <div className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+            <div className="bg-primary-50 dark:bg-primary-900 text-primary-700 dark:text-primary-200 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
               </svg>
@@ -522,7 +501,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
             </div>
           )}
           {lookupStatus === 'found-no-weight' && (
-            <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+            <div className="bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
               </svg>
@@ -530,7 +509,7 @@ export default function SpiceForm({ spice, prefill, onClose }) {
             </div>
           )}
           {lookupStatus === 'notfound' && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+            <div className="bg-soon-soft dark:bg-soon-dark-soft text-soon dark:text-soon-dark text-sm rounded-xl px-4 py-3 flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
               </svg>
@@ -540,16 +519,13 @@ export default function SpiceForm({ spice, prefill, onClose }) {
 
           {/* ── Fehler ──────────────────────────────────────────── */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3">{error}</div>
+            <div className="bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark text-sm rounded-xl px-4 py-3">{error}</div>
           )}
 
           {/* ── Buttons ─────────────────────────────────────────── */}
-          <div className="flex gap-3 pt-2 pb-4">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-            <button type="submit" className="btn-primary flex-1">{isEdit ? 'Speichern' : 'Hinzufügen'}</button>
-          </div>
+          <button type="submit" className="btn-primary w-full">{isEdit ? 'Änderungen sichern' : 'Gewürz anlegen'}</button>
         </form>
-      </div>
+      </Sheet>
 
       {showScanner && (
         <BarcodeScanner

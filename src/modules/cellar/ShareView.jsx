@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { decodeShareData } from './shareCodec'
-
-const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
+import { COLOR_EMOJI } from './wineConstants'
 const STARS = n => '★'.repeat(n) + '☆'.repeat(5 - n)
 
 export default function ShareView({ encoded }) {

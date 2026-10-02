@@ -37,9 +37,9 @@ const PATHS = {
   list:     <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
 }
 
-export default function Icon({ name, size = 24, strokeWidth = 1.9, className = '', title }) {
+export default function Icon({ name, size = 24, strokeWidth = 1.9, className = '', title, filled = false }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor"
       strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"
       className={`flex-none ${className}`} aria-hidden={title ? undefined : true} role={title ? 'img' : undefined}>
       {title && <title>{title}</title>}

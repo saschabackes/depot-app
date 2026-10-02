@@ -2,6 +2,10 @@ import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useCellar } from './store'
 import { TARGETS, autoMapColumns, looksLikeHeader, rowToWine } from './excelMapping'
+import { FormSection } from './cellarUi'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow } from '../../ui/List'
 
 export default function ExcelImport({ onClose, onImported }) {
   const { racks, addPendingBatch, addRack, setRackGrid, addBottle } = useCellar()
@@ -112,132 +116,84 @@ export default function ExcelImport({ onClose, onImported }) {
     if (withoutGrid.length > 0 && onImported) onImported(withoutGrid.length)
   }
 
+  const sectionTitle = 'px-4 pb-1.5 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'
+  const validCount = dataRows.filter(r => rowToWine(r, mapping).name).length
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-[55]" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 top-10 z-[60] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col">
-        <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h2 className="text-lg font-bold">📥 Wein-Import aus Excel</h2>
-          <button onClick={onClose} className="p-2">✕</button>
+    <Sheet title="Excel-Import" onClose={onClose} z={60}
+      confirmLabel={step !== 'pick' ? 'Importieren' : null} onConfirm={doImport} confirmDisabled={validCount === 0}>
+      {step === 'pick' ? (
+        <div className="flex flex-col items-center text-center px-8 py-10 gap-3">
+          <span className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 text-gray-400 flex items-center justify-center"><Icon name="list" size={30} /></span>
+          <h3 className="text-headline text-gray-900 dark:text-gray-100">.xlsx oder .csv hochladen</h3>
+          <p className="text-callout text-gray-500 dark:text-gray-400 max-w-md">
+            Egal wie deine Tabelle aufgebaut ist – die Spalten werden automatisch erkannt. Im nächsten Schritt kannst du jede Zuordnung prüfen.
+          </p>
+          <label className="btn-primary px-6 mt-2 cursor-pointer">
+            Datei auswählen
+            <input type="file" accept=".xlsx,.xls,.csv" className="sr-only" onChange={handleFile} />
+          </label>
+          {error && <p className="text-callout text-expired dark:text-expired-dark">{error}</p>}
         </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {step === 'pick' && (
-            <div className="space-y-3 text-center py-10">
-              <p className="text-6xl">📑</p>
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">.xlsx oder .csv hochladen</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-300 max-w-md mx-auto">
-                Egal wie deine Excel aufgebaut ist – wir versuchen, die Spalten automatisch zu erkennen.
-                Beim nächsten Schritt kannst du alle Zuordnungen prüfen und korrigieren.
-              </p>
-              <label className="inline-block">
-                <span className="bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl cursor-pointer inline-block">
-                  Datei auswählen
-                </span>
-                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
-              </label>
-              {error && <p className="text-red-600 text-sm">{error}</p>}
-            </div>
-          )}
-
-          {step !== 'pick' && (
-            <div className="space-y-4">
-              {/* Sheet-Wahl */}
-              {wb?.SheetNames?.length > 1 && (
-                <div>
-                  <label className="label">Arbeitsblatt</label>
-                  <select className="input text-sm" value={sheetName} onChange={e => changeSheet(e.target.value)}>
-                    {wb.SheetNames.map(n => <option key={n}>{n}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {/* Header-Frage */}
-              <label className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900/40 px-3 py-2 rounded-xl text-sm">
-                <input type="checkbox" checked={hasHeader} onChange={e => changeHasHeader(e.target.checked)} />
-                Erste Zeile enthält Spaltennamen
-                <span className="text-[10px] text-gray-400 ml-auto">{rawRows.length} Zeilen gelesen</span>
-              </label>
-
-              {/* Mapping-Tabelle */}
+      ) : (
+        <div className="space-y-5">
+          <FormSection>
+            {wb?.SheetNames?.length > 1 && (
               <div>
-                <p className="font-bold text-sm text-gray-800 dark:text-gray-100 mb-2">Spalten zuordnen</p>
-                <p className="text-[11px] text-gray-400 mb-2">
-                  Wir haben automatisch zugeordnet – bitte prüfen und ggf. korrigieren. Spalten ohne Zuordnung werden ignoriert.
-                </p>
-                <div className="space-y-2">
-                  {mapping.map((m, i) => (
-                    <div key={i} className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">{m.header || `Spalte ${i+1}`}</span>
-                        <select value={m.target} onChange={e => changeMappingTarget(i, e.target.value)}
-                          className="text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1">
-                          {TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                        </select>
-                      </div>
-                      {m.samples.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500 dark:text-gray-400">
-                          <span className="font-bold uppercase">Beispiele:</span>
-                          {m.samples.map((s, k) => (
-                            <span key={k} className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded">{String(s)}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <label className="label" htmlFor="xl-sheet">Arbeitsblatt</label>
+                <select id="xl-sheet" className="input" value={sheetName} onChange={e => changeSheet(e.target.value)}>
+                  {wb.SheetNames.map(n => <option key={n}>{n}</option>)}
+                </select>
               </div>
+            )}
+            <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+              <input type="checkbox" className="w-5 h-5 accent-primary-500" checked={hasHeader} onChange={e => changeHasHeader(e.target.checked)} />
+              <span className="flex-1 text-callout text-gray-800 dark:text-gray-100">Erste Zeile enthält Spaltennamen</span>
+              <span className="text-footnote text-gray-500 dark:text-gray-400">{rawRows.length} Zeilen</span>
+            </label>
+          </FormSection>
 
-              {/* Vorschau */}
-              <div>
-                <p className="font-bold text-sm text-gray-800 dark:text-gray-100 mb-2">Vorschau (erste 5 Zeilen)</p>
-                <div className="space-y-1.5">
-                  {preview.map((w, i) => (
-                    <div key={i} className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-2 text-xs">
-                      <p className="font-bold text-gray-800 dark:text-gray-100">
-                        {w.name || <span className="text-red-600">⚠️ Kein Name</span>}
-                        {w.vintage && <span className="text-gray-400 font-normal"> {w.vintage}</span>}
-                      </p>
-                      <p className="text-gray-600 dark:text-gray-300">
-                        {w.winery && `${w.winery} · `}{w.region}{w.grape && ` · ${w.grape}`}{w.color && ` · ${w.color}`}
-                        {w.alcoholFree && ' · 🚫 alkoholfrei'}
-                        {w.count > 1 && ` · ${w.count}×`}
-                        {w.priceEur != null && ` · ${w.priceEur} €`}
-                        {w.row > 0 && w.col > 0 && ` · 📍 R${w.row}/S${w.col}`}
-                        {w.rackLabel && ` · 🗄️ ${w.rackLabel}`}
-                      </p>
-                    </div>
-                  ))}
+          <section className="px-4">
+            <h2 className={sectionTitle}>Spalten zuordnen</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-card overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
+              {mapping.map((m, i) => (
+                <div key={i} className="px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-body font-semibold text-gray-900 dark:text-gray-100 truncate">{m.header || `Spalte ${i + 1}`}</span>
+                    <select value={m.target} onChange={e => changeMappingTarget(i, e.target.value)} aria-label={`Zuordnung für ${m.header || `Spalte ${i + 1}`}`}
+                      className="flex-none min-h-[40px] max-w-[55%] rounded-lg bg-gray-100 dark:bg-gray-700 text-callout text-primary-600 dark:text-primary-200 font-semibold px-2">
+                      {TARGETS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  {m.samples.length > 0 && (
+                    <p className="text-footnote text-gray-500 dark:text-gray-400 truncate mt-0.5">z. B. {m.samples.map(String).join(' · ')}</p>
+                  )}
                 </div>
-              </div>
-
-              {/* Hinweis: Lagerort wird im Einräumen-Schritt zugewiesen */}
-              <div className="bg-primary-50 dark:bg-primary-900/20 rounded-xl px-3 py-2.5 space-y-1">
-                {preview.some(w => w.row > 0 && w.col > 0) ? (
-                  <p className="text-xs text-primary-700 dark:text-primary-300">
-                    📍 Reihen/Spalten erkannt — Regale werden automatisch mit Gitter angelegt und Flaschen direkt positioniert.
-                    {preview.some(w => !(w.row > 0 && w.col > 0)) && ' Flaschen ohne Position landen im Einräumen-Schritt.'}
-                  </p>
-                ) : (
-                  <p className="text-xs text-primary-700 dark:text-primary-300">
-                    📦 Lagerorte werden im nächsten Schritt zugewiesen — dort kannst du jede Flasche einem Regal und Fach zuordnen.
-                  </p>
-                )}
-              </div>
+              ))}
             </div>
-          )}
-        </div>
+            <p className="px-4 pt-1.5 text-footnote text-gray-500 dark:text-gray-400">Automatisch zugeordnet – bitte prüfen. Spalten ohne Zuordnung werden ignoriert.</p>
+          </section>
 
-        {step !== 'pick' && (
-          <div className="border-t px-5 py-3 flex gap-2">
-            <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-            <button onClick={doImport} className="btn-primary flex-1">
-              {dataRows.length} importieren
-            </button>
+          <ListGroup title="Vorschau (erste 5 Zeilen)">
+            {preview.map((w, i) => (
+              <ListRow key={i}
+                title={w.name ? `${w.name}${w.vintage ? ` ${w.vintage}` : ''}` : <span className="text-expired dark:text-expired-dark">Kein Name – wird übersprungen</span>}
+                subtitle={[w.winery, w.region, w.grape, w.color, w.alcoholFree && 'alkoholfrei', w.count > 1 && `${w.count}×`,
+                  w.priceEur != null && `${w.priceEur} €`, w.row > 0 && w.col > 0 && `R${w.row}/P${w.col}`, w.rackLabel].filter(Boolean).join(' · ')} />
+            ))}
+          </ListGroup>
+
+          <p className="px-8 text-footnote text-gray-500 dark:text-gray-400">
+            {preview.some(w => w.row > 0 && w.col > 0)
+              ? <>Reihen/Plätze erkannt – Regale werden automatisch mit Gitter angelegt und die Flaschen direkt einsortiert.{preview.some(w => !(w.row > 0 && w.col > 0)) && ' Flaschen ohne Position landen beim Einräumen.'}</>
+              : 'Lagerorte weist du im nächsten Schritt zu – dort ordnest du jede Flasche einem Regal und Fach zu.'}
+          </p>
+
+          <div className="px-4">
+            <button onClick={doImport} disabled={validCount === 0} className="btn-primary w-full">{validCount} {validCount === 1 ? 'Wein' : 'Weine'} importieren</button>
           </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+    </Sheet>
   )
 }

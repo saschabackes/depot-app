@@ -29,6 +29,7 @@ import TabBar from './ui/TabBar'
 import { BarButton } from './ui/Screen'
 import { Segmented } from './ui/Controls'
 import { FeedbackHost } from './ui/feedback'
+import Sheet from './ui/Sheet'
 
 const RELOAD_ON_FOCUS_AFTER_MS = 60_000
 
@@ -254,7 +255,7 @@ export default function App() {
         )}
 
         {tab === 'kochen' && <RecipesView focusId={focusRecipeId} onFocusHandled={() => setFocusRecipeId(null)} />}
-        {tab === 'einkauf' && <UnifiedShoppingList />}
+        {tab === 'einkauf' && <UnifiedShoppingList onReview={() => setShowReview(true)} />}
         {tab === 'mehr' && (
           <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
             onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} />
@@ -280,7 +281,7 @@ export default function App() {
 }
 
 function InviteJoinDialog({ code, onClose }) {
-  const { joinHousehold } = useStore()
+  const joinHousehold = useStore(s => s.joinHousehold)
   const [status, setStatus] = useState('confirm')
   const [error, setError] = useState('')
   const displayCode = code.length >= 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code
@@ -289,7 +290,7 @@ function InviteJoinDialog({ code, onClose }) {
     setStatus('joining')
     setError('')
     try {
-      const name = await joinHousehold(code)
+      await joinHousehold(code)
       setStatus('success')
       setTimeout(onClose, 2000)
     } catch (e) {
@@ -299,50 +300,26 @@ function InviteJoinDialog({ code, onClose }) {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-[70] fade-enter" onClick={onClose} />
-      <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[71] bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 max-w-sm mx-auto sheet-enter">
-        <div className="text-center mb-5">
-          <div className="text-4xl mb-3">🏠</div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Einladung zum Haushalt</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Du wurdest eingeladen, einem Haushalt beizutreten.
-          </p>
+    <Sheet title="Einladung" onClose={onClose} z={70}>
+      <div className="px-5 space-y-5 text-center">
+        <p className="text-callout text-gray-600 dark:text-gray-300">Du wurdest eingeladen, einem Haushalt beizutreten.</p>
+        <div className="bg-white dark:bg-gray-800 rounded-card px-4 py-4">
+          <p className="text-footnote text-gray-500 dark:text-gray-400">Einladungscode</p>
+          <p className="text-title font-mono tracking-widest text-gray-900 dark:text-gray-50">{displayCode}</p>
         </div>
-
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl px-4 py-3 mb-5 text-center">
-          <p className="text-xs text-gray-400 font-medium mb-1">Einladungscode</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-widest font-mono">{displayCode}</p>
-        </div>
-
         {status === 'success' ? (
-          <div className="text-center text-green-600 dark:text-green-400 font-semibold text-sm py-2">
-            Beigetreten! Daten werden geladen…
-          </div>
+          <p className="text-callout font-semibold text-primary-600 dark:text-primary-300">Beigetreten! Daten werden geladen …</p>
         ) : (
           <>
-            {error && (
-              <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2 mb-3">{error}</div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={handleJoin}
-                disabled={status === 'joining'}
-                className="flex-1 btn-primary py-3 text-sm font-semibold disabled:opacity-50"
-              >
-                {status === 'joining' ? 'Trete bei…' : 'Beitreten'}
-              </button>
-              <button onClick={onClose} className="flex-1 btn-secondary py-3 text-sm font-semibold">
-                Abbrechen
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 text-center mt-3">
-              Du verlässt deinen aktuellen Haushalt und trittst dem neuen bei.
-            </p>
+            {error && <p className="text-footnote rounded-xl px-3 py-2 bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark">{error}</p>}
+            <button onClick={handleJoin} disabled={status === 'joining'} className="btn-primary w-full">
+              {status === 'joining' ? 'Trete bei …' : 'Haushalt beitreten'}
+            </button>
+            <p className="text-footnote text-gray-500 dark:text-gray-400">Du verlässt dabei deinen aktuellen Haushalt.</p>
           </>
         )}
       </div>
-    </>
+    </Sheet>
   )
 }
 
@@ -350,9 +327,8 @@ function InviteJoinDialog({ code, onClose }) {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center">
-      <div className="text-center text-white">
-        <div className="text-5xl mb-5">🏠</div>
+    <div className="min-h-[100dvh] bg-gray-50 dark:bg-gray-900 flex items-center justify-center" role="status" aria-label="Lädt">
+      <div className="text-center text-primary-500 dark:text-primary-300">
         <svg className="w-8 h-8 animate-spin mx-auto" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>

@@ -11,13 +11,13 @@ const FEATURES = MODULES_ENABLED
       { emoji: '🛒', title: 'Einkaufsliste', desc: 'Automatisch aus Bestand & Rezepten befüllen' },
       { emoji: '📊', title: 'Dashboard', desc: 'Alles auf einen Blick — was läuft ab, was fehlt?' },
       { emoji: '👨‍👩‍👧', title: 'Haushalt', desc: 'Mit Familie oder WG teilen — alle synchron' },
-      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet — auch offline nutzbar' },
+      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet' },
     ]
   : [
       { emoji: '🌿', title: 'Überblick', desc: 'Alle Gewürze mit Füllstand & MHD auf einen Blick' },
       { emoji: '📷', title: 'Barcode-Scan', desc: 'Gewürze per Barcode hinzufügen — schnell & einfach' },
       { emoji: '🛒', title: 'Einkaufsliste', desc: 'Leere Gewürze direkt auf die Einkaufsliste setzen' },
-      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet — auch offline nutzbar' },
+      { emoji: '📱', title: 'PWA', desc: 'Installierbar auf Handy & Tablet' },
     ]
 
 function FeatureCarousel() {
@@ -65,7 +65,7 @@ function FeatureCarousel() {
           <div key={i} className="flex-none w-[140px] snap-center bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center">
             <div className="text-3xl mb-1.5">{f.emoji}</div>
             <div className="text-white font-semibold text-sm">{f.title}</div>
-            <div className="text-white/60 text-[11px] mt-0.5 leading-tight">{f.desc}</div>
+            <div className="text-white/75 text-footnote mt-0.5 leading-tight">{f.desc}</div>
           </div>
         ))}
       </div>
@@ -186,23 +186,23 @@ export default function Login() {
   }
 
   const bgGradient = MODULES_ENABLED
-    ? 'from-primary-600 to-primary-500'
-    : 'from-primary-600 to-primary-800'
+    ? 'from-primary-500 to-primary-700'
+    : 'from-primary-500 to-primary-700'
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${bgGradient} flex flex-col items-center justify-start p-6 pt-safe overflow-y-auto`}>
+    <div className={`min-h-[100dvh] bg-gradient-to-b ${bgGradient} flex flex-col items-center justify-start px-5 pb-8 overflow-y-auto`} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
       {/* Logo */}
       <div className="text-center mb-5 mt-8">
         <div className="text-5xl mb-2">{MODULES_ENABLED ? '🏠' : '🌿'}</div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">{APP_NAME}</h1>
-        <p className="text-white/70 mt-1 text-sm">{APP_TAGLINE}</p>
+        <h1 className="text-large-title text-white">{APP_NAME}</h1>
+        <p className="text-white/80 mt-1 text-callout">{APP_TAGLINE}</p>
       </div>
 
       {/* Feature Preview */}
       <FeatureCarousel />
 
       {/* Form Card */}
-      <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+      <div className="w-full max-w-sm bg-gray-50 dark:bg-gray-900 rounded-[22px] shadow-2xl p-6">
         {/* Bestätigungs-Hinweis nach Registrierung */}
         {mode === 'confirm' ? (
           <div className="text-center py-4">
@@ -244,7 +244,7 @@ export default function Login() {
           </div>
         ) : (
         <>
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
+        <h2 className="text-title text-gray-900 dark:text-gray-50 mb-1">
           {mode === 'login' ? 'Anmelden' : mode === 'register' ? 'Neues Konto erstellen' : 'Passwort zurücksetzen'}
         </h2>
         {mode === 'reset' && (
@@ -291,7 +291,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => switchMode('reset')}
-                    className="text-xs text-gray-400 hover:text-primary-600 dark:text-primary-400 transition-colors"
+                    className="min-h-[36px] text-footnote font-semibold text-primary-500 dark:text-primary-300"
                   >
                     Vergessen?
                   </button>
@@ -318,7 +318,7 @@ export default function Login() {
           )}
 
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+            <div className="bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark text-sm rounded-xl px-4 py-3 flex items-center gap-2">
               <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
               </svg>
@@ -330,7 +330,7 @@ export default function Login() {
             <div>
               <div ref={turnstile.containerRef} className="flex justify-center" />
               {turnstile.error && (
-                <p className="text-xs text-red-500 dark:text-red-400 text-center mt-1">
+                <p className="text-footnote text-expired dark:text-expired-dark text-center mt-1">
                   Sicherheitsprüfung konnte nicht geladen werden. Bitte Seite neu laden.
                 </p>
               )}
@@ -367,7 +367,7 @@ export default function Login() {
           {mode === 'reset' && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               <button onClick={() => switchMode('login')} className="text-primary-600 dark:text-primary-400 font-semibold">
-                ← Zurück zur Anmeldung
+                Zurück zur Anmeldung
               </button>
             </p>
           )}
@@ -376,7 +376,7 @@ export default function Login() {
         )}
       </div>
 
-      <p className="text-white/50 text-xs mt-6 text-center">
+      <p className="text-white/70 text-footnote mt-6 text-center">
         Daten werden in der Cloud gespeichert · alle Geräte synchron
       </p>
     </div>

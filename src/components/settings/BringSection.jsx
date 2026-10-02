@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import useStore from '../../store/useStore'
+import { confirmAction } from '../../ui/feedback'
 
 // ── Bring! ────────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ function BringSection() {
   }
 
   async function handleDisconnect() {
-    if (!confirm('Bring!-Verbindung wirklich trennen? Einkaufsartikel werden dann wieder in der eingebauten Liste gespeichert.')) return
+    if (!(await confirmAction({ title: 'Bring!-Verbindung wirklich trennen? Einkaufsartikel werden dann wieder in der eingebauten Liste gespeichert.', confirmLabel: 'Fortfahren' }))) return
     await disconnectBring()
     setStep('idle')
   }
@@ -50,12 +51,7 @@ function BringSection() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 bg-orange-100 dark:bg-orange-900/40 rounded-lg flex items-center justify-center text-base leading-none">
-          🛍
-        </div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Einkaufsliste</h3>
-      </div>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Einkaufsliste</h3>
 
       {/* Verbunden */}
       {bringSettings?.listUuid && step === 'idle' && (
@@ -64,14 +60,14 @@ function BringSection() {
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Bring!</span>
-                <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold rounded-full px-2 py-0.5">Aktiv</span>
+                <span className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-300 font-semibold rounded-full px-2 py-0.5">Aktiv</span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Liste: <span className="font-medium text-gray-700 dark:text-gray-200">{bringSettings.listName}</span></p>
               <p className="text-xs text-gray-400">{bringSettings.email}</p>
             </div>
             <button
               onClick={handleDisconnect}
-              className="text-xs text-red-500 font-semibold px-3 py-1.5 rounded-xl hover:bg-red-50 dark:bg-red-900/30 transition-colors flex-none"
+              className="text-xs text-expired font-semibold px-3 py-1.5 rounded-xl hover:bg-expired-soft dark:bg-expired-dark-soft transition-colors flex-none"
             >
               Trennen
             </button>
@@ -101,7 +97,7 @@ function BringSection() {
 
       {/* Login-Formular */}
       {step === 'login' && (
-        <form onSubmit={handleLogin} className="border border-dashed border-orange-200 rounded-2xl p-4 space-y-3 bg-orange-50/30 dark:bg-orange-900/30">
+        <form onSubmit={handleLogin} className="border border-dashed border-soon rounded-2xl p-4 space-y-3 bg-soon-soft dark:bg-soon-dark-soft">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Bring!-Konto anmelden</p>
           <input
             type="email"
@@ -121,7 +117,7 @@ function BringSection() {
             required
             autoComplete="current-password"
           />
-          {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2">{error}</p>}
+          {error && <p className="text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2">{error}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
@@ -143,7 +139,7 @@ function BringSection() {
 
       {/* Listauswahl */}
       {step === 'selectList' && (
-        <div className="border border-dashed border-orange-200 rounded-2xl p-4 bg-orange-50/30 dark:bg-orange-900/30">
+        <div className="border border-dashed border-soon rounded-2xl p-4 bg-soon-soft dark:bg-soon-dark-soft">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Welche Liste verwenden?</p>
           {lists.length === 0 && (
             <p className="text-sm text-gray-400">Keine Listen gefunden.</p>
@@ -154,7 +150,7 @@ function BringSection() {
                 key={list.listUuid}
                 onClick={() => handleSelectList(list.listUuid, list.name)}
                 disabled={loading}
-                className="w-full text-left card px-4 py-3 flex items-center justify-between hover:ring-2 hover:ring-orange-300 transition-all disabled:opacity-50"
+                className="w-full text-left card px-4 py-3 flex items-center justify-between hover:ring-2 hover:ring-soon transition-all disabled:opacity-50"
               >
                 <span className="font-medium text-gray-800 dark:text-gray-100 text-sm">{list.name}</span>
                 <svg className="w-4 h-4 text-gray-400 flex-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -169,7 +165,7 @@ function BringSection() {
           >
             Zurück
           </button>
-          {error && <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2 mt-2">{error}</p>}
+          {error && <p className="text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2 mt-2">{error}</p>}
         </div>
       )}
     </div>

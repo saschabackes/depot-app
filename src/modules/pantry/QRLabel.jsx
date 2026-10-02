@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react'
+import Icon from '../../ui/Icon'
+import { notify } from '../../ui/feedback'
 
 function generateQRMatrix(text) {
   const size = 21
@@ -62,44 +63,69 @@ export function QRCodeSVG({ value, size = 120 }) {
 
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
-export default function QRLabel({ item, appUrl }) {
+const PRINT_STYLE = `
+  @page { size: 62mm 30mm; margin: 2mm; }
+  body { font-family: -apple-system, sans-serif; margin: 0; padding: 4mm; display: flex; gap: 3mm; align-items: center; }
+  .qr { flex-shrink: 0; }
+  .info { font-size: 9pt; line-height: 1.3; }
+  .name { font-weight: bold; font-size: 10pt; }
+  .mhd { color: #666; }`
+
+// Öffnet ein Druckfenster mit dem QR-Etikett. Gibt false zurück, wenn das Fenster blockiert wurde.
+export function printQRLabel(item, appUrl) {
   const qrUrl = `${appUrl}/pantry/${item.id}`
-
-  function handlePrint() {
-    const printWindow = window.open('', '_blank', 'width=400,height=300')
-    if (!printWindow) return
-    const name = escapeHtml(item.name)
-    const unit = escapeHtml(item.unit)
-    const quantity = Number(item.quantity) || 0
-    printWindow.document.write(`<!DOCTYPE html><html><head>
-      <title>QR-Etikett: ${name}</title>
-      <style>
-        @page { size: 62mm 30mm; margin: 2mm; }
-        body { font-family: -apple-system, sans-serif; margin: 0; padding: 4mm; display: flex; gap: 3mm; align-items: center; }
-        .qr { flex-shrink: 0; }
-        .info { font-size: 9pt; line-height: 1.3; }
-        .name { font-weight: bold; font-size: 10pt; }
-        .mhd { color: #666; }
-      </style>
-    </head><body>
-      <div class="qr">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrUrl)}" width="80" height="80" />
-      </div>
-      <div class="info">
-        <div class="name">${name}</div>
-        ${item.bestBefore ? `<div class="mhd">MHD: ${escapeHtml(new Date(item.bestBefore).toLocaleDateString('de-DE'))}</div>` : ''}
-        ${quantity > 1 ? `<div>${quantity}× ${unit}</div>` : ''}
-      </div>
-    </body></html>`)
-    printWindow.document.close()
-    setTimeout(() => { printWindow.print(); printWindow.close() }, 500)
+  const printWindow = window.open('', '_blank', 'width=400,height=300')
+  if (!printWindow) {
+    notify('Etikett kann nicht geöffnet werden',
+      'Zum Drucken öffnet sich ein eigenes Fenster – das wurde blockiert. In der installierten iPhone-App ist das oft so: Öffne Depot in Safari (oder erlaube Pop-ups) und tippe dort auf „Etikett drucken“.')
+    return false
   }
+  const name = escapeHtml(item.name)
+  const unit = escapeHtml(item.unit)
+  const quantity = Number(item.quantity) || 0
+  printWindow.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <title>QR-Etikett: ${name}</title>
+    <style>${PRINT_STYLE}</style>
+  </head><body>
+    <div class="qr">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(qrUrl)}" width="80" height="80" />
+    </div>
+    <div class="info">
+      <div class="name">${name}</div>
+      ${item.bestBefore ? `<div class="mhd">MHD: ${escapeHtml(new Date(item.bestBefore).toLocaleDateString('de-DE'))}</div>` : ''}
+      ${quantity > 1 ? `<div>${quantity}× ${unit}</div>` : ''}
+    </div>
+  </body></html>`)
+  printWindow.document.close()
 
+  // Fenster erst schließen, wenn der Druckdialog fertig ist
+  printWindow.addEventListener('afterprint', () => printWindow.close())
+
+  // Drucken, sobald der QR-Code geladen ist (mit Rückfallebene, falls das Bild hängt)
+  let printed = false
+  const doPrint = () => {
+    if (printed || printWindow.closed) return
+    printed = true
+    printWindow.focus()
+    printWindow.print()
+  }
+  const img = printWindow.document.querySelector('img')
+  if (img && !img.complete) {
+    img.addEventListener('load', doPrint, { once: true })
+    img.addEventListener('error', doPrint, { once: true })
+    setTimeout(doPrint, 4000)
+  } else {
+    doPrint()
+  }
+  return true
+}
+
+// Knopf „Etikett drucken“ (Props wie bisher: item, appUrl)
+export default function QRLabel({ item, appUrl, className = 'btn-secondary w-full', label = 'Etikett drucken' }) {
   return (
-    <button onClick={handlePrint}
-      className="flex items-center gap-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-full font-semibold hover:bg-gray-200 dark:hover:bg-gray-600"
-      title="QR-Etikett drucken">
-      🏷️ QR drucken
+    <button onClick={() => printQRLabel(item, appUrl)} className={className}>
+      <Icon name="qr" size={20} /><span className="whitespace-nowrap">{label}</span>
     </button>
   )
 }

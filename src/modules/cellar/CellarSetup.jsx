@@ -1,32 +1,35 @@
 import { useState } from 'react'
-import { useCellar, CONDITION_OPTIONS, qualityScore, qualityLabel } from './store'
+import { useCellar } from './store'
+import { quality } from './cellarUi'
+import { SlotEditor, ConditionPicker, EMOJI_OPTIONS } from './RackSettings'
 import SetupWizard from '../../components/SetupWizard'
+import Icon from '../../ui/Icon'
+import { StatusPill } from '../../ui/Controls'
+import { confirmAction } from '../../ui/feedback'
 
-const EMOJI_OPTIONS = ['🍷','🛋️','🔻','🧊','🏠','🍾','🗄️','📦']
-const COND_KEYS = [
-  { key: 'temperature', label: '🌡️ Temperatur' },
-  { key: 'light',       label: '💡 Licht' },
-  { key: 'humidity',    label: '💧 Feuchte' },
-  { key: 'vibration',   label: '🔇 Ruhe' },
+const FEATURES = [
+  ['boxes',    'Regale, Fächer und Weinkühlschränke verwalten'],
+  ['leaf',     'Lagerbedingungen bewerten'],
+  ['clock',    'Sehen, welche Flasche jetzt trinkreif ist'],
+  ['list',     'Bestehende Sammlung per Excel importieren'],
+  ['pot',      'Passende Speisen zu jedem Wein'],
+  ['star',     'Verkostungsnotizen und Bewertungen'],
 ]
 
 function WelcomeStep() {
   return (
-    <div className="space-y-4 text-center">
-      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-5 text-left space-y-3">
-        <p className="text-sm text-gray-700 dark:text-gray-200">
-          <strong>Was du hier machen kannst:</strong>
-        </p>
-        <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-          <li>🍷 Weinregale & Fächer verwalten</li>
-          <li>🌡️ Lagerbedingungen bewerten</li>
-          <li>📊 Trinkfenster-Empfehlungen</li>
-          <li>📥 Excel-Import für bestehende Sammlungen</li>
-          <li>🍽️ Food-Pairing-Finder</li>
-          <li>📝 Verkostungsnotizen & Bewertungen</li>
-        </ul>
+    <div className="space-y-3">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-card overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
+        {FEATURES.map(([icon, text]) => (
+          <div key={text} className="flex items-center gap-3 px-4 py-3">
+            <span className="w-9 h-9 flex-none rounded-[10px] flex items-center justify-center bg-[#F4E9EE] text-[#7A2E4A] dark:bg-[#3A2430] dark:text-[#E39BB7]">
+              <Icon name={icon} size={20} />
+            </span>
+            <span className="text-callout text-gray-800 dark:text-gray-100">{text}</span>
+          </div>
+        ))}
       </div>
-      <p className="text-xs text-gray-400">Im nächsten Schritt legst du deine Weinlager an.</p>
+      <p className="text-footnote text-center text-gray-500 dark:text-gray-400">Im nächsten Schritt legst du deine Weinlager an.</p>
     </div>
   )
 }
@@ -44,79 +47,59 @@ function RackStep() {
     setNewLabel(''); setNewEmoji('🍷')
   }
 
+  async function remove(r) {
+    if (await confirmAction({ title: `„${r.label}“ löschen?`, message: 'Flaschen darin werden ebenfalls gelöscht.', confirmLabel: 'Löschen', destructive: true })) removeRack(r.id)
+  }
+
   return (
     <div className="space-y-4">
       {racks.map(r => {
-        const score = qualityScore(r.conditions)
-        const ql = qualityLabel(score)
+        const q = quality(r.conditions)
         const expanded = expandedRack === r.id
         return (
-          <div key={r.id} className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <select value={r.emoji} onChange={e => renameRack(r.id, r.label, e.target.value)}
-                className="bg-transparent text-xl">
+          <div key={r.id} className="bg-gray-50 dark:bg-gray-800 rounded-card overflow-hidden">
+            <div className="flex items-center gap-1 pl-2 pr-1 py-1.5">
+              <select value={r.emoji} onChange={e => renameRack(r.id, r.label, e.target.value)} aria-label="Symbol"
+                className="bg-transparent text-[22px] w-11 h-11 text-center appearance-none">
                 {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
               </select>
-              <input className="input py-1.5 text-sm flex-1"
-                value={r.label} onChange={e => renameRack(r.id, e.target.value, r.emoji)} />
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ql.cls}`}>{score}%</span>
-              <button onClick={() => { if (confirm(`"${r.label}" + Flaschen löschen?`)) removeRack(r.id) }}
-                className="text-gray-300 hover:text-red-500 px-1">🗑️</button>
+              <input className="flex-1 min-w-0 bg-transparent text-body font-semibold text-gray-900 dark:text-gray-100 outline-none py-2"
+                aria-label="Name des Lagers" value={r.label} onChange={e => renameRack(r.id, e.target.value, r.emoji)} />
+              <StatusPill tone={q.tone}>{q.score}/100</StatusPill>
+              <button onClick={() => remove(r)} aria-label={`${r.label} löschen`}
+                className="w-11 h-11 flex-none flex items-center justify-center text-expired dark:text-expired-dark">
+                <Icon name="trash" size={20} />
+              </button>
             </div>
 
-            {/* Conditions */}
-            <button onClick={() => setExpandedRack(expanded ? null : r.id)}
-              className="text-[10px] text-primary-600 font-semibold mb-1">
-              {expanded ? '▼' : '▶'} Lagerbedingungen
-            </button>
-            {expanded && (
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                {COND_KEYS.map(ck => (
-                  <div key={ck.key}>
-                    <p className="text-[10px] text-gray-400 font-bold mb-0.5">{ck.label}</p>
-                    <select value={r.conditions?.[ck.key] || 'normal'}
-                      onChange={e => setRackConditions(r.id, { [ck.key]: e.target.value })}
-                      className="input text-xs py-1 w-full">
-                      {CONDITION_OPTIONS[ck.key].map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="border-t border-gray-100 dark:border-gray-700 px-4 py-3 space-y-2">
+              <p className="text-footnote font-semibold text-gray-500 dark:text-gray-400">Fächer / Plätze</p>
+              <SlotEditor rack={r} addSlot={addSlot} renameSlot={renameSlot} removeSlot={removeSlot} />
+            </div>
 
-            <p className="text-[10px] text-gray-400 uppercase font-bold mt-2 mb-1">Fächer / Plätze</p>
-            <div className="flex flex-wrap gap-1.5">
-              {r.slots.map((sl, si) => (
-                <div key={si} className="flex items-center bg-white dark:bg-gray-800 rounded-lg px-2 py-1 text-xs">
-                  <input className="bg-transparent w-12 text-center text-xs"
-                    value={sl} onChange={e => renameSlot(r.id, sl, e.target.value)} />
-                  <button onClick={() => removeSlot(r.id, sl)}
-                    className="text-gray-300 hover:text-red-500 ml-1">✕</button>
-                </div>
-              ))}
-              <button onClick={() => addSlot(r.id, `${r.slots.length + 1}`)}
-                className="text-xs text-primary-600 font-semibold px-2 py-1 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg">
-                +
+            <div className="border-t border-gray-100 dark:border-gray-700">
+              <button onClick={() => setExpandedRack(expanded ? null : r.id)} aria-expanded={expanded}
+                className="w-full flex items-center gap-3 px-4 min-h-[48px] text-left">
+                <span className="flex-1 text-callout font-semibold text-gray-900 dark:text-gray-100">Lagerbedingungen</span>
+                <Icon name="chevron" size={18} strokeWidth={2.2} className={`text-gray-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
               </button>
+              {expanded && <div className="px-4 pb-4"><ConditionPicker rack={r} setRackConditions={setRackConditions} /></div>}
             </div>
           </div>
         )
       })}
 
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-        <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">+ Neues Weinlager</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-card p-4 space-y-3">
+        <p className="text-callout font-semibold text-gray-900 dark:text-gray-100">Neues Weinlager</p>
         <div className="flex gap-2">
-          <select value={newEmoji} onChange={e => setNewEmoji(e.target.value)}
-            className="bg-gray-100 dark:bg-gray-700 rounded-lg px-2 text-lg">
+          <select value={newEmoji} onChange={e => setNewEmoji(e.target.value)} aria-label="Symbol"
+            className="bg-gray-100 dark:bg-gray-700 rounded-xl w-12 text-[20px] text-center appearance-none">
             {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
           </select>
-          <input className="input py-2 text-sm flex-1"
-            placeholder='z.B. "Regal Diele"' value={newLabel}
-            onChange={e => setNewLabel(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') add() }} />
-          <button onClick={add} disabled={!newLabel.trim()}
-            className="btn-primary text-sm px-4 disabled:opacity-40">
-            +
+          <input className="input flex-1 min-w-0" placeholder="z. B. Regal Diele" aria-label="Name des neuen Lagers" value={newLabel}
+            onChange={e => setNewLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }} />
+          <button onClick={add} disabled={!newLabel.trim()} aria-label="Lager anlegen" className="btn-primary flex-none !px-3">
+            <Icon name="plus" size={22} />
           </button>
         </div>
       </div>
@@ -125,19 +108,21 @@ function RackStep() {
 }
 
 function TipsStep() {
+  const tips = [
+    ['Lagerbedingungen', 'beeinflussen das Trinkfenster – bewerte sie für genauere Empfehlungen.'],
+    ['Passende Speisen', 'findest du in jeder Flasche unter „Passt zu“.'],
+    ['Excel-Import', 'für eine bestehende Sammlung: über „…“ neben der Suche.'],
+    ['Trinkreif', 'zeigt dir, welche Flaschen jetzt geöffnet werden sollten.'],
+    ['Bewertung', 'gibst du direkt beim Trinken ab – samt Anlass und Notiz.'],
+  ]
   return (
-    <div className="space-y-4">
-      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 space-y-3">
-        <p className="font-bold text-sm text-gray-800 dark:text-gray-100">💡 Tipps für den Start</p>
-        <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
-          <li><strong>Lagerbedingungen</strong> beeinflussen das Trinkfenster — bewerte sie für genauere Empfehlungen.</li>
-          <li><strong>Food Pairing:</strong> Öffne eine Flasche und sieh, was dazu passt.</li>
-          <li><strong>Excel-Import:</strong> Hast du schon eine Sammlung? Nutze den 📥 Button.</li>
-          <li><strong>Trinkfenster:</strong> Im Ablauf-Tab siehst du, welche Flaschen bald getrunken werden sollten.</li>
-          <li><strong>Bewertung:</strong> Beim Trinken kannst du gleich Notizen und Sterne hinterlassen.</li>
-        </ul>
+    <div className="space-y-3">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-card overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
+        {tips.map(([k, v]) => (
+          <p key={k} className="px-4 py-3 text-callout text-gray-700 dark:text-gray-200"><b className="text-gray-900 dark:text-gray-100">{k}</b> {v}</p>
+        ))}
       </div>
-      <p className="text-xs text-gray-400 text-center">Du kannst den Assistenten jederzeit über ⚙️ Einstellungen erneut starten.</p>
+      <p className="text-footnote text-center text-gray-500 dark:text-gray-400">Den Assistenten kannst du jederzeit in den Einstellungen erneut starten.</p>
     </div>
   )
 }

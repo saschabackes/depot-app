@@ -4,13 +4,20 @@ import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { computeRecipeAvailability } from '../utils/inventoryMatch'
 import RecipeForm from './RecipeForm'
-import RecipeDetail from './RecipeDetail'
+import RecipeDetail, { AvailBar } from './RecipeDetail'
+import Screen, { BarButton } from '../ui/Screen'
+import Sheet from '../ui/Sheet'
+import Icon from '../ui/Icon'
+import { ListGroup, ListRow } from '../ui/List'
+import { SearchField, Segmented } from '../ui/Controls'
 
 const SORT_OPTIONS = [
   { id: 'newest',  label: 'Neueste' },
   { id: 'alpha',   label: 'A–Z' },
   { id: 'avail',   label: 'Verfügbarkeit' },
 ]
+
+const SOURCE_LABELS = { youtube: 'YouTube', cookidoo: 'Cookidoo', kptncook: 'KptnCook', web: 'Web', manual: 'Manuell' }
 
 export default function RecipesView({ focusId = null, onFocusHandled = () => {} }) {
   const recipes = useStore(s => s.recipes)
@@ -22,6 +29,7 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
   const [mode, setMode]       = useState('list')
   const [selectedId, setSelectedId] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [showForm, setShowForm] = useState(false)
   const [search, setSearch]   = useState('')
   const [activeFilters, setActiveFilters] = useState({
     tag: null,
@@ -67,8 +75,6 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
     return [...s].sort()
   }, [recipes])
 
-  const SOURCE_LABELS = { youtube: 'YouTube', cookidoo: 'Cookidoo', kptncook: 'KptnCook', web: 'Web', manual: 'Manuell' }
-
   // Filter + Sort
   const filtered = useMemo(() => {
     let list = recipes
@@ -79,7 +85,7 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
     if (source) list = list.filter(r => (r.sourceType || 'manual') === source)
     if (available) list = list.filter(r => {
       const a = availMap[r.id]
-      return a && a.percentage >= 50
+      return a && a.percentage >= 0.5
     })
 
     if (search.trim()) {
@@ -105,251 +111,179 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
     setActiveFilters(f => ({ ...f, [key]: value }))
   }, [])
 
+  const openNew = () => { setEditing(null); setShowForm(true) }
+  const resetFilters = () => setActiveFilters({ tag: null, source: null, favorite: false, available: false })
+  const sheetFilters = (activeFilters.tag ? 1 : 0) + (activeFilters.source ? 1 : 0) + (sortBy !== 'newest' ? 1 : 0)
+
+  const form = showForm && (
+    <RecipeForm
+      recipe={editing}
+      onClose={() => setShowForm(false)}
+      onSaved={(id) => { setSelectedId(id); setMode('detail') }}
+    />
+  )
+
   // ── Detail ──
   if (mode === 'detail' && selected) {
     return (
-      <RecipeDetail
-        recipe={selected}
-        onBack={() => setMode('list')}
-        onEdit={(r) => { setEditing(r); setMode('form') }}
-      />
+      <>
+        <RecipeDetail
+          key={selected.id}
+          recipe={selected}
+          onBack={() => setMode('list')}
+          onEdit={(r) => { setEditing(r); setShowForm(true) }}
+        />
+        {form}
+      </>
     )
   }
 
+  const quick = [
+    { id: 'all', label: 'Alle', on: !activeFilters.favorite && !activeFilters.available, onClick: () => setActiveFilters(f => ({ ...f, favorite: false, available: false })) },
+    { id: 'fav', label: 'Favoriten', on: activeFilters.favorite, onClick: () => setFilter('favorite', !activeFilters.favorite) },
+    { id: 'avail', label: 'Kann ich kochen', on: activeFilters.available, onClick: () => setFilter('available', !activeFilters.available) },
+  ]
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Search + Filter toggle */}
-      <div className="px-4 pt-3 pb-2 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" strokeLinecap="round"/>
-            </svg>
-            <input type="search" className="input pl-9 py-2.5 bg-gray-50 dark:bg-gray-800" placeholder="Rezept suchen…"
-              value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            className={`flex-none px-3 py-2 rounded-xl transition-colors relative ${
-              showFilters || activeCount > 0
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M3 4h18M7 9h10M10 14h4" strokeLinecap="round"/>
-            </svg>
-            {activeCount > 0 && !showFilters && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{activeCount}</span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Filter panel */}
-      {showFilters && (
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-3 space-y-3">
-          {/* Favorites + Available */}
-          <div className="flex gap-2">
-            <FilterChip
-              active={activeFilters.favorite}
-              onClick={() => setFilter('favorite', !activeFilters.favorite)}
-              label="★ Favoriten"
-            />
-            <FilterChip
-              active={activeFilters.available}
-              onClick={() => setFilter('available', !activeFilters.available)}
-              label="🍳 Kann ich kochen"
-            />
-          </div>
-
-          {/* Source filter */}
-          {allSources.length > 1 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1.5">Quelle</p>
-              <div className="flex gap-1.5 flex-wrap">
-                {allSources.map(s => (
-                  <FilterChip
-                    key={s}
-                    active={activeFilters.source === s}
-                    onClick={() => setFilter('source', activeFilters.source === s ? null : s)}
-                    label={SOURCE_LABELS[s] || s}
-                  />
-                ))}
-              </div>
+    <Screen title="Kochen" actions={<BarButton icon="plus" label="Rezept hinzufügen" onClick={openNew} />}>
+      {recipes.length > 0 && (
+        <div className="px-4 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <SearchField value={search} onChange={setSearch} placeholder="Rezepte durchsuchen" />
             </div>
-          )}
-
-          {/* Tag filter */}
-          {allTags.length > 0 && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1.5">Kategorie</p>
-              <div className="flex gap-1.5 flex-wrap max-h-24 overflow-y-auto">
-                {allTags.map(t => (
-                  <FilterChip
-                    key={t}
-                    active={activeFilters.tag === t}
-                    onClick={() => setFilter('tag', activeFilters.tag === t ? null : t)}
-                    label={t}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Sort */}
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-1.5">Sortierung</p>
-            <div className="flex gap-1.5">
-              {SORT_OPTIONS.map(o => (
-                <FilterChip key={o.id} active={sortBy === o.id} onClick={() => setSortBy(o.id)} label={o.label} />
-              ))}
-            </div>
-          </div>
-
-          {/* Reset */}
-          {activeCount > 0 && (
-            <button
-              onClick={() => setActiveFilters({ tag: null, source: null, favorite: false, available: false })}
-              className="text-xs text-red-500 font-semibold"
-            >
-              Filter zurücksetzen
+            <button onClick={() => setShowFilters(true)} aria-label="Filtern und sortieren"
+              className="relative w-11 h-11 flex-none rounded-[10px] bg-gray-200/70 dark:bg-gray-700 text-primary-500 dark:text-primary-300 flex items-center justify-center">
+              <Icon name="filter" size={22} strokeWidth={2.1} />
+              {sheetFilters > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary-500 text-white text-[11px] font-bold leading-[18px] text-center">{sheetFilters}</span>}
             </button>
-          )}
-        </div>
-      )}
-
-      {/* Active filter pills (when panel closed) */}
-      {!showFilters && activeCount > 0 && (
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2 flex gap-1.5 flex-wrap">
-          {activeFilters.favorite && <ActivePill label="★ Favoriten" onRemove={() => setFilter('favorite', false)} />}
-          {activeFilters.available && <ActivePill label="🍳 Kann ich kochen" onRemove={() => setFilter('available', false)} />}
-          {activeFilters.source && <ActivePill label={SOURCE_LABELS[activeFilters.source] || activeFilters.source} onRemove={() => setFilter('source', null)} />}
-          {activeFilters.tag && <ActivePill label={activeFilters.tag} onRemove={() => setFilter('tag', null)} />}
-        </div>
-      )}
-
-      {/* Recipe count */}
-      <div className="px-4 py-1.5 bg-gray-50 dark:bg-gray-900/40 flex items-center justify-between">
-        <span className="text-[11px] text-gray-400 font-medium">{filtered.length} von {recipes.length} Rezepten</span>
-        <span className="text-[11px] text-gray-400">{SORT_OPTIONS.find(o => o.id === sortBy)?.label}</span>
-      </div>
-
-      {/* List */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-5xl mb-4">📖</div>
-            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">
-              {recipes.length === 0 ? 'Noch keine Rezepte' : 'Keine Treffer'}
-            </h3>
-            <p className="text-sm text-gray-400 mb-6 max-w-xs">
-              {recipes.length === 0
-                ? 'Speichere Rezepte aus YouTube, Cookidoo oder anderen Quellen.'
-                : 'Andere Suche oder Filter probieren.'}
-            </p>
-            {recipes.length === 0 && (
-              <button onClick={() => { setEditing(null); setMode('form') }} className="btn-primary">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Rezept hinzufügen
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+            {quick.map(f => (
+              <button key={f.id} onClick={f.onClick} aria-pressed={f.on}
+                className={`flex-none min-h-[34px] px-3.5 rounded-full text-[14px] font-semibold ${
+                  f.on ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}>
+                {f.label}
               </button>
-            )}
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pt-3 pb-6">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center text-center px-8 py-14 gap-3">
+            <span className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 text-gray-400 flex items-center justify-center">
+              <Icon name={recipes.length === 0 ? 'pot' : 'search'} size={30} />
+            </span>
+            <h3 className="text-headline text-gray-900 dark:text-gray-100">{recipes.length === 0 ? 'Noch keine Rezepte' : 'Nichts gefunden'}</h3>
+            <p className="text-callout text-gray-500 dark:text-gray-400">
+              {recipes.length === 0
+                ? 'Speichere Rezepte aus YouTube, Cookidoo oder dem Web – Depot prüft dann, was du schon im Bestand hast.'
+                : 'Passe Suche oder Filter an.'}
+            </p>
+            {recipes.length === 0
+              ? <button onClick={openNew} className="btn-primary px-6 mt-2"><Icon name="plus" size={20} />Rezept hinzufügen</button>
+              : (activeCount > 0 || search) && <button onClick={() => { resetFilters(); setSearch('') }} className="min-h-[44px] px-4 text-callout font-semibold text-primary-500 dark:text-primary-300">Filter zurücksetzen</button>}
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map(r => {
-              const avail = availMap[r.id]
-              return (
-                <div key={r.id} className="card flex gap-3 p-2.5 hover:ring-2 hover:ring-green-300 transition-all relative">
-                  <button onClick={() => { setSelectedId(r.id); setMode('detail') }}
-                    className="flex gap-3 flex-1 min-w-0 text-left">
-                    <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-none">
-                      {r.thumbnailUrl
-                        ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                        : <div className="w-full h-full flex items-center justify-center text-2xl">📖</div>}
-                    </div>
-                    <div className="flex-1 min-w-0 py-0.5">
-                      <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 line-clamp-2 leading-tight">{r.title}</p>
-                      {r.author && <p className="text-xs text-gray-400 mt-0.5">{r.author}</p>}
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {r.tags?.slice(0, 2).map(t => (
-                          <span key={t} className="text-[10px] bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full px-2 py-0.5">{t}</span>
-                        ))}
-                        {avail && (
-                          <>
-                            {avail.totalFound > 0 && (
-                              <span className="text-[10px] bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full px-2 py-0.5">
-                                ✓{avail.totalFound}
-                              </span>
-                            )}
-                            {avail.totalMissing > 0 && (
-                              <span className="text-[10px] bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full px-2 py-0.5">
-                                ✗{avail.totalMissing}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  {/* Favorite button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(r.id) }}
-                    className="absolute top-2 right-2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    <span className={`text-base ${r.favorite ? 'text-yellow-500' : 'text-gray-300 dark:text-gray-600'}`}>
-                      {r.favorite ? '★' : '☆'}
-                    </span>
-                  </button>
-                </div>
-              )
-            })}
-          </div>
+          <>
+            <p className="px-8 pb-1.5 text-footnote text-gray-500 dark:text-gray-400">
+              {filtered.length === recipes.length ? `${recipes.length} ${recipes.length === 1 ? 'Rezept' : 'Rezepte'}` : `${filtered.length} von ${recipes.length} Rezepten`} · {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
+            </p>
+            <div className="px-4 space-y-2.5">
+              {filtered.map(r => (
+                <RecipeCard key={r.id} recipe={r} avail={availMap[r.id]}
+                  onOpen={() => { setSelectedId(r.id); setMode('detail') }}
+                  onToggleFavorite={() => toggleFavorite(r.id)} />
+              ))}
+            </div>
+          </>
         )}
-        <div className="h-2" />
       </div>
 
-      {/* + Button */}
-      <button
-        onClick={() => { setEditing(null); setMode('form') }}
-        className="fixed bottom-24 right-5 bg-primary-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg active:opacity-80 transition-colors z-20"
-        aria-label="Rezept hinzufügen"
-      >
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
-
-      {/* Form */}
-      {mode === 'form' && (
-        <RecipeForm
-          recipe={editing}
-          onClose={() => setMode(editing ? 'detail' : 'list')}
-          onSaved={(id) => { setSelectedId(id); }}
-        />
+      {showFilters && (
+        <FilterSheet onClose={() => setShowFilters(false)}
+          filters={activeFilters} setFilter={setFilter} reset={() => { resetFilters(); setSortBy('newest') }}
+          sortBy={sortBy} setSortBy={setSortBy} allTags={allTags} allSources={allSources} />
       )}
+
+      {form}
+    </Screen>
+  )
+}
+
+function RecipeCard({ recipe: r, avail, onOpen, onToggleFavorite }) {
+  const total = avail ? avail.totalFound + avail.totalMissing : 0
+  const meta = [r.author, r.tags?.[0]].filter(Boolean).join(' · ')
+  return (
+    <div className="relative bg-white dark:bg-gray-800 rounded-card">
+      <button onClick={onOpen} className="w-full flex items-center gap-3 p-2.5 pr-12 text-left rounded-card active:bg-gray-100 dark:active:bg-gray-700">
+        <div className="w-16 h-16 rounded-[12px] overflow-hidden bg-gray-100 dark:bg-gray-700 flex-none flex items-center justify-center text-gray-400">
+          {r.thumbnailUrl
+            ? <img src={r.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+            : <Icon name="pot" size={28} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-body font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 leading-snug">{r.title}</p>
+          {meta && <p className="text-footnote text-gray-500 dark:text-gray-400 truncate">{meta}</p>}
+          {total > 0 && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <AvailBar found={avail.totalFound} total={total} className="flex-1 max-w-[120px]" />
+              <span className={`text-footnote font-semibold ${avail.totalMissing === 0 ? 'text-primary-500 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                {avail.totalMissing === 0 ? 'Alles da' : `${avail.totalFound} von ${total} da`}
+              </span>
+            </div>
+          )}
+        </div>
+      </button>
+      <button onClick={onToggleFavorite} aria-label={r.favorite ? `${r.title} aus Favoriten entfernen` : `${r.title} als Favorit markieren`} aria-pressed={!!r.favorite}
+        className={`absolute top-1 right-1 w-11 h-11 flex items-center justify-center rounded-full ${r.favorite ? 'text-soon dark:text-soon-dark' : 'text-gray-300 dark:text-gray-600'}`}>
+        <Icon name="star" size={22} strokeWidth={2} filled={r.favorite} />
+      </button>
     </div>
   )
 }
 
-function FilterChip({ active, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-        active
-          ? 'bg-primary-600 text-white'
-          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-      }`}
-    >
-      {label}
-    </button>
+function FilterSheet({ onClose, filters, setFilter, reset, sortBy, setSortBy, allTags, allSources }) {
+  const Option = ({ label, on, onClick }) => (
+    <ListRow title={<span className="font-normal">{label}</span>} onClick={onClick}
+      trailing={on ? <Icon name="check" size={20} strokeWidth={2.4} className="text-primary-500 dark:text-primary-300" /> : null} />
   )
-}
-
-function ActivePill({ label, onRemove }) {
+  const Toggle = ({ label, sub, on, onClick }) => (
+    <ListRow title={<span className="font-normal">{label}</span>} subtitle={sub} onClick={onClick}
+      trailing={
+        <span className={`w-[51px] h-[31px] rounded-full p-0.5 flex-none transition-colors ${on ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-600'}`} aria-hidden="true">
+          <span className={`block w-[27px] h-[27px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : ''}`} />
+        </span>
+      } />
+  )
   return (
-    <span className="inline-flex items-center gap-1 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full pl-2.5 pr-1 py-1 text-xs font-semibold">
-      {label}
-      <button onClick={onRemove} className="hover:text-red-500 p-0.5">✕</button>
-    </span>
+    <Sheet title="Filtern & sortieren" onClose={onClose} cancelLabel="Schließen" confirmLabel="Fertig" onConfirm={onClose}>
+      <div className="space-y-5">
+        <div className="px-4">
+          <Segmented label="Sortierung" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+        </div>
+        <ListGroup>
+          <Toggle label="Nur Favoriten" on={filters.favorite} onClick={() => setFilter('favorite', !filters.favorite)} />
+          <Toggle label="Kann ich kochen" sub="Mindestens die Hälfte der Zutaten ist da" on={filters.available} onClick={() => setFilter('available', !filters.available)} />
+        </ListGroup>
+        {allSources.length > 1 && (
+          <ListGroup title="Quelle">
+            <Option label="Alle" on={!filters.source} onClick={() => setFilter('source', null)} />
+            {allSources.map(s => <Option key={s} label={SOURCE_LABELS[s] || s} on={filters.source === s} onClick={() => setFilter('source', s)} />)}
+          </ListGroup>
+        )}
+        {allTags.length > 0 && (
+          <ListGroup title="Kategorie">
+            <Option label="Alle" on={!filters.tag} onClick={() => setFilter('tag', null)} />
+            {allTags.map(t => <Option key={t} label={t} on={filters.tag === t} onClick={() => setFilter('tag', t)} />)}
+          </ListGroup>
+        )}
+        <ListGroup>
+          <ListRow onClick={reset} tone="accent" title="Alle Filter zurücksetzen" />
+        </ListGroup>
+      </div>
+    </Sheet>
   )
 }

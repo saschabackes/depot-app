@@ -1,5 +1,16 @@
 import { useState } from 'react'
 import { useCellar } from './store'
+import Icon from '../../ui/Icon'
+
+// Weinfarben – das Emoji ist Inhalt (Farbe des Weins), keine Bedienung
+export const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
+export const colorEmoji = color => COLOR_EMOJI[color] || '🍷'
+export const COLOR_OPTIONS = [
+  { id: 'rot',    label: 'Rot' },
+  { id: 'weiß',   label: 'Weiß' },
+  { id: 'rosé',   label: 'Rosé' },
+  { id: 'schaum', label: 'Schaum' },
+]
 
 export const WINE_COUNTRIES_TOP = [
   { code: 'DE', flag: '🇩🇪', label: 'Deutschland' },
@@ -49,6 +60,17 @@ export const CLASSIFICATION_GROUPS = [
 
 const ALL_CLASSIFICATIONS = CLASSIFICATION_GROUPS.flatMap(g => g.items)
 
+// Auswahl-Chip (Formulare, Filter)
+export function Chip({ on, onClick, children, className = '' }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={on}
+      className={`min-h-[36px] px-3 rounded-full text-[14px] font-semibold transition-colors ${
+        on ? 'bg-primary-500 text-white dark:bg-primary-300 dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'} ${className}`}>
+      {children}
+    </button>
+  )
+}
+
 export function ClassificationPicker({ value, onChange }) {
   const [expanded, setExpanded] = useState(false)
   const [custom, setCustom] = useState('')
@@ -68,21 +90,19 @@ export function ClassificationPicker({ value, onChange }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {/* Eigene Klassifikationen */}
       {customClassifications.length > 0 && (
         <div className="flex gap-1.5 flex-wrap">
           {customClassifications.map(c => (
-            <span key={c} className="inline-flex items-center gap-0.5">
-              <button type="button"
-                onClick={() => onChange(value === c ? '' : c)}
-                className={`px-2.5 py-1.5 rounded-l-xl text-xs font-semibold ${
-                  value === c ? 'bg-primary-600 text-white' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                }`}>{c}</button>
+            <span key={c} className={`inline-flex items-center rounded-full ${
+              value === c ? 'bg-primary-500 text-white dark:bg-primary-300 dark:text-gray-900' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
+              <button type="button" onClick={() => onChange(value === c ? '' : c)}
+                className="min-h-[36px] pl-3 pr-1 text-[14px] font-semibold">{c}</button>
               <button type="button" onClick={() => { if (value === c) onChange(''); removeClassification(c) }}
-                className={`px-1.5 py-1.5 rounded-r-xl text-[10px] ${
-                  value === c ? 'bg-primary-700 text-white/70 hover:text-white' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-400 hover:text-red-500'
-                }`}>✕</button>
+                aria-label={`${c} entfernen`} className="w-9 h-9 flex items-center justify-center opacity-60">
+                <Icon name="close" size={14} strokeWidth={2.4} />
+              </button>
             </span>
           ))}
         </div>
@@ -91,31 +111,23 @@ export function ClassificationPicker({ value, onChange }) {
       {/* Häufigste direkt sichtbar */}
       <div className="flex gap-1.5 flex-wrap">
         {['Kabinett', 'Spätlese', 'Auslese', 'DOC', 'DOCG', 'AOC', 'Reserva', 'Grand Cru'].map(c => (
-          <button key={c} type="button"
-            onClick={() => onChange(value === c ? '' : c)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-              value === c ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-            }`}>{c}</button>
+          <Chip key={c} on={value === c} onClick={() => onChange(value === c ? '' : c)}>{c}</Chip>
         ))}
         <button type="button" onClick={() => setExpanded(o => !o)}
-          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-            expanded ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-          }`}>{expanded ? '▾ Weniger' : '▸ Alle'}</button>
+          className="min-h-[36px] px-3 text-[14px] font-semibold text-primary-500 dark:text-primary-300">
+          {expanded ? 'Weniger' : 'Alle zeigen'}
+        </button>
       </div>
 
       {/* Alle nach Land gruppiert */}
       {expanded && (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {CLASSIFICATION_GROUPS.map(g => (
             <div key={g.label}>
-              <p className="text-[10px] font-bold text-gray-400 mb-1">{g.label}</p>
+              <p className="text-footnote font-semibold text-gray-500 dark:text-gray-400 mb-1">{g.label}</p>
               <div className="flex gap-1.5 flex-wrap">
                 {g.items.map(c => (
-                  <button key={c} type="button"
-                    onClick={() => onChange(value === c ? '' : c)}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-                      value === c ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}>{c}</button>
+                  <Chip key={c} on={value === c} onClick={() => onChange(value === c ? '' : c)}>{c}</Chip>
                 ))}
               </div>
             </div>
@@ -123,22 +135,24 @@ export function ClassificationPicker({ value, onChange }) {
         </div>
       )}
 
-      {/* Freitext + Speichern */}
+      {/* Freitext + Merken */}
       <div className="flex gap-2 items-center">
         <input
-          className="input text-sm flex-1"
-          placeholder="Eigene eingeben…"
+          className="input flex-1"
+          placeholder="Eigene eingeben …"
           value={isCustom ? value : custom}
           onChange={e => { setCustom(e.target.value); onChange(e.target.value) }}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveCustom() } }}
         />
         {(isCustom || custom.trim()) && (
           <button type="button" onClick={saveCustom}
-            className="text-xs text-primary-600 dark:text-primary-400 font-semibold whitespace-nowrap">+ Merken</button>
+            className="min-h-[44px] px-2 text-callout font-semibold text-primary-500 dark:text-primary-300 whitespace-nowrap">Merken</button>
         )}
         {isCustom && (
-          <button type="button" onClick={() => { onChange(''); setCustom('') }}
-            className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+          <button type="button" onClick={() => { onChange(''); setCustom('') }} aria-label="Klassifikation leeren"
+            className="w-11 h-11 flex items-center justify-center text-gray-400">
+            <Icon name="close" size={18} />
+          </button>
         )}
       </div>
     </div>
@@ -153,25 +167,17 @@ export function CountryPicker({ value, onChange }) {
     <div className="space-y-1.5">
       <div className="flex gap-1.5 flex-wrap">
         {WINE_COUNTRIES_TOP.map(c => (
-          <button key={c.code} type="button"
-            onClick={() => onChange(value === c.label ? '' : c.label)}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-              value === c.label ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-            }`}>{c.flag} {c.label}</button>
+          <Chip key={c.code} on={value === c.label} onClick={() => onChange(value === c.label ? '' : c.label)}>{c.flag} {c.label}</Chip>
         ))}
         <button type="button" onClick={() => setShowMore(o => !o)}
-          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-            showMore ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-          }`}>{showMore ? '▾ Weniger' : '▸ Weitere'}</button>
+          className="min-h-[36px] px-3 text-[14px] font-semibold text-primary-500 dark:text-primary-300">
+          {showMore ? 'Weniger' : 'Weitere'}
+        </button>
       </div>
       {showMore && (
         <div className="flex gap-1.5 flex-wrap">
           {WINE_COUNTRIES_MORE.map(c => (
-            <button key={c.code} type="button"
-              onClick={() => onChange(value === c.label ? '' : c.label)}
-              className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold ${
-                value === c.label ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-              }`}>{c.flag} {c.label}</button>
+            <Chip key={c.code} on={value === c.label} onClick={() => onChange(value === c.label ? '' : c.label)}>{c.flag} {c.label}</Chip>
           ))}
         </div>
       )}

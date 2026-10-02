@@ -1,342 +1,260 @@
 import { useState, useEffect } from 'react'
-import { useCellar, drinkStatus, effectiveDrinkUntil, qualityScore, qualityLabel } from './store'
+import { useCellar, effectiveDrinkUntil } from './store'
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
-import { isSparkling, CountryPicker, ClassificationPicker } from './wineConstants'
+import { isSparkling, CountryPicker, ClassificationPicker, Chip, colorEmoji } from './wineConstants'
 import { estimateDrinkWindow } from './drinkWindow'
+import { windowInfo, quality, positionLabel, FactTile, FormSection, Stars, RackGrid } from './cellarUi'
 import { isSafeUrl } from '../../utils/safeUrl'
 import { localISODate } from '../../utils/date'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow } from '../../ui/List'
+import { StatusPill } from '../../ui/Controls'
+import { confirmAction, showToast } from '../../ui/feedback'
 
-const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
-const COLOR_BG    = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
+const COLOR_BG = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
+const COLOR_NAME = { rot: 'Rotwein', weiß: 'Weißwein', rosé: 'Rosé', schaum: 'Schaumwein' }
 const COUNTRY_FLAG = {
   'Deutschland':'🇩🇪','Italien':'🇮🇹','Frankreich':'🇫🇷','Spanien':'🇪🇸','Portugal':'🇵🇹',
   'Österreich':'🇦🇹','Schweiz':'🇨🇭','USA':'🇺🇸','Argentinien':'🇦🇷','Chile':'🇨🇱',
   'Südafrika':'🇿🇦','Neuseeland':'🇳🇿','Australien':'🇦🇺','Griechenland':'🇬🇷','Ungarn':'🇭🇺',
 }
+const fmtDate = d => { const x = new Date(d); return isNaN(x) ? d : x.toLocaleDateString('de-DE') }
+const sectionTitle = 'px-4 pb-1.5 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'
 
 export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, onDuplicate }) {
-  const { racks, drinkOne, removeBottle, updateBottle, toggleRestock } = useCellar()
+  const racks = useCellar(s => s.racks)
+  const drinkOne = useCellar(s => s.drinkOne)
+  const removeBottle = useCellar(s => s.removeBottle)
+  const updateBottle = useCellar(s => s.updateBottle)
+  const toggleRestock = useCellar(s => s.toggleRestock)
   const [showDrink, setShowDrink] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
 
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
   if (!bottle) return null
   const rack = racks.find(r => r.id === bottle.rackId)
-  const status = drinkStatus(bottle, rack)
-  const effUntil = effectiveDrinkUntil(bottle, rack)
-  const qScore = qualityScore(rack?.conditions)
-  const ql = qualityLabel(qScore)
+  const effUntil = bottle.drinkUntil ? effectiveDrinkUntil(bottle, rack) : null
+  const win = windowInfo(bottle, rack)
+  const q = quality(rack?.conditions)
   const tp = bottle.tasteProfile || {}
   const drunken = bottle.history?.length || 0
   const flag = COUNTRY_FLAG[bottle.country] || ''
+  const locationStr = [bottle.region, bottle.country].filter(Boolean).join(', ')
+  const empty = bottle.count <= 0
+  const pills = [bottle.vintage, COLOR_NAME[bottle.color] || bottle.color, bottle.sweetness,
+    bottle.wineType && bottle.wineType !== 'wein' ? bottle.wineType : null, bottle.alcohol].filter(Boolean)
 
-  const locationParts = [bottle.region, bottle.country].filter(Boolean)
-  const locationStr = locationParts.length > 0 ? locationParts.join(', ') : null
+  const facts = [
+    ['Trinkfenster', bottle.drinkFrom || effUntil ? `${bottle.drinkFrom || '?'}–${effUntil || '?'}` : '–',
+      effUntil && effUntil !== bottle.drinkUntil ? `nominal bis ${bottle.drinkUntil}` : null],
+    ['Lagerort', rack ? `${rack.emoji} ${rack.label}` : 'Ohne Lagerort', positionLabel(bottle) || null],
+    ['Bestand', `${Math.max(0, bottle.count)} ${bottle.count === 1 ? 'Flasche' : 'Flaschen'}`, drunken ? `${drunken}× getrunken` : null],
+    ['Rebsorte', bottle.grape || '–'],
+    rack && ['Lagerqualität', `${q.score}/100`, q.label],
+    bottle.classification && ['Klassifikation', bottle.classification],
+    bottle.priceEur != null && ['Preis', `${Number(bottle.priceEur).toFixed(2)} €`, bottle.retailer || null],
+    bottle.purchaseDate && ['Gekauft', fmtDate(bottle.purchaseDate), bottle.priceEur == null ? bottle.retailer || null : null],
+  ].filter(Boolean)
+
+  function duplicate() {
+    onDuplicate({
+      name: bottle.name, winery: bottle.winery, vintage: bottle.vintage,
+      region: bottle.region, country: bottle.country, grape: bottle.grape,
+      color: bottle.color, wineType: bottle.wineType, sweetness: bottle.sweetness,
+      classification: bottle.classification, alcohol: bottle.alcohol,
+      alcoholFree: bottle.alcoholFree, drinkFrom: bottle.drinkFrom, drinkUntil: bottle.drinkUntil,
+      priceEur: bottle.priceEur, retailer: bottle.retailer, rackId: bottle.rackId,
+    })
+  }
+
+  function restock() {
+    const willAdd = !bottle.restock
+    toggleRestock(bottle.id)
+    showToast(willAdd ? `„${bottle.name}“ steht auf der Einkaufsliste.` : `„${bottle.name}“ von der Einkaufsliste genommen.`)
+  }
+
+  async function remove() {
+    const ok = await confirmAction({ title: `„${bottle.name}“ löschen?`, message: 'Der Wein verschwindet samt Trink-Historie. Zum Ausblenden lieber archivieren.', confirmLabel: 'Löschen', destructive: true })
+    if (ok) { removeBottle(bottle.id); onClose() }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 overflow-y-auto pb-20">
-      {/* Compact Header */}
-      <div className={`bg-gradient-to-br ${COLOR_BG[bottle.color] || 'from-rose-900 to-rose-700'} text-white pt-[env(safe-area-inset-top)]`}>
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <button onClick={onClose}
-            aria-label="Zurück"
-            className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-lg">←</button>
-          <button onClick={() => setShowEdit(true)}
-            aria-label="Wein bearbeiten"
-            className="bg-black/30 backdrop-blur rounded-full w-9 h-9 flex items-center justify-center text-sm">✎</button>
-        </div>
-
-        <div className="flex gap-3.5 px-4 pb-4">
-          {bottle.photoData
-            ? <img src={bottle.photoData} alt="" className="w-[88px] h-[120px] rounded-xl shadow-xl object-cover ring-2 ring-white/20 flex-none" />
-            : <div className="w-[88px] h-[120px] rounded-xl bg-white/10 shadow-xl flex items-center justify-center text-5xl ring-2 ring-white/20 flex-none">
-                {COLOR_EMOJI[bottle.color] || '🍷'}
-              </div>}
-
-          <div className="flex-1 min-w-0 flex flex-col justify-center py-0.5">
-            <h1 className="text-lg font-bold leading-tight line-clamp-2">{bottle.name}</h1>
-            {bottle.winery && <p className="text-white/80 text-sm truncate mt-0.5">{bottle.winery}</p>}
-            {locationStr && <p className="text-white/70 text-xs truncate">{flag} {locationStr}</p>}
-            <div className="flex flex-wrap gap-1 mt-2">
-              {bottle.vintage && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.vintage}</span>}
-              <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.color}</span>
-              {bottle.sweetness && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.sweetness}</span>}
-              {bottle.wineType && bottle.wineType !== 'wein' && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.wineType}</span>}
-              {bottle.alcohol && <span className="bg-white/20 backdrop-blur-sm text-[11px] font-semibold px-2 py-0.5 rounded-full">{bottle.alcohol}</span>}
-              {bottle.alcoholFree && <span className="bg-emerald-500/90 text-[11px] font-bold px-2 py-0.5 rounded-full">🚫 alkoholfrei</span>}
-            </div>
-            <div className="mt-1.5">
-              <StarRow value={bottle.rating} onChange={r => updateBottle(bottle.id, { rating: r })} align="left" />
+    <>
+      <Sheet title={bottle.name} onClose={onClose} cancelLabel="Schließen" confirmLabel="Bearbeiten" onConfirm={() => setShowEdit(true)}>
+        <div className="space-y-5">
+          {/* Hero in der Farbe des Weins */}
+          <div className="px-4">
+            <div className={`rounded-card bg-gradient-to-br ${COLOR_BG[bottle.color] || COLOR_BG.rot} text-white p-4 flex gap-4`}>
+              {bottle.photoData
+                ? <img src={bottle.photoData} alt="" className="w-[76px] h-[104px] rounded-xl object-cover ring-1 ring-white/25 flex-none" />
+                : <div className="w-[76px] h-[104px] rounded-xl bg-white/15 flex items-center justify-center text-[44px] flex-none" aria-hidden="true">{colorEmoji(bottle.color)}</div>}
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                {bottle.winery && <p className="text-footnote font-semibold uppercase tracking-wide text-white/80 truncate">{bottle.winery}</p>}
+                <h3 className="text-[22px] leading-[27px] font-bold line-clamp-3">{bottle.name}</h3>
+                {locationStr && <p className="text-footnote text-white/80 truncate mt-0.5">{flag} {locationStr}</p>}
+                {pills.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {pills.map(p => <span key={p} className="bg-white/20 text-footnote font-semibold px-2 py-0.5 rounded-full">{p}</span>)}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Quick-Facts */}
-      <div className="grid grid-cols-3 gap-1.5 p-3 bg-gray-50 dark:bg-gray-800/50">
-        <Fact icon="🍇" label="Rebsorte" value={bottle.grape || '—'} />
-        <Fact icon="📅" label="Trinkfenster" value={`${bottle.drinkFrom}–${effUntil}`}
-          sub={effUntil !== bottle.drinkUntil ? `nominal bis ${bottle.drinkUntil}` : null} />
-        <Fact icon={rack?.emoji || '📦'} label={rack?.label || '—'}
-          value={bottle.row && bottle.col ? `R${bottle.row}/S${bottle.col}` : bottle.slot || '—'}
-          sub={`${bottle.count}× · ${drunken}× getrunken`} />
-      </div>
+          {(win.long || bottle.alcoholFree || bottle.archived) && (
+            <div className="px-5 flex flex-wrap gap-1.5 -mt-1">
+              {win.long && <StatusPill tone={win.tone || (win.young ? 'neutral' : 'accent')}>{win.long}</StatusPill>}
+              {bottle.alcoholFree && <StatusPill tone="neutral">Alkoholfrei</StatusPill>}
+              {bottle.archived && <StatusPill tone="neutral">Archiviert</StatusPill>}
+            </div>
+          )}
 
-      {/* Trinkfenster-Status + Lagerqualität */}
-      <div className={`mx-3 mt-3 rounded-xl p-2.5 text-center text-sm font-semibold ${status.cls}`}>
-        {status.label}
-      </div>
-      {rack && (
-        <div className="mx-3 mt-2 rounded-xl p-2.5 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-3">
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full flex-none ${ql.cls}`}>
-            {qScore}/100 · {ql.label}
-          </span>
-          <div className="text-[11px] text-gray-500 dark:text-gray-300">
-            <span className="font-semibold">{rack.emoji} {rack.label}</span>
-            {effUntil !== bottle.drinkUntil && (
-              <span> — Trinkfenster verkürzt auf {effUntil} (statt {bottle.drinkUntil})</span>
-            )}
-            {effUntil === bottle.drinkUntil && (
-              <span> — optimale Lagerung, volles Trinkfenster</span>
+          <div className="px-4 grid grid-cols-2 gap-2.5">
+            {facts.map(([k, v, sub]) => <FactTile key={k} label={k} value={v} sub={sub} />)}
+          </div>
+
+          {/* Primäre Aktion */}
+          <div className="px-4 space-y-2">
+            {!empty ? (
+              <button onClick={() => setShowDrink(true)} className="btn-primary w-full"><Icon name="wine" size={20} />Flasche trinken</button>
+            ) : (
+              <>
+                <p className="px-1 text-callout text-gray-600 dark:text-gray-300">
+                  Ausgetrunken – war {bottle.rating > 0 ? `mit ${bottle.rating} ${bottle.rating === 1 ? 'Stern' : 'Sternen'} ` : ''}in deiner Sammlung.
+                </p>
+                <button onClick={restock} className={bottle.restock ? 'btn-secondary w-full' : 'btn-primary w-full'}>
+                  <Icon name={bottle.restock ? 'check' : 'cart'} size={20} />{bottle.restock ? 'Steht auf der Einkaufsliste' : 'Wieder kaufen'}
+                </button>
+              </>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Ausverkauft → Wiederkauf-CTA */}
-      {bottle.count <= 0 && (
-        <div className="mx-3 mt-3 rounded-xl p-3 bg-gray-100 dark:bg-gray-800/60 flex items-center gap-3">
-          <span className="text-2xl">🍷</span>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-200">Ausgetrunken</p>
-            <p className="text-[11px] text-gray-600 dark:text-gray-300">
-              War {bottle.rating > 0 ? `mit ${bottle.rating} Sternen ` : ''}in deiner Sammlung. Wieder kaufen?
-            </p>
-          </div>
-          <button onClick={() => toggleRestock(bottle.id)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-              bottle.restock ? 'bg-emerald-600 text-white' : 'bg-primary-600 text-white'
-            }`}>
-            {bottle.restock ? '✓ auf Einkaufsliste' : '🔄 Wieder kaufen'}
-          </button>
-        </div>
-      )}
-
-      {/* Geschmacksprofil */}
-      <Section title="🎨 Geschmacksprofil">
-        {TASTE_AXES
-          .filter(ax => bottle.color !== 'weiß' || ax.key !== 'tannin') // Tannin nur bei Rot relevant
-          .map(ax => (
-            <AxisRow key={ax.key} axis={ax} value={tp[ax.key]} onChange={v => updateBottle(bottle.id, { tasteProfile: { ...tp, [ax.key]: v } })} />
-          ))}
-      </Section>
-
-      {/* Aromen */}
-      <Section title="👃 Aromen">
-        {bottle.aromas?.length > 0
-          ? <div className="flex flex-wrap gap-1.5">
-              {bottle.aromas.map(a => (
-                <span key={a} className="bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 text-xs font-semibold px-2.5 py-1 rounded-full">
-                  {a}
+          <ListGroup>
+            {onDuplicate && <ListRow onClick={duplicate} leading={<Icon name="plus" size={20} className="text-primary-500 dark:text-primary-300" />} title="Weitere Flasche anlegen" chevron />}
+            {onShare && <ListRow onClick={() => onShare(bottle.id)} leading={<Icon name="share" size={20} className="text-primary-500 dark:text-primary-300" />} title="Weiterempfehlen" chevron />}
+            {!empty && (
+              <ListRow onClick={restock} leading={<Icon name="cart" size={20} className="text-primary-500 dark:text-primary-300" />} title="Nachkaufen"
+                trailing={bottle.restock ? <span className="text-footnote font-semibold text-primary-500 dark:text-primary-300 flex items-center gap-1"><Icon name="check" size={16} strokeWidth={2.6} />Auf der Liste</span> : null} />
+            )}
+            {isSafeUrl(bottle.link) && (
+              <a href={bottle.link} target="_blank" rel="noopener noreferrer"
+                className="w-full flex items-center gap-3 px-4 py-2.5 min-h-[50px] active:bg-gray-100 dark:active:bg-gray-700">
+                <Icon name="share" size={20} className="text-primary-500 dark:text-primary-300 rotate-45" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-body font-semibold text-gray-900 dark:text-gray-100">Zum Wein im Web</span>
+                  <span className="block text-footnote text-gray-500 dark:text-gray-400 truncate">{bottle.link}</span>
                 </span>
-              ))}
+                <Icon name="chevron" size={18} strokeWidth={2.2} className="text-gray-300 dark:text-gray-600" />
+              </a>
+            )}
+            <ListRow onClick={() => { updateBottle(bottle.id, { archived: !bottle.archived }); showToast(bottle.archived ? 'Wein wiederhergestellt.' : 'Wein archiviert – im Tagebuch unter „Archiv“.') }}
+              leading={<Icon name="boxes" size={20} className="text-gray-500 dark:text-gray-400" />}
+              title={bottle.archived ? 'Aus dem Archiv holen' : 'Archivieren'}
+              subtitle={bottle.archived ? null : 'Im Weintagebuch ausblenden'} />
+          </ListGroup>
+
+          {/* Bewertung */}
+          <ListGroup title="Deine Bewertung">
+            <div className="px-2 py-1 flex justify-center">
+              <Stars value={bottle.rating || 0} onChange={r => updateBottle(bottle.id, { rating: r })} size={26} />
             </div>
-          : <p className="text-xs text-gray-400 italic">Noch keine Aromen erfasst – ✎ oben rechts zum Bearbeiten</p>}
-      </Section>
+          </ListGroup>
 
-      {/* Pairings */}
-      <Section title="🍽️ Passt zu" action={
-        <button onClick={onOpenPairing}
-          className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2 py-1 rounded-full">
-          🔄 Wein zu Gericht finden
-        </button>
-      }>
-        <div className="flex flex-wrap gap-1.5">
-          {(bottle.pairings || []).map(id => {
-            const d = dishById(id); if (!d) return null
-            return (
-              <span key={id} className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold px-2.5 py-1 rounded-full">
-                {d.emoji} {d.label}
-              </span>
-            )
-          })}
-          {(!bottle.pairings || bottle.pairings.length === 0) && (
-            <p className="text-xs text-gray-400 italic">Keine Pairings hinterlegt – ✎ oben rechts</p>
+          {/* Geschmacksprofil */}
+          <section className="px-4">
+            <h2 className={sectionTitle}>Geschmacksprofil</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-card px-4 py-3 space-y-3">
+              {TASTE_AXES
+                .filter(ax => bottle.color !== 'weiß' || ax.key !== 'tannin') // Tannin nur bei Rot relevant
+                .map(ax => (
+                  <AxisRow key={ax.key} axis={ax} value={tp[ax.key]} onChange={v => updateBottle(bottle.id, { tasteProfile: { ...tp, [ax.key]: v } })} />
+                ))}
+            </div>
+          </section>
+
+          {/* Aromen & Pairings */}
+          <section className="px-4">
+            <h2 className={sectionTitle}>Aromen</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-card p-3">
+              {bottle.aromas?.length > 0
+                ? <div className="flex flex-wrap gap-1.5">{bottle.aromas.map(a => <span key={a} className="text-footnote font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">{a}</span>)}</div>
+                : <p className="text-callout text-gray-500 dark:text-gray-400 px-1">Noch keine Aromen – über „Bearbeiten“ ergänzen.</p>}
+            </div>
+          </section>
+
+          <section className="px-4">
+            <h2 className={sectionTitle}>Passt zu</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-card p-3">
+              {bottle.pairings?.length > 0
+                ? <div className="flex flex-wrap gap-1.5">
+                    {bottle.pairings.map(id => {
+                      const d = dishById(id); if (!d) return null
+                      return <span key={id} className="text-footnote font-semibold px-2.5 py-1 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">{d.emoji} {d.label}</span>
+                    })}
+                  </div>
+                : <p className="text-callout text-gray-500 dark:text-gray-400 px-1">Keine Speisen hinterlegt – über „Bearbeiten“ ergänzen.</p>}
+            </div>
+          </section>
+
+          {/* Notizen */}
+          <section className="px-4">
+            <h2 className={sectionTitle}>Tasting-Notizen</h2>
+            <textarea
+              className="input resize-none border-0"
+              rows={3}
+              aria-label="Tasting-Notizen"
+              placeholder="Wie war der Wein? Eindrücke, Tipps für nächstes Mal …"
+              value={bottle.tastingNotes || ''}
+              onChange={e => updateBottle(bottle.id, { tastingNotes: e.target.value })}
+            />
+          </section>
+
+          {/* Historie */}
+          {drunken > 0 && (
+            <ListGroup title={`Getrunken (${drunken})`}>
+              {[...bottle.history].reverse().map(h => (
+                <ListRow key={h.id} title={fmtDate(h.date)}
+                  subtitle={[h.occasion, h.note].filter(Boolean).join(' · ') || null}
+                  trailing={h.rating ? <Stars value={h.rating} size={13} /> : null} />
+              ))}
+            </ListGroup>
           )}
-        </div>
-      </Section>
 
-      {/* Notizen */}
-      <Section title="📝 Tasting-Notizen">
-        <textarea
-          className="input text-sm resize-none"
-          rows={3}
-          placeholder="Wie war der Wein? Eindrücke, Tipps für nächstes Mal…"
-          value={bottle.tastingNotes || ''}
-          onChange={e => updateBottle(bottle.id, { tastingNotes: e.target.value })}
-        />
-      </Section>
-
-      {/* History */}
-      {drunken > 0 && (
-        <Section title={`📒 Trink-Historie (${drunken})`}>
-          <ul className="space-y-2">
-            {[...bottle.history].reverse().map(h => (
-              <li key={h.id} className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">{h.date}</span>
-                  {h.rating ? <span className="text-xs">{'⭐'.repeat(h.rating)}</span> : null}
-                </div>
-                {h.occasion && <p className="text-xs text-gray-500 dark:text-gray-300 mt-0.5"><b>Anlass:</b> {h.occasion}</p>}
-                {h.note     && <p className="text-xs text-gray-500 dark:text-gray-300 mt-0.5 italic">{h.note}</p>}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      {/* Preis & Nachkauf */}
-      <Section title="💶 Kauf & Nachkauf">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            {bottle.priceEur != null && <span className="text-sm text-gray-700 dark:text-gray-200">{bottle.priceEur.toFixed(2)} € pro Flasche</span>}
-            {bottle.retailer && <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">🏪 {bottle.retailer}</span>}
-            {bottle.purchaseDate && <span className="text-xs text-gray-500">🗓️ {bottle.purchaseDate}</span>}
+          <div className="flex justify-center">
+            <button onClick={remove} className="min-h-[44px] px-4 text-callout font-semibold text-expired dark:text-expired-dark">Eintrag löschen</button>
           </div>
-          {isSafeUrl(bottle.link) && (
-            <a href={bottle.link} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-primary-600 dark:text-primary-400 underline truncate block">🔗 {bottle.link}</a>
-          )}
-          <button
-            onClick={() => toggleRestock(bottle.id)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-              bottle.restock
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
-            }`}>
-            {bottle.restock ? '✓ wird nachgekauft' : '+ nachkaufen'}
-          </button>
         </div>
-      </Section>
-
-      {/* Archiv-Status */}
-      {bottle.archived && (
-        <div className="mx-3 mt-3 rounded-xl p-3 bg-gray-100 dark:bg-gray-800/60 flex items-center gap-3">
-          <span className="text-2xl">📦</span>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-gray-900 dark:text-gray-200">Archiviert</p>
-            <p className="text-[11px] text-gray-600 dark:text-gray-300">Dieser Wein ist im Archiv und wird im Weintagebuch ausgeblendet.</p>
-          </div>
-          <button onClick={() => updateBottle(bottle.id, { archived: false })}
-            className="text-xs font-semibold px-3 py-1.5 rounded-full bg-primary-600 text-white">
-            📤 Wiederherstellen
-          </button>
-        </div>
-      )}
-
-      {/* Aktionen */}
-      <div className="px-3 py-4 flex gap-2">
-        <button onClick={() => setShowDrink(true)}
-          className="flex-1 bg-primary-600 text-white font-semibold py-3 rounded-2xl"
-          disabled={bottle.count <= 0}>
-          🥂 Getrunken
-        </button>
-        {onDuplicate && (
-          <button onClick={() => onDuplicate({
-            name: bottle.name, winery: bottle.winery, vintage: bottle.vintage,
-            region: bottle.region, country: bottle.country, grape: bottle.grape,
-            color: bottle.color, wineType: bottle.wineType, sweetness: bottle.sweetness,
-            classification: bottle.classification, alcohol: bottle.alcohol,
-            alcoholFree: bottle.alcoholFree, drinkFrom: bottle.drinkFrom, drinkUntil: bottle.drinkUntil,
-            priceEur: bottle.priceEur, retailer: bottle.retailer, rackId: bottle.rackId,
-          })}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Weitere Flasche anlegen" aria-label="Weitere Flasche anlegen">➕</button>
-        )}
-        {onShare && (
-          <button onClick={() => onShare(bottle.id)}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Empfehlen" aria-label="Empfehlen">🔗</button>
-        )}
-        {!bottle.archived && (
-          <button onClick={() => updateBottle(bottle.id, { archived: true })}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl" title="Archivieren" aria-label="Archivieren">📦</button>
-        )}
-        <button onClick={() => { if (confirm('Position komplett löschen?')) { removeBottle(bottle.id); onClose() } }}
-          aria-label="Löschen"
-          className="bg-gray-100 dark:bg-gray-800 text-gray-500 px-4 rounded-2xl">🗑️</button>
-      </div>
+      </Sheet>
 
       {showDrink && (
-        <DrinkSheet bottle={bottle} onClose={() => setShowDrink(false)} onSave={(entry) => { drinkOne(bottle.id, entry); setShowDrink(false) }} />
+        <DrinkSheet bottle={bottle} onClose={() => setShowDrink(false)}
+          onSave={entry => { drinkOne(bottle.id, entry); setShowDrink(false); showToast(`Zum Wohl! Noch ${Math.max(0, bottle.count - 1)}× „${bottle.name}“ im Bestand.`) }} />
       )}
       {showEdit && (
-        <EditSheet bottle={bottle} onClose={() => setShowEdit(false)} onSave={(patch) => { updateBottle(bottle.id, patch); setShowEdit(false) }} />
+        <EditSheet bottle={bottle} onClose={() => setShowEdit(false)} onSave={patch => { updateBottle(bottle.id, patch); setShowEdit(false) }} />
       )}
-    </div>
+    </>
   )
 }
 
-// ── Bausteine ────────────────────────────────────────────────────────────────
-
-function Section({ title, action, children }) {
-  return (
-    <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Fact({ icon, label, value, sub }) {
-  return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-2.5">
-      <p className="text-[10px] uppercase font-bold text-gray-400">{label}</p>
-      <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate"><span className="mr-1">{icon}</span>{value}</p>
-      {sub && <p className="text-[10px] text-gray-400 truncate">{sub}</p>}
-    </div>
-  )
-}
-
-function StarRow({ value, onChange, large, align }) {
-  return (
-    <div className={`flex gap-1 ${align === 'left' ? '' : 'justify-center'} ${large ? 'mt-3 text-2xl' : 'text-base'}`}>
-      {[1,2,3,4,5].map(i => (
-        <button key={i} onClick={() => onChange(i === value ? 0 : i)}
-          aria-label={`${i} Stern${i > 1 ? 'e' : ''}`}
-          className={`${i <= value ? 'opacity-100' : 'opacity-30'} transition-opacity`}>
-          ⭐
-        </button>
-      ))}
-    </div>
-  )
-}
-
+// ── Geschmacksachse (tippbare Stufen) ───────────────────────────────────────
 function AxisRow({ axis, value, onChange }) {
   const idx = axis.steps.indexOf(value)
   return (
-    <div className="mb-3 last:mb-0">
-      <div className="flex justify-between text-[11px] text-gray-400 mb-0.5">
-        <span>{axis.label}</span>
-        <span className="text-gray-700 dark:text-gray-200 font-semibold">{value || '—'}</span>
+    <div>
+      <div className="flex justify-between text-footnote">
+        <span className="text-gray-500 dark:text-gray-400">{axis.label}</span>
+        <span className="font-semibold text-gray-900 dark:text-gray-100">{value || '–'}</span>
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1" role="group" aria-label={axis.label}>
         {axis.steps.map((s, i) => (
-          <button key={s} onClick={() => onChange(s === value ? null : s)}
-            className={`flex-1 h-2 rounded-full transition-colors ${
-              i <= idx && idx >= 0 ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-700'
-            }`}
-            title={s}
-          />
+          <button key={s} type="button" onClick={() => onChange(s === value ? null : s)} aria-label={s} aria-pressed={s === value}
+            className="flex-1 h-9 flex items-center">
+            <span className={`w-full h-2 rounded-full transition-colors ${i <= idx && idx >= 0 ? 'bg-primary-500 dark:bg-primary-300' : 'bg-gray-200 dark:bg-gray-700'}`} />
+          </button>
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+      <div className="flex justify-between text-footnote text-gray-500 dark:text-gray-400 -mt-1">
         <span>{axis.left}</span><span>{axis.right}</span>
       </div>
     </div>
@@ -350,42 +268,42 @@ function DrinkSheet({ bottle, onClose, onSave }) {
   const [note, setNote]         = useState('')
   const [date, setDate]         = useState(localISODate())
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl p-5 space-y-3">
-        <h3 className="text-lg font-bold">🥂 Flasche getrunken</h3>
-        <div>
-          <label className="label">Wann</label>
-          <input type="date" className="input text-sm" value={date} onChange={e => setDate(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Bewertung</label>
-          <StarRow value={rating} onChange={setRating} large />
-        </div>
-        <div>
-          <label className="label">Anlass</label>
-          <input className="input text-sm" placeholder="z.B. Geburtstag Anna, Sonntagsbraten"
-            value={occasion} onChange={e => setOccasion(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Notiz</label>
-          <textarea className="input text-sm resize-none" rows={2}
-            placeholder="Wie war's? Pairing? Erinnerung…"
-            value={note} onChange={e => setNote(e.target.value)} />
-        </div>
-        <div className="flex gap-2 pt-2">
-          <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-          <button onClick={() => onSave({ rating: rating || undefined, occasion, note, date })}
-            className="btn-primary flex-1">Eintragen</button>
-        </div>
+    <Sheet title="Flasche trinken" onClose={onClose} confirmLabel="Eintragen" z={60}
+      onConfirm={() => onSave({ rating: rating || undefined, occasion, note, date })}>
+      <div className="space-y-5">
+        <p className="px-8 text-callout text-center text-gray-500 dark:text-gray-400">
+          {bottle.name}{bottle.vintage ? ` ${bottle.vintage}` : ''} – danach {Math.max(0, bottle.count - 1)}× im Bestand
+        </p>
+        <FormSection>
+          <div>
+            <label className="label" htmlFor="drink-date">Wann</label>
+            <input id="drink-date" type="date" className="input" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <div>
+            <span className="label">Bewertung</span>
+            <div className="-mx-2"><Stars value={rating} onChange={setRating} size={28} /></div>
+          </div>
+          <div>
+            <label className="label" htmlFor="drink-occasion">Anlass</label>
+            <input id="drink-occasion" className="input" placeholder="z. B. Geburtstag Anna, Sonntagsbraten"
+              value={occasion} onChange={e => setOccasion(e.target.value)} />
+          </div>
+          <div>
+            <label className="label" htmlFor="drink-note">Notiz</label>
+            <textarea id="drink-note" className="input resize-none" rows={2}
+              placeholder="Wie war’s? Pairing? Erinnerung …"
+              value={note} onChange={e => setNote(e.target.value)} />
+          </div>
+        </FormSection>
       </div>
-    </>
+    </Sheet>
   )
 }
 
-// ── Edit-Sheet: Aromen, Pairings, Stammdaten ─────────────────────────────────
+// ── Bearbeiten: Stammdaten, Lagerplatz, Aromen, Pairings ─────────────────────
 function EditSheet({ bottle, onClose, onSave }) {
-  const { racks } = useCellar()
+  const racks = useCellar(s => s.racks)
+  const bottles = useCellar(s => s.bottles)
   const [name, setName]       = useState(bottle.name)
   const [winery, setWinery]   = useState(bottle.winery || '')
   const [region, setRegion]   = useState(bottle.region || '')
@@ -422,30 +340,32 @@ function EditSheet({ bottle, onClose, onSave }) {
 
   function toggle(arr, set, v) { set(arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]) }
 
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="text-lg font-bold">✎ Wein bearbeiten</h3>
-          <button onClick={onClose} aria-label="Schließen">✕</button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="label">Name</label><input className="input text-sm" value={name} onChange={e => setName(e.target.value)} /></div>
-            <div><label className="label">Weingut</label><input className="input text-sm" value={winery} onChange={e => setWinery(e.target.value)} /></div>
-            <div><label className="label">Region</label><input className="input text-sm" value={region} onChange={e => setRegion(e.target.value)} /></div>
-            <div className="col-span-2"><label className="label">Land</label><CountryPicker value={country} onChange={setCountry} /></div>
-            <div><label className="label">Rebsorte</label><input className="input text-sm" value={grape} onChange={e => setGrape(e.target.value)} /></div>
-            <div><label className="label">Alkohol</label><input className="input text-sm" value={alcohol} onChange={e => setAlcohol(e.target.value)} placeholder="13.5 %" /></div>
-          </div>
+  function save() {
+    onSave({
+      name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer,
+      priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings,
+      drinkFrom: drinkFrom ? Number(drinkFrom) : null, drinkUntil: drinkUntil ? Number(drinkUntil) : null,
+      rackId, slot: isGrid ? '' : slot, row: isGrid ? gridRow : null, col: isGrid ? gridCol : null,
+    })
+  }
 
-          <div className="grid grid-cols-2 gap-2">
+  return (
+    <Sheet title="Wein bearbeiten" onClose={onClose} confirmLabel="Sichern" onConfirm={save} confirmDisabled={!name.trim()} z={60}>
+      <div className="space-y-5">
+        <FormSection title="Grunddaten">
+          <div><label className="label" htmlFor="ed-name">Name</label><input id="ed-name" className="input" value={name} onChange={e => setName(e.target.value)} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label" htmlFor="ed-winery">Weingut</label><input id="ed-winery" className="input" value={winery} onChange={e => setWinery(e.target.value)} /></div>
+            <div><label className="label" htmlFor="ed-region">Region</label><input id="ed-region" className="input" value={region} onChange={e => setRegion(e.target.value)} /></div>
+            <div><label className="label" htmlFor="ed-grape">Rebsorte</label><input id="ed-grape" className="input" value={grape} onChange={e => setGrape(e.target.value)} /></div>
+            <div><label className="label" htmlFor="ed-alc">Alkohol</label><input id="ed-alc" className="input" value={alcohol} onChange={e => setAlcohol(e.target.value)} placeholder="13,5 %" /></div>
+          </div>
+          <div><span className="label">Land</span><CountryPicker value={country} onChange={setCountry} /></div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Geschmack</label>
-              <select className="input text-sm" value={sweetness} onChange={e => setSweetness(e.target.value)}>
-                <option value="">—</option>
+              <label className="label" htmlFor="ed-sweet">Geschmack</label>
+              <select id="ed-sweet" className="input" value={sweetness} onChange={e => setSweetness(e.target.value)}>
+                <option value="">–</option>
                 {isSparkling(bottle.color, wineType) && <>
                   <option value="brut nature">Brut Nature</option>
                   <option value="extra brut">Extra Brut</option>
@@ -459,8 +379,8 @@ function EditSheet({ bottle, onClose, onSave }) {
               </select>
             </div>
             <div>
-              <label className="label">Art</label>
-              <select className="input text-sm" value={wineType} onChange={e => setWineType(e.target.value)}>
+              <label className="label" htmlFor="ed-type">Art</label>
+              <select id="ed-type" className="input" value={wineType} onChange={e => setWineType(e.target.value)}>
                 <option value="wein">Wein</option>
                 <option value="sekt">Sekt</option>
                 <option value="schorle">Schorle</option>
@@ -469,144 +389,74 @@ function EditSheet({ bottle, onClose, onSave }) {
               </select>
             </div>
           </div>
-
-          <div>
-            <label className="label">Qualität / Klassifikation</label>
-            <ClassificationPicker value={classification} onChange={setClassification} />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div><label className="label">Preis (€)</label><input type="number" step="0.01" className="input text-sm" value={priceEur} onChange={e => setPriceEur(e.target.value)} /></div>
-            <div><label className="label">Händler</label><input className="input text-sm" value={retailer} onChange={e => setRetailer(e.target.value)} placeholder="z.B. Jacques'" /></div>
-            <div><label className="label">Kaufdatum</label><input type="date" className="input text-sm" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} /></div>
-          </div>
-          <div>
-            <label className="label">Link</label><input type="url" className="input text-sm" value={link} onChange={e => setLink(e.target.value)} placeholder="https://…" />
-          </div>
-
-          <div>
-            <label className="label">📦 Lagerposition</label>
-            <div className="flex flex-wrap gap-1.5">
-              {racks.map(r => (
-                <button key={r.id} type="button"
-                  onClick={() => { setRackId(r.id); setSlot(r.slots?.[0] || ''); setGridRow(null); setGridCol(null) }}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                    rackId === r.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}
-                >{r.emoji} {r.label}</button>
-              ))}
-            </div>
-            {isGrid ? (
-              <div className="mt-2">
-                <p className="text-[10px] text-gray-400 mb-1">
-                  Position{gridRow && gridCol ? `: Reihe ${gridRow}, Spalte ${gridCol}` : ' wählen'}
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="border-collapse">
-                    <tbody>
-                      {Array.from({ length: selectedRack.rows }, (_, ri) => (
-                        <tr key={ri}>
-                          <td className="text-[9px] text-gray-400 pr-1 text-right w-5">{ri + 1}</td>
-                          {(() => {
-                            const blockedCells = new Set(selectedRack.conditions?.blockedCells ?? [])
-                            return Array.from({ length: selectedRack.cols }, (_, ci) => {
-                              const r1 = ri + 1, c1 = ci + 1
-                              const isBlocked = blockedCells.has(`${r1}-${c1}`)
-                              const selected = gridRow === r1 && gridCol === c1
-                              if (isBlocked) return (
-                                <td key={ci} className="w-9 h-9 text-center border border-gray-200 dark:border-gray-600 bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500 text-[11px]">✕</td>
-                              )
-                              return (
-                                <td key={ci} onClick={() => { setGridRow(r1); setGridCol(c1) }}
-                                  className={`w-9 h-9 text-center border text-[11px] cursor-pointer transition-colors ${
-                                    selected
-                                      ? 'bg-primary-600 text-white border-primary-600 font-bold'
-                                      : 'bg-white dark:bg-gray-700 text-gray-400 border-gray-200 dark:border-gray-600 hover:bg-primary-50 dark:hover:bg-primary-900/20'
-                                  }`}>
-                                  {selected ? '🍷' : ''}
-                                </td>
-                              )
-                            })
-                          })()}
-                        </tr>
-                      ))}
-                      <tr>
-                        <td />
-                        {Array.from({ length: selectedRack.cols }, (_, ci) => (
-                          <td key={ci} className="text-[9px] text-gray-400 text-center">{ci + 1}</td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : selectedRack?.slots?.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {selectedRack.slots.map(s => (
-                  <button key={s} type="button" onClick={() => setSlot(s)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      slot === s ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}>{s}</button>
-                ))}
-              </div>
-            ) : (
-              <input className="input text-sm mt-2" placeholder="Fach / Slot" value={slot} onChange={e => setSlot(e.target.value)} />
-            )}
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 rounded-xl">
-            <input type="checkbox" checked={alcoholFree} onChange={e => setAlcoholFree(e.target.checked)} />
-            <span>🚫 <b>Alkoholfrei</b> – kein Promille, taugt für Schwangerschaft, Autofahrer, abends auf der Couch</span>
+          <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
+            <input type="checkbox" className="mt-1 w-5 h-5 accent-primary-500" checked={alcoholFree} onChange={e => setAlcoholFree(e.target.checked)} />
+            <span className="text-callout text-gray-700 dark:text-gray-200"><b>Alkoholfrei</b> – ohne Promille, passt für Schwangerschaft, Autofahrer, abends auf der Couch</span>
           </label>
+        </FormSection>
 
-          <div>
-            <label className="label">👃 Aromen</label>
-            <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto">
-              {AROMAS.map(a => (
-                <button key={a} onClick={() => toggle(aromas, setAromas, a)}
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    aromas.includes(a) ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
-                  }`}>{a}</button>
-              ))}
+        <FormSection title="Qualität / Klassifikation">
+          <ClassificationPicker value={classification} onChange={setClassification} />
+        </FormSection>
+
+        <FormSection title="Lagerplatz">
+          <div className="flex flex-wrap gap-1.5">
+            {racks.map(r => (
+              <Chip key={r.id} on={rackId === r.id}
+                onClick={() => { setRackId(r.id); setSlot(r.slots?.[0] || ''); setGridRow(null); setGridCol(null) }}>{r.emoji} {r.label}</Chip>
+            ))}
+          </div>
+          {isGrid ? (
+            <div className="space-y-1.5">
+              <p className="text-footnote text-gray-500 dark:text-gray-400">
+                {gridRow && gridCol ? `Gewählt: Reihe ${gridRow}, Platz ${gridCol}` : 'Platz wählen'} · orange = belegt
+              </p>
+              <RackGrid rack={selectedRack} bottles={bottles} mode="pick" selected={{ row: gridRow, col: gridCol }}
+                onCell={(r, c) => { setGridRow(r); setGridCol(c) }} />
             </div>
-          </div>
-
-          <div>
-            <label className="label">🗓️ Trinkfenster</label>
-            {!manualDrink && drinkFrom && (
-              <p className="text-[11px] text-primary-600 dark:text-primary-400 mb-1">Automatisch geschätzt</p>
-            )}
-            <div className="grid grid-cols-2 gap-2">
-              <div><label className="label text-[10px]">Trinken ab</label><input type="number" className="input text-sm" value={drinkFrom}
-                onChange={e => { setDrinkFrom(e.target.value); setManualDrink(true) }} /></div>
-              <div><label className="label text-[10px]">Trinken bis</label><input type="number" className="input text-sm" value={drinkUntil}
-                onChange={e => { setDrinkUntil(e.target.value); setManualDrink(true) }} /></div>
+          ) : selectedRack?.slots?.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {selectedRack.slots.map(s => <Chip key={s} on={slot === s} onClick={() => setSlot(s)}>{s}</Chip>)}
             </div>
-            {manualDrink && (
-              <button type="button" onClick={() => setManualDrink(false)}
-                className="text-xs text-primary-600 dark:text-primary-400 mt-1">↻ Automatisch berechnen</button>
-            )}
-          </div>
+          ) : (
+            <input className="input" placeholder="Fach / Platz" aria-label="Fach / Platz" value={slot} onChange={e => setSlot(e.target.value)} />
+          )}
+        </FormSection>
 
-          <div>
-            <label className="label">🍽️ Passt zu</label>
-            <div className="flex flex-wrap gap-1.5 max-h-56 overflow-y-auto">
-              {DISH_CATEGORIES.map(d => (
-                <button key={d.id} onClick={() => toggle(pairings, setPairings, d.id)}
-                  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    pairings.includes(d.id) ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300'
-                  }`}>{d.emoji} {d.label}</button>
-              ))}
-            </div>
+        <FormSection title="Trinkfenster" footer={!manualDrink && drinkFrom ? 'Automatisch geschätzt aus Rebsorte & Klassifikation.' : null}>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label" htmlFor="ed-from">Trinken ab</label><input id="ed-from" type="number" inputMode="numeric" className="input" value={drinkFrom}
+              onChange={e => { setDrinkFrom(e.target.value); setManualDrink(true) }} /></div>
+            <div><label className="label" htmlFor="ed-until">Trinken bis</label><input id="ed-until" type="number" inputMode="numeric" className="input" value={drinkUntil}
+              onChange={e => { setDrinkUntil(e.target.value); setManualDrink(true) }} /></div>
           </div>
+          {manualDrink && (
+            <button type="button" onClick={() => setManualDrink(false)}
+              className="min-h-[44px] -my-2 text-callout font-semibold text-primary-500 dark:text-primary-300">Automatisch berechnen</button>
+          )}
+        </FormSection>
 
-          <div className="flex gap-2 pt-2 pb-4">
-            <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-            <button
-              onClick={() => onSave({ name, winery, region, country, grape, alcohol, alcoholFree, sweetness, classification, wineType, retailer, priceEur: priceEur ? Number(priceEur) : null, purchaseDate, link, aromas, pairings, drinkFrom: drinkFrom ? Number(drinkFrom) : null, drinkUntil: drinkUntil ? Number(drinkUntil) : null, rackId, slot: isGrid ? '' : slot, row: isGrid ? gridRow : null, col: isGrid ? gridCol : null })}
-              className="btn-primary flex-1">Speichern</button>
+        <FormSection title="Kauf">
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="label" htmlFor="ed-price">Preis (€)</label><input id="ed-price" type="number" step="0.01" inputMode="decimal" className="input" value={priceEur} onChange={e => setPriceEur(e.target.value)} /></div>
+            <div><label className="label" htmlFor="ed-date">Kaufdatum</label><input id="ed-date" type="date" className="input" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} /></div>
           </div>
-        </div>
+          <div><label className="label" htmlFor="ed-retailer">Händler</label><input id="ed-retailer" className="input" value={retailer} onChange={e => setRetailer(e.target.value)} placeholder="z. B. Jacques’" /></div>
+          <div><label className="label" htmlFor="ed-link">Link</label><input id="ed-link" type="url" className="input" value={link} onChange={e => setLink(e.target.value)} placeholder="https://…" /></div>
+        </FormSection>
+
+        <FormSection title="Aromen">
+          <div className="flex flex-wrap gap-1.5">
+            {AROMAS.map(a => <Chip key={a} on={aromas.includes(a)} onClick={() => toggle(aromas, setAromas, a)}>{a}</Chip>)}
+          </div>
+        </FormSection>
+
+        <FormSection title="Passt zu">
+          <div className="flex flex-wrap gap-1.5">
+            {DISH_CATEGORIES.map(d => <Chip key={d.id} on={pairings.includes(d.id)} onClick={() => toggle(pairings, setPairings, d.id)}>{d.emoji} {d.label}</Chip>)}
+          </div>
+        </FormSection>
       </div>
-    </>
+    </Sheet>
   )
 }

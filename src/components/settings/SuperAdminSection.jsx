@@ -3,11 +3,12 @@ import { MODULES_ENABLED } from '../../branding'
 import { superListUsers, superBanUser, superResetPassword, superDeleteUser, superBackup, superStats, superUserActivity, superUserApiUsage, superActivityOverview } from '../../lib/userAdmin'
 import { getLastSeen, markSeen } from './lastSeen'
 import { localISODate } from '../../utils/date'
+import { confirmAction, notify } from '../../ui/feedback'
 
 const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL || '').toLowerCase()
 
 function avatarColor(name = '') {
-  const palette = ['bg-green-400','bg-blue-400','bg-purple-400','bg-pink-400','bg-orange-400','bg-teal-400']
+  const palette = ['bg-primary-300','bg-primary-300','bg-primary-300','bg-pink-400','bg-soon','bg-primary-300']
   const hash = [...name].reduce((a, c) => a + c.charCodeAt(0), 0)
   return palette[hash % palette.length]
 }
@@ -104,7 +105,7 @@ function SuperAdminSection() {
       if (reload) await loadAll()
       setExpanded(null)
     } catch (e) {
-      alert('Fehler: ' + e.message)
+      notify('Das hat nicht geklappt', e.message)
     } finally {
       setBusy(false)
     }
@@ -145,7 +146,7 @@ function SuperAdminSection() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (e) {
-      alert('Backup fehlgeschlagen: ' + e.message)
+      notify('Backup fehlgeschlagen', e.message)
     } finally {
       setBusy(false)
     }
@@ -169,12 +170,7 @@ function SuperAdminSection() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 bg-primary-100 dark:bg-primary-900/40 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Betreiber-Bereich</h3>
+        <h3 className="px-1 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Betreiber-Bereich</h3>
         <button
           onClick={loadAll}
           disabled={loading}
@@ -204,7 +200,7 @@ function SuperAdminSection() {
       </div>
 
       {error && (
-        <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2">{error}</div>
+        <div className="text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2">{error}</div>
       )}
 
       {/* ── Plattform-Tab ── */}
@@ -246,7 +242,7 @@ function SuperAdminSection() {
                   return (
                     <div key={u.userId} className="flex items-center gap-3 px-3 py-2">
                       <span className={`w-5 h-5 rounded-full flex-none flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-200 text-gray-600' : i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+                        i === 0 ? 'bg-soon-soft text-soon' : i === 1 ? 'bg-gray-200 text-gray-600' : i === 2 ? 'bg-soon-soft text-soon' : 'bg-gray-100 text-gray-500'
                       }`}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate block">{u.name}</span>
@@ -336,8 +332,8 @@ function SuperAdminSection() {
                         <span className="text-xs bg-primary-600 text-white font-semibold rounded-full px-2 py-0.5">Betreiber</span>
                       )}
                       {isNew(u) && <span className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 font-semibold rounded-full px-2 py-0.5">Neu</span>}
-                      {u.isBanned && <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-semibold rounded-full px-2 py-0.5">Gesperrt</span>}
-                      {!u.confirmed && <span className="text-xs bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 font-semibold rounded-full px-2 py-0.5">Unbestätigt</span>}
+                      {u.isBanned && <span className="text-xs bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark font-semibold rounded-full px-2 py-0.5">Gesperrt</span>}
+                      {!u.confirmed && <span className="text-xs bg-soon-soft dark:bg-soon-dark-soft text-soon dark:text-soon-dark font-semibold rounded-full px-2 py-0.5">Unbestätigt</span>}
                     </div>
                     <p className="text-xs text-gray-400 truncate">{u.email}</p>
                     <p className="text-xs text-gray-400">
@@ -379,18 +375,18 @@ function SuperAdminSection() {
                       {detailTab === 'actions' && (
                         <div className="grid grid-cols-2 gap-2">
                           <button disabled={busy}
-                            onClick={() => { if (confirm(`Passwort-Reset-Mail an ${u.email}?`)) act(() => superResetPassword(u.email), false) }}
-                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-xl px-3 py-2.5 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                            onClick={async () => { if (await confirmAction({ title: `Passwort-Reset-Mail an ${u.email}?`, confirmLabel: 'Senden' })) act(() => superResetPassword(u.email), false) }}
+                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 rounded-xl px-3 py-2.5 hover:bg-primary-100 transition-colors disabled:opacity-50"
                           >Passwort reset</button>
                           <button disabled={busy}
-                            onClick={() => { if (confirm(u.isBanned ? `${u.name} entsperren?` : `${u.name} sperren?`)) act(() => superBanUser(u.id, !u.isBanned)) }}
+                            onClick={async () => { if (await confirmAction({ title: u.isBanned ? `${u.name} entsperren?` : `${u.name} sperren?`, confirmLabel: u.isBanned ? 'Entsperren' : 'Sperren', destructive: !u.isBanned })) act(() => superBanUser(u.id, !u.isBanned)) }}
                             className={`flex items-center justify-center gap-1.5 text-xs font-semibold rounded-xl px-3 py-2.5 transition-colors disabled:opacity-50 ${
-                              u.isBanned ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-red-700 bg-red-50 hover:bg-red-100'
+                              u.isBanned ? 'text-primary-600 bg-primary-50 hover:bg-primary-100' : 'text-expired bg-expired-soft hover:bg-expired-soft'
                             }`}
                           >{u.isBanned ? 'Entsperren' : 'Sperren'}</button>
                           <button disabled={busy}
-                            onClick={() => { if (confirm(`${u.name} (${u.email}) ENDGÜLTIG löschen?`)) act(() => superDeleteUser(u.id)) }}
-                            className="col-span-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-red-600 rounded-xl px-3 py-2.5 hover:bg-red-700 transition-colors disabled:opacity-50"
+                            onClick={async () => { if (await confirmAction({ title: `${u.name} (${u.email}) endgültig löschen?`, message: 'Konto und alle Daten werden gelöscht.', confirmLabel: 'Konto löschen', destructive: true })) act(() => superDeleteUser(u.id)) }}
+                            className="col-span-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-expired rounded-xl px-3 py-2.5 hover:bg-expired transition-colors disabled:opacity-50"
                           >Konto löschen</button>
                         </div>
                       )}

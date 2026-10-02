@@ -164,7 +164,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
             <div className="flex items-center gap-1">
               {torchAvailable && (
                 <button onClick={toggleTorch}
-                  className={`p-2 rounded-full transition-colors ${torchOn ? 'bg-yellow-400 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300'}`}
+                  className={`p-2 rounded-full transition-colors ${torchOn ? 'bg-soon text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300'}`}
                   title="Taschenlampe">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -185,7 +185,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
               {cameras.map((cam, i) => (
                 <button key={cam.id} onClick={() => switchCamera(cam.id)}
                   className={`text-xs rounded-full px-3 py-1 font-medium transition-colors ${
-                    activeCamId === cam.id ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                    activeCamId === cam.id ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}>
                   {cam.label || `Kamera ${i + 1}`}
                 </button>
@@ -213,7 +213,7 @@ export default function BarcodeScanner({ onDetected, onClose }) {
           {/* Hinweis / Fehler / Manuell */}
           <div className="px-4 py-3">
             {error ? (
-              <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3 mb-3">{error}</div>
+              <div className="bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark text-sm rounded-xl px-4 py-3 mb-3">{error}</div>
             ) : !loading && !looking && (
               <p className="text-xs text-gray-400 text-center mb-3">
                 Barcode in den Rahmen halten · ca. 10–20 cm · bei wenig Licht 🔦 nutzen

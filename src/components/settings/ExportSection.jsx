@@ -90,14 +90,7 @@ function ExportSection() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Datensicherung</h3>
-      </div>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Datensicherung</h3>
 
       <div className="card px-4 py-3">
         <div className="space-y-1 mb-3">
@@ -124,8 +117,8 @@ function ExportSection() {
           onClick={handleExport}
           className={`w-full flex items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold transition-colors ${
             done
-              ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-300'
+              : 'bg-primary-500 text-white hover:bg-primary-600'
           }`}
         >
           {done ? (

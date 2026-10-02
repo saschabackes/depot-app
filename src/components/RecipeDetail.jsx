@@ -1,151 +1,217 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import useStore from '../store/useStore'
-import InventoryCheck from './InventoryCheck'
+import { useFreezer } from '../modules/freezer/store'
+import { useCellar } from '../modules/cellar/store'
+import { computeRecipeAvailability } from '../utils/inventoryMatch'
 import { isSafeUrl } from '../utils/safeUrl'
+import Screen, { BarButton } from '../ui/Screen'
+import Icon from '../ui/Icon'
+import { ListGroup } from '../ui/List'
+import { StatusPill } from '../ui/Controls'
+import { confirmAction, showToast } from '../ui/feedback'
+
+const SOURCE_LABELS = { youtube: 'YouTube', cookidoo: 'Cookidoo', kptncook: 'KptnCook', web: 'Web', manual: 'Manuell' }
+const ingName = ing => (typeof ing === 'string' ? ing : ing?.name ?? '')
 
 export default function RecipeDetail({ recipe, onBack, onEdit }) {
-  const { deleteRecipe } = useStore()
-  const [showSpices, setShowSpices] = useState(false)
+  const deleteRecipe = useStore(s => s.deleteRecipe)
+  const toggleFavorite = useStore(s => s.toggleFavorite)
+  const addShoppingItem = useStore(s => s.addShoppingItem)
+  const spices = useStore(s => s.spices)
+  const locations = useStore(s => s.locations)
+  const freezerItems = useFreezer(s => s.items)
+  const bottles = useCellar(s => s.bottles)
+  const [addedMissing, setAddedMissing] = useState(false)
 
-  function handleDelete() {
-    if (confirm(`Rezept „${recipe.title}" wirklich löschen?`)) {
-      deleteRecipe(recipe.id)
-      onBack()
-    }
+  const ingredients = recipe.ingredients ?? []
+  const steps = recipe.steps ?? []
+
+  // Bestandsabgleich je Zutat: Gewürz / TK / Wein / fehlt / nicht geprüft
+  const avail = useMemo(
+    () => (ingredients.length ? computeRecipeAvailability(recipe, spices, freezerItems, bottles) : null),
+    [recipe, spices, freezerItems, bottles]
+  )
+  const statusByName = useMemo(() => {
+    const map = new Map()
+    if (!avail) return map
+    avail.spicePlan.matched.forEach(m => map.set(m.recipeName, { kind: 'spice', jar: m.jars[0], count: m.jars.length }))
+    avail.freezerMatches.forEach(m => map.set(m.recipeName, { kind: 'freezer', item: m.items[0] }))
+    avail.wineMatches.forEach(m => map.set(m.recipeName, { kind: 'wine', bottle: m.bottles[0] }))
+    avail.spicePlan.unmatched.forEach(n => { if (!map.has(n)) map.set(n, { kind: 'missing' }) })
+    return map
+  }, [avail])
+
+  const locName = id => locations.find(l => l.id === id)?.name ?? null
+  const missing = avail?.missing ?? []
+  const checked = avail ? avail.totalFound + avail.totalMissing : 0
+
+  function addMissingToShopping() {
+    missing.forEach(name => addShoppingItem(name, '', true))
+    setAddedMissing(true)
+    if (navigator.vibrate) navigator.vibrate(30)
+    showToast(missing.length === 1 ? '1 Zutat steht auf der Einkaufsliste.' : `${missing.length} Zutaten stehen auf der Einkaufsliste.`)
+  }
+
+  async function handleDelete() {
+    const ok = await confirmAction({ title: `„${recipe.title}“ löschen?`, message: 'Das Rezept wird für den ganzen Haushalt entfernt.', confirmLabel: 'Löschen', destructive: true })
+    if (ok) { deleteRecipe(recipe.id); onBack(); showToast('Rezept gelöscht.') }
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Kopf */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-4 py-2.5 flex items-center gap-2 flex-none">
-        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <h2 className="flex-1 font-bold text-gray-900 dark:text-gray-100 truncate">{recipe.title}</h2>
-        <button onClick={() => onEdit(recipe)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 transition-colors" title="Bearbeiten">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button onClick={handleDelete} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors" title="Löschen">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 pb-20">
-        {/* Player */}
+    <Screen title={recipe.title} largeTitle={false} back={{ label: 'Kochen', onClick: onBack }}
+      actions={
+        <>
+          <BarButton label={recipe.favorite ? 'Aus Favoriten entfernen' : 'Als Favorit markieren'} onClick={() => toggleFavorite(recipe.id)}>
+            <Icon name="star" size={24} strokeWidth={2} filled={recipe.favorite} />
+          </BarButton>
+          <BarButton label="Rezept bearbeiten" onClick={() => onEdit(recipe)}>Bearbeiten</BarButton>
+        </>
+      }>
+      <div className="space-y-6 pt-2">
+        {/* Hero */}
         {recipe.videoId ? (
-          <div className="rounded-2xl overflow-hidden bg-black aspect-video max-h-56">
-            <iframe
-              className="w-full h-full"
-              src={`https://www.youtube.com/embed/${recipe.videoId}`}
-              title={recipe.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
+          <div className="px-4">
+            <div className="rounded-card overflow-hidden bg-black aspect-video">
+              <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${recipe.videoId}`} title={recipe.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen />
+            </div>
           </div>
         ) : recipe.thumbnailUrl ? (
-          <div className="flex justify-center">
-            <div className="rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700 max-h-48 max-w-sm">
+          <div className="px-4">
+            <div className="rounded-card overflow-hidden bg-white dark:bg-gray-800 aspect-[16/10]">
               <img src={recipe.thumbnailUrl} alt="" className="w-full h-full object-cover" />
             </div>
           </div>
         ) : null}
 
-        {/* Quelle / Tags */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          {recipe.author && <span className="text-sm text-gray-500 dark:text-gray-400">{recipe.author}</span>}
+        {/* Titel + Quelle */}
+        <div className="px-5 space-y-2">
+          <p className="text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {[SOURCE_LABELS[recipe.sourceType || 'manual'], recipe.author].filter(Boolean).join(' · ')}
+          </p>
+          <h1 className="text-title text-gray-900 dark:text-gray-50 break-words">{recipe.title}</h1>
+          {recipe.tags?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {recipe.tags.map(t => <StatusPill key={t}>{t}</StatusPill>)}
+            </div>
+          )}
           {isSafeUrl(recipe.sourceUrl) && (
             <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer"
-              className="text-sm text-primary-600 dark:text-primary-400 font-semibold flex items-center gap-1">
+              className="inline-flex items-center gap-1 min-h-[44px] text-callout font-semibold text-primary-500 dark:text-primary-300">
               Im Original öffnen
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <Icon name="share" size={17} strokeWidth={2} />
             </a>
           )}
         </div>
-        {recipe.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {recipe.tags.map(t => (
-              <span key={t} className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full px-2.5 py-0.5">{t}</span>
-            ))}
-          </div>
-        )}
 
-        {/* Bestandsabgleich (Gewürze + TK + Wein) */}
-        {recipe.ingredients?.length > 0 && (
-          <div className="card p-3">
-            <button
-              onClick={() => setShowSpices(v => !v)}
-              className="w-full flex items-center gap-2 text-left"
-            >
-              <span className="text-lg">📋</span>
-              <span className="flex-1 font-bold text-gray-800 dark:text-gray-100 text-sm">Bestandscheck</span>
-              <svg className={`w-4 h-4 text-gray-400 transition-transform ${showSpices ? 'rotate-180' : ''}`}
-                fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            {showSpices && (
-              <div className="mt-3">
-                <InventoryCheck ingredients={recipe.ingredients} />
+        {/* Verfügbarkeit + primäre Aktion */}
+        {checked > 0 && (
+          <div className="px-4 space-y-3">
+            <div className="bg-white dark:bg-gray-800 rounded-card px-4 py-3.5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-body font-semibold text-gray-900 dark:text-gray-100">{avail.totalFound} von {checked} da</span>
+                {missing.length > 0 && <span className="text-footnote text-gray-500 dark:text-gray-400">{missing.length} fehlt</span>}
               </div>
+              <AvailBar found={avail.totalFound} total={checked} className="mt-2" />
+            </div>
+            {missing.length > 0 ? (
+              <button onClick={addMissingToShopping} disabled={addedMissing} className="btn-primary w-full">
+                <Icon name={addedMissing ? 'check' : 'cart'} size={20} />
+                {addedMissing ? 'Steht auf der Einkaufsliste' : 'Fehlende auf die Einkaufsliste'}
+              </button>
+            ) : (
+              <p className="px-1 text-footnote text-gray-500 dark:text-gray-400">Alles Nötige ist im Bestand – du kannst loslegen.</p>
             )}
           </div>
         )}
 
         {/* Zutaten */}
-        {recipe.ingredients?.length > 0 && (
-          <div>
-            <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Zutaten</h3>
-            <ul className="space-y-1.5">
-              {recipe.ingredients.map((ing, i) => {
-                const name = typeof ing === 'string' ? ing : ing.name
-                return (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
-                    <span className="text-primary-500 mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 flex-none" />
-                    {name}
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
+        {ingredients.length > 0 && (
+          <ListGroup title={`Zutaten · ${ingredients.length}`}
+            footer={avail && checked < ingredients.length ? 'Frische Zutaten und Grundvorräte werden nicht abgeglichen.' : null}>
+            {ingredients.map((ing, i) => {
+              const name = ingName(ing)
+              const st = statusByName.get(name)
+              let subtitle = null
+              let trailing = null
+              if (st?.kind === 'spice') {
+                subtitle = [st.jar.brand, locName(st.jar.locationId), st.count > 1 && `${st.count} Packungen`].filter(Boolean).join(' · ') || null
+                trailing = <Status label="Da" />
+              } else if (st?.kind === 'freezer') {
+                subtitle = `TK: ${st.item.name}`
+                trailing = <Status label="TK" />
+              } else if (st?.kind === 'wine') {
+                subtitle = `Keller: ${st.bottle.name}`
+                trailing = <Status label="Keller" />
+              } else if (st?.kind === 'missing') {
+                trailing = <StatusPill tone="soon">Fehlt</StatusPill>
+              }
+              // eigene Zeile statt ListRow: Zutaten dürfen umbrechen (nicht abschneiden)
+              return (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5 min-h-[50px]">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-body text-gray-900 dark:text-gray-100 break-words">{name}</div>
+                    {subtitle && <div className="text-footnote text-gray-500 dark:text-gray-400 truncate">{subtitle}</div>}
+                  </div>
+                  {trailing}
+                </div>
+              )
+            })}
+          </ListGroup>
         )}
 
-        {/* Schritte */}
-        {recipe.steps?.length > 0 && (
-          <div>
-            <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Zubereitung</h3>
-            <ol className="space-y-3">
-              {recipe.steps.map((step, i) => (
-                <li key={i} className="flex gap-3 text-sm text-gray-700 dark:text-gray-200">
-                  <span className="flex-none w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-bold text-xs flex items-center justify-center">{i + 1}</span>
-                  <span className="pt-0.5 leading-relaxed">{step}</span>
+        {/* Zubereitung */}
+        {steps.length > 0 && (
+          <section className="px-4">
+            <h2 className="px-4 pb-1.5 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Zubereitung</h2>
+            <ol className="bg-white dark:bg-gray-800 rounded-card divide-y divide-gray-100 dark:divide-gray-700">
+              {steps.map((step, i) => (
+                <li key={i} className="flex gap-3 px-4 py-3">
+                  <span className="flex-none w-7 h-7 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-600 dark:text-primary-200 text-footnote font-bold flex items-center justify-center">{i + 1}</span>
+                  <p className="flex-1 pt-0.5 text-body text-gray-800 dark:text-gray-100 leading-relaxed">{step}</p>
                 </li>
               ))}
             </ol>
-          </div>
+          </section>
         )}
 
         {/* Notizen */}
         {recipe.notes && (
-          <div>
-            <h3 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Notizen</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{recipe.notes}</p>
+          <ListGroup title="Notizen">
+            <p className="px-4 py-3 text-body text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{recipe.notes}</p>
+          </ListGroup>
+        )}
+
+        {ingredients.length === 0 && steps.length === 0 && (
+          <div className="flex flex-col items-center text-center px-8 py-6 gap-3">
+            <span className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 text-gray-400 flex items-center justify-center"><Icon name="list" size={30} /></span>
+            <h3 className="text-headline text-gray-900 dark:text-gray-100">Noch keine Zutaten</h3>
+            <p className="text-callout text-gray-500 dark:text-gray-400">Ergänze Zutaten und Schritte, dann prüft Depot automatisch deinen Bestand.</p>
+            <button onClick={() => onEdit(recipe)} className="btn-primary px-6 mt-1"><Icon name="edit" size={20} />Rezept ergänzen</button>
           </div>
         )}
 
-        {recipe.ingredients?.length === 0 && recipe.steps?.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-6">
-            Noch keine Zutaten/Schritte erfasst – tippe oben auf ✎ zum Ergänzen.
-          </p>
-        )}
+        <div className="flex justify-center">
+          <button onClick={handleDelete} className="min-h-[44px] px-4 text-callout font-semibold text-expired dark:text-expired-dark">Rezept löschen</button>
+        </div>
       </div>
+    </Screen>
+  )
+}
+
+function Status({ label }) {
+  return (
+    <span className="flex items-center gap-1 text-footnote font-semibold text-primary-500 dark:text-primary-300 flex-none">
+      <Icon name="check" size={16} strokeWidth={2.6} />{label}
+    </span>
+  )
+}
+
+export function AvailBar({ found, total, className = '' }) {
+  const pct = total > 0 ? Math.round((found / total) * 100) : 0
+  return (
+    <div className={`h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden ${className}`} role="img" aria-label={`${found} von ${total} Zutaten vorhanden`}>
+      <div className="h-full rounded-full bg-primary-500 dark:bg-primary-300" style={{ width: `${pct}%` }} />
     </div>
   )
 }

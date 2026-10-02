@@ -1,17 +1,25 @@
 import { useState, useRef, useMemo } from 'react'
 import { usePantry, CATEGORIES, autoCategory } from './store'
 import AutocompleteInput from '../../components/AutocompleteInput'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { showToast } from '../../ui/feedback'
 
+const UNITS = ['Stück', 'Packung', 'Dose', 'Glas', 'Beutel', 'Flasche', 'kg', 'g', 'ml', 'l']
+
+// prefilled mit `id` = bestehenden Eintrag bearbeiten, sonst neu anlegen (ggf. vorbelegt)
 export default function PantryForm({ prefilled, onClose }) {
-  const { locations, items, addItem } = usePantry()
+  const { locations, items, addItem, updateItem } = usePantry()
   const nameSuggestions = useMemo(() => [...new Set(items.map(i => i.name).filter(Boolean))].sort(), [items])
+  const editing = !!prefilled?.id
 
-  const startLocationId = prefilled?.locationId || locations[0]?.id || ''
-  const startShelfId = prefilled?.shelfId || locations.find(l => l.id === startLocationId)?.shelves[0]?.id || ''
+  const startLocationId = editing ? (prefilled.locationId || '') : (prefilled?.locationId || locations[0]?.id || '')
+  const startShelfId = editing ? (prefilled.shelfId || '')
+    : (prefilled?.shelfId || locations.find(l => l.id === startLocationId)?.shelves[0]?.id || '')
 
   const [name, setName] = useState(prefilled?.name || '')
   const [category, setCategory] = useState(prefilled?.category || autoCategory(prefilled?.name || '') || 'sonstiges')
-  const [autoCat, setAutoCat] = useState(true)
+  const [autoCat, setAutoCat] = useState(!editing)
   const [locationId, setLocationId] = useState(startLocationId)
   const [shelfId, setShelfId] = useState(startShelfId)
   const [quantity, setQuantity] = useState(prefilled?.quantity || 1)
@@ -20,7 +28,6 @@ export default function PantryForm({ prefilled, onClose }) {
   const [note, setNote] = useState(prefilled?.note || '')
   const [photoData, setPhotoData] = useState(prefilled?.photoData || null)
   const [bulkMode, setBulkMode] = useState(false)
-  const [hint, setHint] = useState('')
   const photoRef = useRef(null)
 
   const location = locations.find(l => l.id === locationId)
@@ -49,131 +56,130 @@ export default function PantryForm({ prefilled, onClose }) {
 
   function save() {
     if (!name.trim()) return
+    if (editing) {
+      updateItem(prefilled.id, {
+        name: name.trim(), category, locationId, shelfId,
+        quantity: Math.max(1, Number(quantity) || 1), unit, bestBefore, note, photoData,
+      })
+      onClose()
+      return
+    }
     addItem({ name, category, locationId, shelfId, quantity, unit, bestBefore, note, photoData })
     if (bulkMode) {
-      setHint(`✓ ${name} gespeichert`)
+      showToast(`„${name.trim()}“ gespeichert – weiter mit dem nächsten.`, { duration: 2500 })
       setName(''); setCategory('sonstiges'); setAutoCat(true)
       setQuantity(1); setBestBefore(''); setNote(''); setPhotoData(null)
-      setTimeout(() => setHint(''), 2000)
     } else {
       onClose()
     }
   }
 
-  const UNITS = ['Stück', 'Packung', 'Dose', 'Glas', 'Beutel', 'Flasche', 'kg', 'g', 'ml', 'l']
-
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-            📦 {prefilled ? 'Vorrat bearbeiten' : 'Neuer Vorrat'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl px-2">✕</button>
-        </div>
+    <Sheet title={editing ? 'Vorrat bearbeiten' : 'Neuer Vorrat'} onClose={onClose}
+      confirmLabel="Sichern" onConfirm={save} confirmDisabled={!name.trim()}>
+      <div className="px-4 space-y-4">
+        <Block>
+          <label className="label" htmlFor="pantry-name">Name</label>
+          <AutocompleteInput id="pantry-name" value={name} onChange={handleNameChange} suggestions={nameSuggestions}
+            placeholder="z. B. Dinkelmehl Type 630" className="input" autoFocus={!editing} />
+        </Block>
 
-        {hint && <p className="text-center text-sm text-emerald-600 font-semibold">{hint}</p>}
-
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase">Name</label>
-          <AutocompleteInput value={name} onChange={handleNameChange} suggestions={nameSuggestions}
-            placeholder="z.B. Dinkelmehl Type 630" className="input mt-1" autoFocus />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">Kategorie</label>
-            <select value={category} onChange={e => { setCategory(e.target.value); setAutoCat(false) }}
-              className="input mt-1">
-              {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">MHD</label>
-            <input type="date" value={bestBefore} onChange={e => setBestBefore(e.target.value)}
-              className="input mt-1" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">Menge</label>
-            <input type="number" min="1" value={quantity} onChange={e => setQuantity(Number(e.target.value))}
-              className="input mt-1" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase">Einheit</label>
-            <select value={unit} onChange={e => setUnit(e.target.value)} className="input mt-1">
-              {UNITS.map(u => <option key={u}>{u}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {locations.length > 0 && (
+        <Block>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase">Lagerort</label>
-              <select value={locationId} onChange={e => {
-                setLocationId(e.target.value)
-                const loc = locations.find(l => l.id === e.target.value)
-                setShelfId(loc?.shelves[0]?.id || '')
-              }} className="input mt-1">
-                <option value="">— kein Ort —</option>
-                {locations.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
+              <label className="label" htmlFor="pantry-cat">Kategorie</label>
+              <select id="pantry-cat" value={category} onChange={e => { setCategory(e.target.value); setAutoCat(false) }} className="input">
+                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
               </select>
             </div>
-            {shelves.length > 0 && (
+            <div>
+              <label className="label" htmlFor="pantry-mhd">Haltbar bis</label>
+              <input id="pantry-mhd" type="date" value={bestBefore} onChange={e => setBestBefore(e.target.value)} className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="pantry-qty">Menge</label>
+              <input id="pantry-qty" type="number" inputMode="numeric" min="1" value={quantity} onChange={e => setQuantity(Number(e.target.value))} className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="pantry-unit">Einheit</label>
+              <select id="pantry-unit" value={unit} onChange={e => setUnit(e.target.value)} className="input">
+                {[...new Set([...UNITS, unit])].map(u => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+        </Block>
+
+        {locations.length > 0 && (
+          <Block>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase">Fach</label>
-                <select value={shelfId} onChange={e => setShelfId(e.target.value)} className="input mt-1">
-                  {shelves.map(sh => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
+                <label className="label" htmlFor="pantry-loc">Lagerort</label>
+                <select id="pantry-loc" value={locationId} onChange={e => {
+                  setLocationId(e.target.value)
+                  const loc = locations.find(l => l.id === e.target.value)
+                  setShelfId(loc?.shelves[0]?.id || '')
+                }} className="input">
+                  <option value="">— kein Ort —</option>
+                  {locations.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
                 </select>
               </div>
-            )}
-          </div>
+              {shelves.length > 0 && (
+                <div>
+                  <label className="label" htmlFor="pantry-shelf">Fach</label>
+                  <select id="pantry-shelf" value={shelfId} onChange={e => setShelfId(e.target.value)} className="input">
+                    {!shelves.some(sh => sh.id === shelfId) && <option value={shelfId}>— kein Fach —</option>}
+                    {shelves.map(sh => <option key={sh.id} value={sh.id}>{sh.label}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          </Block>
         )}
 
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase">Notiz</label>
-          <input value={note} onChange={e => setNote(e.target.value)}
-            placeholder="z.B. geöffnet, Restmenge ..." className="input mt-1" />
-        </div>
+        <Block>
+          <label className="label" htmlFor="pantry-note">Notiz</label>
+          <input id="pantry-note" value={note} onChange={e => setNote(e.target.value)}
+            placeholder="z. B. geöffnet, Restmenge …" className="input" />
+        </Block>
 
-        <div>
-          <label className="text-xs font-semibold text-gray-500 uppercase">Foto (z.B. Originalverpackung)</label>
-          <div className="mt-1 flex items-center gap-3">
-            <button onClick={() => photoRef.current?.click()}
-              className="bg-gray-100 dark:bg-gray-700 text-gray-500 px-4 py-2 rounded-xl text-sm font-semibold">
-              📷 {photoData ? 'Foto ändern' : 'Foto hinzufügen'}
+        <Block>
+          <span className="label">Foto (z. B. Originalverpackung)</span>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => photoRef.current?.click()} className="btn-secondary flex-1">
+              <Icon name="camera" size={20} />{photoData ? 'Foto ändern' : 'Foto aufnehmen'}
             </button>
             {photoData && (
-              <img src={photoData} className="h-12 w-12 rounded-lg object-cover" alt="Vorschau" />
+              <>
+                <img src={photoData} className="h-12 w-12 rounded-lg object-cover flex-none" alt="Vorschau" />
+                <button type="button" onClick={() => setPhotoData(null)} aria-label="Foto entfernen"
+                  className="w-11 h-11 flex-none flex items-center justify-center text-gray-400">
+                  <Icon name="trash" size={20} />
+                </button>
+              </>
             )}
-            <input ref={photoRef} type="file" accept="image/*" capture="environment"
-              onChange={handlePhoto} hidden />
+            <input ref={photoRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} hidden />
           </div>
-        </div>
+        </Block>
 
-        <div className="flex items-center gap-3 pt-2">
-          <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+        {!editing && (
+          <label className="flex items-center gap-3 min-h-[50px] px-4 bg-white dark:bg-gray-800 rounded-card cursor-pointer">
+            <span className="flex-1">
+              <span className="block text-body font-semibold text-gray-900 dark:text-gray-100">Mehrere erfassen</span>
+              <span className="block text-footnote text-gray-500 dark:text-gray-400">Formular bleibt nach dem Sichern offen</span>
+            </span>
             <input type="checkbox" checked={bulkMode} onChange={e => setBulkMode(e.target.checked)}
-              className="rounded" />
-            Mehrere erfassen
+              className="w-6 h-6 accent-primary-500" />
           </label>
-        </div>
+        )}
 
-        <div className="flex gap-3 pt-2">
-          <button onClick={onClose}
-            className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold py-3 rounded-2xl">
-            Abbrechen
-          </button>
-          <button onClick={save} disabled={!name.trim()}
-            className="flex-1 btn-primary py-3 rounded-2xl font-semibold disabled:opacity-40">
-            Speichern
-          </button>
-        </div>
+        <button onClick={save} disabled={!name.trim()} className="btn-primary w-full">
+          {editing ? 'Änderungen sichern' : bulkMode ? 'Sichern & nächster' : 'Vorrat sichern'}
+        </button>
       </div>
-    </div>
+    </Sheet>
   )
+}
+
+function Block({ children }) {
+  return <div className="bg-white dark:bg-gray-800 rounded-card p-4">{children}</div>
 }

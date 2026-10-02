@@ -2,31 +2,40 @@ import { useState, useRef, useMemo } from 'react'
 import { useFreezer, CATEGORIES, FREEZER_SHELF_LIFE, autoCategory } from './store'
 import AutocompleteInput from '../../components/AutocompleteInput'
 import { localISODate } from '../../utils/date'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow } from '../../ui/List'
+import { showToast } from '../../ui/feedback'
+import { Switch, Stepper, FieldRow, InlineSelect } from './parts'
 
-export default function FreezerForm({ prefilled, onClose }) {
-  const { storages, items, addItem, removePending, lastUsedCompartment } = useFreezer()
+// Gleiche Berechnung wie im Store (calcExpiry)
+function expiryFor(category, frozenAt) {
+  const d = new Date(frozenAt); d.setUTCDate(d.getUTCDate() + (FREEZER_SHELF_LIFE[category] ?? 180))
+  return d.toISOString().slice(0, 10)
+}
+
+// Anlegen (prefilled) oder Bearbeiten (item)
+export default function FreezerForm({ prefilled, item, onClose }) {
+  const { storages, items, addItem, updateItem, removePending, lastUsedCompartment } = useFreezer()
+  const editing = !!item
   const nameSuggestions = useMemo(() => [...new Set(items.map(i => i.name).filter(Boolean))].sort(), [items])
   const portionSizeSuggestions = useMemo(() => [...new Set(items.map(i => i.portionSize).filter(Boolean))].sort(), [items])
-  const startStorageId = prefilled?.storageId
-    || lastUsedCompartment?.storageId
-    || storages[0]?.id
-  const startCompartmentId = prefilled?.compartmentId
-    || lastUsedCompartment?.compartmentId
+  const startStorageId = item?.storageId || prefilled?.storageId || lastUsedCompartment?.storageId || storages[0]?.id
+  const startCompartmentId = item?.compartmentId || prefilled?.compartmentId || lastUsedCompartment?.compartmentId
     || storages.find(s => s.id === startStorageId)?.compartments[0]?.id
   const pendingId = prefilled?.pendingId || null
 
-  const [name, setName] = useState(prefilled?.name || '')
-  const [category, setCategory] = useState(prefilled?.category || autoCategory(prefilled?.name || '') || 'sonstiges')
-  const [autoCat, setAutoCat] = useState(true)
+  const [name, setName] = useState(item?.name ?? prefilled?.name ?? '')
+  const [category, setCategory] = useState(item?.category || prefilled?.category || autoCategory(prefilled?.name || '') || 'sonstiges')
+  const [autoCat, setAutoCat] = useState(!editing)
   const [storageId, setStorageId] = useState(startStorageId)
   const [compartmentId, setCompartmentId] = useState(startCompartmentId)
-  const [portions, setPortions] = useState(1)
-  const [portionSize, setPortionSize] = useState(prefilled?.portionSize || '')
-  const [frozenAt, setFrozenAt] = useState(localISODate())
-  const [note, setNote] = useState('')
-  const [photoData, setPhotoData] = useState(prefilled?.photoData || null)
+  const [portions, setPortions] = useState(item?.portions ?? 1)
+  const [portionSize, setPortionSize] = useState(item?.portionSize ?? prefilled?.portionSize ?? '')
+  const [frozenAt, setFrozenAt] = useState(item?.frozenAt || localISODate())
+  const [note, setNote] = useState(item?.note ?? '')
+  const [photoData, setPhotoData] = useState(item?.photoData ?? prefilled?.photoData ?? null)
   const [bulkMode, setBulkMode] = useState(false)
-  const [hint, setHint] = useState('')
   const photoRef = useRef(null)
 
   const storage = storages.find(s => s.id === storageId)
@@ -41,7 +50,7 @@ export default function FreezerForm({ prefilled, onClose }) {
   async function handlePhoto(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    // Auf max 800px komprimieren als JPEG-DataURL (klein für LocalStorage)
+    // Auf max 800px komprimieren als JPEG-DataURL
     const img = new Image()
     const url = URL.createObjectURL(file)
     await new Promise(res => { img.onload = res; img.src = url })
@@ -53,150 +62,104 @@ export default function FreezerForm({ prefilled, onClose }) {
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
     setPhotoData(canvas.toDataURL('image/jpeg', 0.7))
     URL.revokeObjectURL(url)
+    e.target.value = ''
   }
 
   function save() {
     if (!name.trim()) return
+    if (editing) {
+      const patch = { name: name.trim(), category, storageId, compartmentId, portions: Math.max(1, Number(portions) || 1), portionSize, note, frozenAt, photoData }
+      if (frozenAt && (category !== item.category || frozenAt !== item.frozenAt)) patch.expiryDate = expiryFor(category, frozenAt)
+      updateItem(item.id, patch)
+      onClose()
+      return
+    }
     addItem({ name, category, storageId, compartmentId, portions, portionSize, frozenAt, note, photoData })
     if (pendingId) removePending(pendingId)
     if (bulkMode) {
-      setHint(`✓ „${name}" gespeichert – nächster Eintrag?`)
+      showToast(`„${name.trim()}“ gespeichert – nächster Eintrag?`, { duration: 2500 })
       setName(''); setPortions(1); setPortionSize(''); setNote(''); setPhotoData(null)
-      setTimeout(() => setHint(''), 2200)
+      if (autoCat) setCategory('sonstiges')
     } else {
       onClose()
     }
   }
 
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            {pendingId ? '📦 Einräumen ins Tiefkühl' : '❄️ Im Tiefkühl ablegen'}
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">✕</button>
-        </div>
+  const title = editing ? 'Bearbeiten' : pendingId ? 'Einräumen' : 'Einfrieren'
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+  return (
+    <Sheet title={title} onClose={onClose} confirmLabel="Sichern" onConfirm={save} confirmDisabled={!name.trim()}>
+      <div className="space-y-5">
+        <div className="px-4 space-y-3">
           <div>
             <label className="label">Was?</label>
-            <AutocompleteInput className="input py-2.5 text-sm" placeholder="z.B. Hähnchenbrust, Lasagne, Fischstäbchen"
-              value={name} onChange={handleNameChange} suggestions={nameSuggestions} autoFocus />
+            <AutocompleteInput className="input" placeholder="z. B. Hähnchenbrust, Lasagne"
+              value={name} onChange={handleNameChange} suggestions={nameSuggestions} autoFocus={!editing} />
           </div>
-
           <div>
-            <div className="flex items-center justify-between">
-              <label className="label !mb-0">Kategorie</label>
-              <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-300">
-                <input type="checkbox" checked={autoCat} onChange={e => setAutoCat(e.target.checked)} />
-                Auto aus Name
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {CATEGORIES.map(c => (
-                <button key={c.id} type="button"
-                  onClick={() => { setAutoCat(false); setCategory(c.id) }}
-                  className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
-                    category === c.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}
-                >{c.emoji} {c.label}</button>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1.5">Empfohlene Haltbarkeit: ~{shelfMonths} Monate</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Portionen</label>
-              <input type="number" min="1" className="input py-2.5 text-sm" value={portions}
-                onChange={e => setPortions(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Portionsgröße</label>
-              <AutocompleteInput className="input py-2.5 text-sm" placeholder="z.B. 150 g / Stück / Glas"
-                value={portionSize} onChange={setPortionSize} suggestions={portionSizeSuggestions} />
-            </div>
-          </div>
-
-          <div>
-            <label className="label">Wohin? (Gefrierschrank)</label>
-            <div className="flex flex-wrap gap-1.5">
-              {storages.map(s => (
-                <button key={s.id} type="button"
-                  onClick={() => { setStorageId(s.id); setCompartmentId(s.compartments[0]?.id) }}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                    storageId === s.id ? 'bg-primary-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}
-                >{s.emoji} {s.label}</button>
-              ))}
-            </div>
-            {compartments.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {compartments.map(c => (
-                  <button key={c.id} type="button"
-                    onClick={() => setCompartmentId(c.id)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      compartmentId === c.id ? 'bg-primary-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                    }`}
-                  >{c.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="label">Einfrierdatum</label>
-            <input type="date" className="input py-2.5 text-sm" value={frozenAt}
-              onChange={e => setFrozenAt(e.target.value)} />
-          </div>
-
-          {/* Foto */}
-          <div>
-            <label className="label">Foto (optional)</label>
-            <div className="flex items-center gap-3">
-              <input ref={photoRef} type="file" accept="image/*" capture="environment"
-                onChange={handlePhoto} className="hidden" />
-              <button onClick={() => photoRef.current?.click()}
-                className="text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 rounded-lg font-semibold">
-                📷 Foto aufnehmen
-              </button>
-              {photoData && (
-                <div className="relative">
-                  <img src={photoData} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                  <button onClick={() => setPhotoData(null)}
-                    className="absolute -top-1 -right-1 bg-gray-800 text-white rounded-full w-5 h-5 text-xs">✕</button>
-                </div>
-              )}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1">Gut für selbst Eingemachtes, Hundefutter, alles ohne Etikett.</p>
-          </div>
-
-          <div>
-            <label className="label">Notiz</label>
-            <input className="input py-2 text-sm" value={note} onChange={e => setNote(e.target.value)} />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 bg-primary-50 dark:bg-primary-900/30 px-3 py-2 rounded-xl">
-            <input type="checkbox" checked={bulkMode} onChange={e => setBulkMode(e.target.checked)} />
-            <span><b>Wocheneinkauf-Modus</b> – Form bleibt nach Speichern offen</span>
-          </label>
-
-          {hint && <p className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">{hint}</p>}
-
-          <div className="flex gap-3 pt-2 pb-4">
-            <button onClick={onClose} className="btn-secondary flex-1">Schließen</button>
-            <button onClick={save} disabled={!name.trim()}
-              className="btn-primary flex-1 disabled:opacity-50" style={{ backgroundColor: '#0284c7' }}>
-              {bulkMode ? 'Speichern + nächstes' : 'Speichern'}
-            </button>
+            <label className="label">Portionsgröße</label>
+            <AutocompleteInput className="input" placeholder="z. B. 150 g, Stück, Glas"
+              value={portionSize} onChange={setPortionSize} suggestions={portionSizeSuggestions} />
           </div>
         </div>
+
+        <ListGroup title="Menge & Lagerort">
+          <FieldRow label="Portionen">
+            <Stepper value={portions} onChange={setPortions} label="Portionen" />
+          </FieldRow>
+          <FieldRow label="Gefrierschrank">
+            <InlineSelect label="Gefrierschrank" value={storageId}
+              onChange={id => { setStorageId(id); setCompartmentId(storages.find(s => s.id === id)?.compartments[0]?.id) }}>
+              {storages.map(s => <option key={s.id} value={s.id}>{s.emoji} {s.label}</option>)}
+            </InlineSelect>
+          </FieldRow>
+          {compartments.length > 0 && (
+            <FieldRow label="Fach">
+              <InlineSelect label="Fach" value={compartmentId} onChange={setCompartmentId}>
+                {compartments.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </InlineSelect>
+            </FieldRow>
+          )}
+          <FieldRow label="Eingefroren am">
+            <input type="date" value={frozenAt} onChange={e => setFrozenAt(e.target.value)} aria-label="Eingefroren am"
+              className="bg-transparent text-right text-body text-gray-500 dark:text-gray-400 outline-none py-2" />
+          </FieldRow>
+        </ListGroup>
+
+        <ListGroup title="Kategorie" footer={`Empfohlene Haltbarkeit: etwa ${shelfMonths} Monate`}>
+          <FieldRow label="Kategorie">
+            <InlineSelect label="Kategorie" value={category} onChange={id => { setAutoCat(false); setCategory(id) }}>
+              {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+            </InlineSelect>
+          </FieldRow>
+          <FieldRow label="Automatisch aus Name">
+            <Switch checked={autoCat} onChange={v => { setAutoCat(v); if (v && name.trim()) setCategory(autoCategory(name)) }} label="Kategorie automatisch aus Name" />
+          </FieldRow>
+        </ListGroup>
+
+        <ListGroup title="Foto" footer="Gut für selbst Eingemachtes, Hundefutter und alles ohne Etikett.">
+          <input ref={photoRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
+          <ListRow onClick={() => photoRef.current?.click()} tone="accent"
+            leading={photoData
+              ? <img src={photoData} alt="" className="w-11 h-11 rounded-[10px] object-cover flex-none" />
+              : <Icon name="camera" size={22} className="text-primary-500 dark:text-primary-300" />}
+            title={photoData ? 'Foto ersetzen' : 'Foto aufnehmen'} />
+          {photoData && <ListRow onClick={() => setPhotoData(null)} tone="danger" title="Foto entfernen" />}
+        </ListGroup>
+
+        <div className="px-4">
+          <label className="label">Notiz</label>
+          <input className="input" value={note} onChange={e => setNote(e.target.value)} placeholder="optional" />
+        </div>
+
+        {!editing && (
+          <ListGroup footer="Das Formular bleibt nach dem Sichern offen – praktisch nach dem Wocheneinkauf.">
+            <FieldRow label="Mehrere nacheinander">
+              <Switch checked={bulkMode} onChange={setBulkMode} label="Mehrere nacheinander erfassen" />
+            </FieldRow>
+          </ListGroup>
+        )}
       </div>
-    </>
+    </Sheet>
   )
 }

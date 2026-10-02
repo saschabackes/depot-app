@@ -16,12 +16,15 @@ import MembersSection from './settings/MembersSection'
 import SuperAdminSection from './settings/SuperAdminSection'
 import FeedbackSection from './settings/FeedbackSection'
 import DataManagementSection from './settings/DataManagementSection'
+import Sheet from '../ui/Sheet'
+import { Segmented } from '../ui/Controls'
 
 const SUPER_ADMIN_EMAIL = (import.meta.env.VITE_SUPER_ADMIN_EMAIL || '').toLowerCase()
 
 
 export default function SettingsView({ onClose }) {
-  const { household, user } = useStore()
+  const household = useStore(s => s.household)
+  const user = useStore(s => s.user)
   const isOwner      = household?.role === 'owner'
   const isSuperAdmin = !!SUPER_ADMIN_EMAIL && (user?.email || '').toLowerCase() === SUPER_ADMIN_EMAIL
   const [tab, setTab] = useState('settings')  // 'settings' | 'admin' | 'super'
@@ -42,133 +45,55 @@ export default function SettingsView({ onClose }) {
       .catch(() => {})
   }, [isSuperAdmin])
 
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200" />
-        </div>
+  const tabs = [
+    { id: 'settings', label: 'Allgemein' },
+    ...(isOwner ? [{ id: 'admin', label: 'Mitglieder' }] : []),
+    ...(isSuperAdmin ? [{ id: 'super', label: newUserCount > 0 ? `Betreiber (${newUserCount})` : 'Betreiber' }] : []),
+  ]
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Einstellungen
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:bg-gray-700 transition-colors">
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+  return (
+    <Sheet title="Einstellungen" onClose={onClose} cancelLabel="Schließen" z={60}>
+      {showTabs && (
+        <div className="px-4 pb-4">
+          <Segmented label="Bereich" value={tab} options={tabs}
+            onChange={t => { setTab(t); if (t === 'super') setNewUserCount(0) }} />
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="px-4 space-y-7">
+          <AppearanceSection />
+          <HouseholdSection />
+          <BringSection />
+          <CookidooSection />
+          <ExportSection />
+          {MODULES_ENABLED && <SetupAssistantSection onClose={onClose} />}
+          <FeedbackSection />
+          <button onClick={() => setShowChangelog(true)}
+            className="w-full min-h-[44px] text-center text-footnote text-gray-500 dark:text-gray-400">
+            {APP_NAME} {APP_VERSION} · <span className="text-primary-500 dark:text-primary-300 font-semibold">Was ist neu?</span>
+            {unseenChangelog && <span className="inline-block w-1.5 h-1.5 bg-primary-500 rounded-full ml-1.5 align-middle" />}
           </button>
         </div>
+      )}
 
-        {/* Tabs — für Owner und/oder Super-Admin */}
-        {showTabs && (
-          <div className="flex gap-1 px-5 pt-3 pb-1 flex-none">
-            <button
-              onClick={() => setTab('settings')}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                tab === 'settings'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
-              }`}
-            >
-              Allgemein
-            </button>
-            {isOwner && (
-              <button
-                onClick={() => setTab('admin')}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                  tab === 'admin'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                Mitglieder
-              </button>
-            )}
-            {isSuperAdmin && (
-              <button
-                onClick={() => { setTab('super'); setNewUserCount(0) }}
-                className={`relative flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                  tab === 'super'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                Betreiber
-                {newUserCount > 0 && tab !== 'super' && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-primary-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                    {newUserCount}
-                  </span>
-                )}
-              </button>
-            )}
-          </div>
-        )}
+      {tab === 'admin' && isOwner && (
+        <div className="px-4 space-y-7">
+          <InviteSection />
+          <MembersSection />
+          <DataManagementSection />
+        </div>
+      )}
 
-        {/* Einstellungen-Tab */}
-        {tab === 'settings' && (
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 pb-safe">
-            <AppearanceSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <HouseholdSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <BringSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <CookidooSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <ExportSection />
-            {MODULES_ENABLED && (
-              <>
-                <div className="border-t border-gray-100 dark:border-gray-700" />
-                <SetupAssistantSection onClose={onClose} />
-              </>
-            )}
+      {tab === 'super' && isSuperAdmin && (
+        <div className="px-4 space-y-7">
+          <SuperAdminSection />
+        </div>
+      )}
 
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <FeedbackSection />
-
-            {/* Version + Changelog – dezent am Ende */}
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <button
-              onClick={() => setShowChangelog(true)}
-              className="w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors pb-2 relative"
-            >
-              {APP_NAME} v{APP_VERSION} · <span className="underline">Was ist neu?</span>
-              {unseenChangelog && (
-                <span className="inline-block w-1.5 h-1.5 bg-primary-500 rounded-full ml-1.5 align-middle" />
-              )}
-            </button>
-          </div>
-        )}
-
-        {showChangelog && (
-          <ChangelogView onClose={() => { setShowChangelog(false); setUnseenChangelog(false) }} />
-        )}
-
-        {/* Haushalts-Tab (nur Owner) */}
-        {tab === 'admin' && isOwner && (
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 pb-safe">
-            <InviteSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <MembersSection />
-            <div className="border-t border-gray-100 dark:border-gray-700" />
-            <DataManagementSection />
-          </div>
-        )}
-
-        {/* Betreiber-Tab (nur Super-Admin) */}
-        {tab === 'super' && isSuperAdmin && (
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 pb-safe">
-            <SuperAdminSection />
-          </div>
-        )}
-      </div>
-    </>
+      {showChangelog && (
+        <ChangelogView onClose={() => { setShowChangelog(false); setUnseenChangelog(false) }} />
+      )}
+    </Sheet>
   )
 }

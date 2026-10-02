@@ -1,19 +1,106 @@
 import { useState } from 'react'
 import { useFreezer } from './store'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow, IconTile } from '../../ui/List'
+import { confirmAction } from '../../ui/feedback'
 
-const EMOJI_OPTIONS = ['🏠','🔻','❄️','🧊','📦','🏚️','🏬','🚪']
+export const EMOJI_OPTIONS = ['🏠','🔻','❄️','🧊','📦','🏚️','🏬','🚪']
 
-export default function StorageSettings({ onClose }) {
-  const { storages, addStorage, renameStorage, removeStorage, reorderStorages, addCompartment, renameCompartment, removeCompartment } = useFreezer()
-  const [newStorageLabel, setNewStorageLabel] = useState('')
-  const [newStorageEmoji, setNewStorageEmoji] = useState('📦')
+// Ein Gefrierschrank mit seinen Fächern (auch im Einrichtungsassistenten genutzt)
+export function StorageEditor({ storage: s, index, count, onMove }) {
+  const { items, renameStorage, removeStorage, addCompartment, renameCompartment, removeCompartment } = useFreezer()
+  const countIn = compId => items.filter(it => it.storageId === s.id && (!compId || it.compartmentId === compId)).length
+
+  async function deleteStorage() {
+    const n = countIn()
+    if (await confirmAction({
+      title: `„${s.label}“ löschen?`,
+      message: n ? `Auch ${n} ${n === 1 ? 'Eintrag' : 'Einträge'} darin werden gelöscht.` : 'Der Gefrierschrank ist leer.',
+      confirmLabel: 'Löschen', destructive: true,
+    })) removeStorage(s.id)
+  }
+
+  async function deleteCompartment(c) {
+    const n = countIn(c.id)
+    if (await confirmAction({
+      title: `Fach „${c.label}“ löschen?`,
+      message: n ? `Auch ${n} ${n === 1 ? 'Eintrag' : 'Einträge'} darin werden gelöscht.` : undefined,
+      confirmLabel: 'Löschen', destructive: true,
+    })) removeCompartment(s.id, c.id)
+  }
+
+  return (
+    <ListGroup title={s.label || 'Gefrierschrank'}>
+      <div className="flex items-center gap-2 px-4 py-1.5 min-h-[50px]">
+        <select value={s.emoji} onChange={e => renameStorage(s.id, s.label, e.target.value)} aria-label="Symbol"
+          className="flex-none w-11 h-11 rounded-[10px] bg-gray-100 dark:bg-gray-700 text-[20px] text-center appearance-none">
+          {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
+        </select>
+        <input value={s.label} onChange={e => renameStorage(s.id, e.target.value, s.emoji)} aria-label="Name des Gefrierschranks"
+          className="flex-1 min-w-0 bg-transparent outline-none text-body font-semibold text-gray-900 dark:text-gray-100 py-2" />
+        {onMove && count > 1 && (
+          <>
+            <button onClick={() => onMove(index, -1)} disabled={index === 0} aria-label="Nach oben"
+              className="w-11 h-11 flex-none flex items-center justify-center text-primary-500 dark:text-primary-300 disabled:opacity-30">
+              <Icon name="chevron" size={18} strokeWidth={2.2} className="-rotate-90" />
+            </button>
+            <button onClick={() => onMove(index, 1)} disabled={index === count - 1} aria-label="Nach unten"
+              className="w-11 h-11 -mr-2 flex-none flex items-center justify-center text-primary-500 dark:text-primary-300 disabled:opacity-30">
+              <Icon name="chevron" size={18} strokeWidth={2.2} className="rotate-90" />
+            </button>
+          </>
+        )}
+      </div>
+      {s.compartments.map(c => (
+        <div key={c.id} className="flex items-center gap-2 pl-6 pr-2 min-h-[48px]">
+          <input value={c.label} onChange={e => renameCompartment(s.id, c.id, e.target.value)} aria-label="Name des Fachs"
+            className="flex-1 min-w-0 bg-transparent outline-none text-body text-gray-900 dark:text-gray-100 py-2" />
+          <span className="text-footnote text-gray-500 dark:text-gray-400">{countIn(c.id) || ''}</span>
+          <button onClick={() => deleteCompartment(c)} aria-label={`Fach ${c.label} löschen`}
+            className="w-11 h-11 flex-none flex items-center justify-center text-gray-400">
+            <Icon name="trash" size={19} />
+          </button>
+        </div>
+      ))}
+      <ListRow onClick={() => addCompartment(s.id, `Fach ${s.compartments.length + 1}`)} tone="accent"
+        leading={<Icon name="plus" size={20} strokeWidth={2.2} className="text-primary-500 dark:text-primary-300" />} title="Fach hinzufügen" />
+      <ListRow onClick={deleteStorage} tone="danger" title="Gefrierschrank löschen" />
+    </ListGroup>
+  )
+}
+
+export function NewStorageRow() {
+  const addStorage = useFreezer(s => s.addStorage)
+  const [label, setLabel] = useState('')
+  const [emoji, setEmoji] = useState('📦')
 
   function add() {
-    const l = newStorageLabel.trim()
+    const l = label.trim()
     if (!l) return
-    addStorage(l, newStorageEmoji)
-    setNewStorageLabel(''); setNewStorageEmoji('📦')
+    addStorage(l, emoji)
+    setLabel(''); setEmoji('📦')
   }
+
+  return (
+    <ListGroup title="Neuer Gefrierschrank">
+      <div className="flex items-center gap-2 px-4 py-1.5 min-h-[50px]">
+        <select value={emoji} onChange={e => setEmoji(e.target.value)} aria-label="Symbol"
+          className="flex-none w-11 h-11 rounded-[10px] bg-gray-100 dark:bg-gray-700 text-[20px] text-center appearance-none">
+          {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
+        </select>
+        <input value={label} onChange={e => setLabel(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }}
+          placeholder="z. B. TK Garage" aria-label="Name des neuen Gefrierschranks"
+          className="flex-1 min-w-0 bg-transparent outline-none text-body text-gray-900 dark:text-gray-100 placeholder:text-gray-400 py-2" />
+        <button onClick={add} disabled={!label.trim()}
+          className="min-h-[44px] px-2 -mr-2 text-body font-semibold text-primary-500 dark:text-primary-300 disabled:opacity-40">Anlegen</button>
+      </div>
+    </ListGroup>
+  )
+}
+
+export default function StorageSettings({ onClose, onImport }) {
+  const { storages, reorderStorages, restartSetup } = useFreezer()
 
   function move(idx, dir) {
     const next = [...storages]
@@ -24,81 +111,19 @@ export default function StorageSettings({ onClose }) {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">📦 Gefrierschränke verwalten</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {storages.map((s, idx) => (
-            <div key={s.id} className="bg-gray-50 dark:bg-gray-900/50 rounded-2xl p-3">
-              <div className="flex items-center gap-2 mb-2">
-                {storages.length > 1 && (
-                  <div className="flex flex-col flex-none">
-                    <button onClick={() => move(idx, -1)} disabled={idx === 0}
-                      className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                    <button onClick={() => move(idx, 1)} disabled={idx === storages.length - 1}
-                      className="p-0.5 text-gray-400 disabled:opacity-20"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                  </div>
-                )}
-                <select value={s.emoji} onChange={e => renameStorage(s.id, s.label, e.target.value)}
-                  className="bg-transparent text-xl">
-                  {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
-                </select>
-                <input className="input py-1.5 text-sm flex-1"
-                  value={s.label} onChange={e => renameStorage(s.id, e.target.value, s.emoji)} />
-                <button onClick={() => { if (confirm(`Gefrierschrank "${s.label}" + alle Inhalte löschen?`)) removeStorage(s.id) }}
-                  className="text-gray-300 hover:text-red-500 px-2">🗑️</button>
-              </div>
-
-              <p className="text-[10px] text-gray-400 uppercase font-bold mt-2 mb-1">Fächer</p>
-              <div className="space-y-1.5">
-                {s.compartments.map(c => (
-                  <div key={c.id} className="flex gap-2">
-                    <input className="input py-1.5 text-sm flex-1"
-                      value={c.label} onChange={e => renameCompartment(s.id, c.id, e.target.value)} />
-                    <button onClick={() => { if (confirm(`Fach "${c.label}" + Inhalte löschen?`)) removeCompartment(s.id, c.id) }}
-                      className="text-gray-300 hover:text-red-500 px-2">✕</button>
-                  </div>
-                ))}
-                <button onClick={() => addCompartment(s.id, `Fach ${s.compartments.length + 1}`)}
-                  className="w-full text-xs text-primary-600 font-semibold py-1.5 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg">
-                  + Fach hinzufügen
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">+ Neuer Gefrierschrank</p>
-            <div className="flex gap-2">
-              <select value={newStorageEmoji} onChange={e => setNewStorageEmoji(e.target.value)}
-                className="bg-gray-100 dark:bg-gray-700 rounded-lg px-2 text-lg">
-                {EMOJI_OPTIONS.map(e => <option key={e}>{e}</option>)}
-              </select>
-              <input className="input py-2 text-sm flex-1"
-                placeholder='z.B. "TK Garage"' value={newStorageLabel}
-                onChange={e => setNewStorageLabel(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') add() }} />
-              <button onClick={add} disabled={!newStorageLabel.trim()}
-                className="btn-primary text-sm px-4 disabled:opacity-40" style={{ backgroundColor: '#0284c7' }}>
-                Anlegen
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-4 pb-4">
-            <button onClick={onClose}
-              className="btn-primary w-full" style={{ backgroundColor: '#0284c7' }}>Fertig</button>
-          </div>
-        </div>
+    <Sheet title="Gefrierschränke" onClose={onClose} cancelLabel="Schließen" confirmLabel="Fertig" onConfirm={onClose}>
+      <div className="space-y-5">
+        {storages.map((s, idx) => (
+          <StorageEditor key={s.id} storage={s} index={idx} count={storages.length} onMove={move} />
+        ))}
+        <NewStorageRow />
+        <ListGroup title="Weitere">
+          {onImport && (
+            <ListRow onClick={onImport} leading={<IconTile icon="inbox" tone="freezer" size={30} />} title="Aus Excel importieren …" chevron />
+          )}
+          <ListRow onClick={() => { onClose(); restartSetup() }} leading={<IconTile icon="help" tone="gray" size={30} />} title="Einrichtung erneut starten" chevron />
+        </ListGroup>
       </div>
-    </>
+    </Sheet>
   )
 }

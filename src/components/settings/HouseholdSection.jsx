@@ -68,15 +68,7 @@ function HouseholdSection() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 bg-green-100 dark:bg-green-900/40 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round"/>
-            <polyline points="9 22 9 12 15 12 15 22" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Haushalt</h3>
-      </div>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Haushalt</h3>
 
       {/* Haushaltsname */}
       <div className="card px-4 py-3 mb-3">
@@ -121,7 +113,7 @@ function HouseholdSection() {
           <div className="flex flex-col gap-1.5">
             <button
               onClick={shareCode}
-              className="flex items-center gap-1.5 bg-green-600 text-white text-xs font-semibold rounded-xl px-3 py-2 transition-colors hover:bg-green-700"
+              className="flex items-center gap-1.5 bg-primary-500 text-white text-xs font-semibold rounded-xl px-3 py-2 transition-colors hover:bg-primary-600"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -134,10 +126,10 @@ function HouseholdSection() {
             >
               {copied ? (
                 <>
-                  <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-primary-500 dark:text-primary-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                     <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span className="text-green-600 dark:text-green-400">Kopiert</span>
+                  <span className="text-primary-500 dark:text-primary-300">Kopiert</span>
                 </>
               ) : (
                 <>
@@ -177,10 +169,10 @@ function HouseholdSection() {
         </form>
 
         {joinError && (
-          <div className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2">{joinError}</div>
+          <div className="mt-2 text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2">{joinError}</div>
         )}
         {joinSuccess && (
-          <div className="mt-2 text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 rounded-xl px-3 py-2">{joinSuccess}</div>
+          <div className="mt-2 text-xs text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 rounded-xl px-3 py-2">{joinSuccess}</div>
         )}
       </div>
 
@@ -188,14 +180,14 @@ function HouseholdSection() {
       {!showLeave ? (
         <button
           onClick={() => setShowLeave(true)}
-          className="text-xs text-gray-400 hover:text-red-500 transition-colors w-full text-center py-1"
+          className="text-xs text-gray-400 hover:text-expired transition-colors w-full text-center py-1"
         >
           Haushalt verlassen und privaten Haushalt erstellen
         </button>
       ) : (
-        <div className="bg-red-50 dark:bg-red-900/30 rounded-2xl p-4">
-          <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-1">Haushalt wirklich verlassen?</p>
-          <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+        <div className="bg-expired-soft dark:bg-expired-dark-soft rounded-2xl p-4">
+          <p className="text-sm font-semibold text-expired dark:text-expired-dark mb-1">Haushalt wirklich verlassen?</p>
+          <p className="text-xs text-expired dark:text-expired-dark mb-3">
             Du verlässt „{household?.name}" und bekommst einen neuen leeren privaten Haushalt. Bestehende Daten bleiben im alten Haushalt.
           </p>
           <div className="flex gap-2">

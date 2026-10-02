@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import useStore from '../../store/useStore'
+import { confirmAction } from '../../ui/feedback'
 
 // ── Cookidoo ──────────────────────────────────────────────────────────────────
 
@@ -32,17 +33,14 @@ function CookidooSection() {
   }
 
   async function handleDisconnect() {
-    if (!confirm('Cookidoo-Verbindung trennen?')) return
+    if (!(await confirmAction({ title: 'Cookidoo-Verbindung trennen?', confirmLabel: 'Fortfahren' }))) return
     await disconnectCookidoo()
     setStep('idle')
   }
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg flex items-center justify-center text-base leading-none">🥄</div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Cookidoo</h3>
-      </div>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cookidoo</h3>
 
       {cookidooSettings?.email && step === 'idle' && (
         <div className="card px-4 py-3 mb-3">
@@ -50,11 +48,11 @@ function CookidooSection() {
             <div className="flex-1">
               <div className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Cookidoo</span>
-                <span className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-semibold rounded-full px-2 py-0.5">Verbunden</span>
+                <span className="text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-300 font-semibold rounded-full px-2 py-0.5">Verbunden</span>
               </div>
               <p className="text-xs text-gray-400">{cookidooSettings.email}</p>
             </div>
-            <button onClick={handleDisconnect} className="text-xs text-red-500 font-semibold px-3 py-1.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex-none">
+            <button onClick={handleDisconnect} className="text-xs text-expired font-semibold px-3 py-1.5 rounded-xl hover:bg-expired-soft dark:hover:bg-expired-dark-soft transition-colors flex-none">
               Trennen
             </button>
           </div>
@@ -150,14 +148,14 @@ function CookidooSection() {
             )}
 
             {syncResult && !syncResult.error && (
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 text-center">
+              <p className="text-xs text-primary-500 dark:text-primary-300 mt-1.5 text-center">
                 {syncResult.imported > 0
                   ? `${syncResult.imported} neue Rezepte importiert${syncResult.skipped > 0 ? `, ${syncResult.skipped} bereits vorhanden` : ''}`
                   : 'Alle Rezepte sind bereits vorhanden'}
               </p>
             )}
             {syncResult?.error && (
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1.5 text-center">{syncResult.error}</p>
+              <p className="text-xs text-expired dark:text-expired-dark mt-1.5 text-center">{syncResult.error}</p>
             )}
           </div>
         </div>
@@ -174,14 +172,14 @@ function CookidooSection() {
       )}
 
       {step === 'login' && (
-        <form onSubmit={handleConnect} className="border border-dashed border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 space-y-3 bg-emerald-50/30 dark:bg-emerald-900/20">
+        <form onSubmit={handleConnect} className="border border-dashed border-primary-200 dark:border-primary-700 rounded-2xl p-4 space-y-3 bg-primary-50/30 dark:bg-primary-900/20">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Cookidoo-Konto anmelden</p>
           <input type="email" className="input py-2.5 text-sm" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
           <input type="password" className="input py-2.5 text-sm" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
           <p className="text-xs text-gray-400">
             Dein Passwort wird in deinem Konto gespeichert, damit der Login automatisch funktioniert. Nur du hast Zugriff darauf.
           </p>
-          {error && <p className="text-xs text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2">{error}</p>}
+          {error && <p className="text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2">{error}</p>}
           <div className="flex gap-2">
             <button type="submit" disabled={loading || !email || !password} className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50">
               {loading ? 'Verbinde…' : 'Verbinden'}

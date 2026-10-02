@@ -20,10 +20,7 @@ export default function DataManagementSection() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 bg-red-100 dark:bg-red-900/40 rounded-lg flex items-center justify-center text-base leading-none">🗑️</div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Daten verwalten</h3>
-      </div>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Daten verwalten</h3>
       <p className="text-xs text-gray-400 mb-3">Alle Einträge eines Bereichs auf einmal löschen. Diese Aktion kann nicht rückgängig gemacht werden.</p>
       <div className="space-y-2">
         <ClearRow label="Alle Gewürze" count={spices.length} emoji="🌿" onClear={clearAllSpices} />
@@ -66,7 +63,7 @@ function ClearRow({ label, count, emoji, onClear }) {
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => { onClear(); setConfirming(false) }}
-            className="text-xs font-bold text-white bg-red-600 rounded-lg px-2.5 py-1 hover:bg-red-700 transition-colors"
+            className="text-xs font-bold text-white bg-expired rounded-lg px-2.5 py-1 hover:bg-expired transition-colors"
           >
             Endgültig löschen
           </button>
@@ -80,7 +77,7 @@ function ClearRow({ label, count, emoji, onClear }) {
       ) : (
         <button
           onClick={() => setConfirming(true)}
-          className="text-xs font-semibold text-red-500 hover:text-red-700 dark:text-red-400 px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+          className="text-xs font-semibold text-expired hover:text-expired dark:text-expired-dark px-2 py-1 rounded-lg hover:bg-expired-soft dark:hover:bg-expired-dark-soft transition-colors"
         >
           Leeren
         </button>

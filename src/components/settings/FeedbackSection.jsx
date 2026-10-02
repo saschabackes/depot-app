@@ -60,10 +60,7 @@ export default function FeedbackSection() {
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
-        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+      <h3 className="px-1 pb-2 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         Feedback
       </h3>
       <form onSubmit={submit} className="space-y-3">
@@ -73,7 +70,7 @@ export default function FeedbackSection() {
             onClick={() => setType('bug')}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
               type === 'bug'
-                ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ring-1 ring-red-300 dark:ring-red-700'
+                ? 'bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark ring-1 ring-expired dark:ring-expired'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
             }`}
           >
@@ -110,7 +107,7 @@ export default function FeedbackSection() {
         />
 
         {error && (
-          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-xs text-expired dark:text-expired-dark">{error}</p>
         )}
 
         <button

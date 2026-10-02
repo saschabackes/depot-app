@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import useStore from '../../store/useStore'
 import { adminGetMembers, adminResetPassword, adminBanUser, adminRemoveMember, adminChangeRole } from '../../lib/userAdmin'
+import { confirmAction, notify } from '../../ui/feedback'
 
 // ── Mitgliederverwaltung ──────────────────────────────────────────────────────
 
 function avatarColor(name = '') {
-  const palette = ['bg-green-400','bg-blue-400','bg-purple-400','bg-pink-400','bg-orange-400','bg-teal-400']
+  const palette = ['bg-primary-300','bg-primary-300','bg-primary-300','bg-pink-400','bg-soon','bg-primary-300']
   const hash = [...name].reduce((a, c) => a + c.charCodeAt(0), 0)
   return palette[hash % palette.length]
 }
@@ -65,7 +66,7 @@ function MembersSection() {
       await loadMembers()
       setExpanded(null)
     } catch (e) {
-      alert('Fehler: ' + e.message)
+      notify('Das hat nicht geklappt', e.message)
     } finally {
       setBusy(null)
     }
@@ -76,12 +77,7 @@ function MembersSection() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 bg-primary-100 dark:bg-primary-900/40 rounded-lg flex items-center justify-center">
-          <svg className="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        <h3 className="font-bold text-gray-800 dark:text-gray-100">Mitglieder</h3>
+        <h3 className="px-1 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Mitglieder</h3>
         {members.length > 0 && (
           <span className="ml-auto text-xs text-gray-400 font-medium">{members.length} Personen</span>
         )}
@@ -91,7 +87,7 @@ function MembersSection() {
         <p className="text-sm text-gray-400 text-center py-4">Lade Mitglieder…</p>
       )}
       {error && (
-        <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 rounded-xl px-3 py-2 mb-3">{error}</div>
+        <div className="text-xs text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft rounded-xl px-3 py-2 mb-3">{error}</div>
       )}
 
       <div className="space-y-2">
@@ -118,7 +114,7 @@ function MembersSection() {
                       {m.role === 'owner' ? 'Inhaber' : 'Mitglied'}
                     </span>
                     {m.isBanned && (
-                      <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 font-semibold rounded-full px-2 py-0.5">Gesperrt</span>
+                      <span className="text-xs bg-expired-soft dark:bg-expired-dark-soft text-expired dark:text-expired-dark font-semibold rounded-full px-2 py-0.5">Gesperrt</span>
                     )}
                     {isMe && (
                       <span className="text-xs text-gray-400">(du)</span>
@@ -150,11 +146,11 @@ function MembersSection() {
                   {/* Passwort zurücksetzen */}
                   <button
                     disabled={!!busy}
-                    onClick={() => {
-                      if (!confirm(`Passwort-Reset-Mail an ${m.email} senden?`)) return
+                    onClick={async () => {
+                      if (!(await confirmAction({ title: `Passwort-Reset-Mail an ${m.email} senden?`, confirmLabel: 'Fortfahren' }))) return
                       handleAction(() => adminResetPassword(household.id, m.email))
                     }}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-xl px-3 py-2.5 hover:bg-blue-100 dark:bg-blue-900/40 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 rounded-xl px-3 py-2.5 hover:bg-primary-100 dark:bg-primary-900/40 transition-colors disabled:opacity-50"
                   >
                     <svg className="w-3.5 h-3.5 flex-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" strokeLinecap="round" strokeLinejoin="round"/>
@@ -165,17 +161,17 @@ function MembersSection() {
                   {/* Sperren / Entsperren */}
                   <button
                     disabled={!!busy}
-                    onClick={() => {
+                    onClick={async () => {
                       const msg = m.isBanned
                         ? `${m.name} entsperren?`
                         : `${m.name} sperren? Die Person kann sich dann nicht mehr anmelden.`
-                      if (!confirm(msg)) return
+                      if (!(await confirmAction({ title: msg, confirmLabel: 'Fortfahren' }))) return
                       handleAction(() => adminBanUser(household.id, m.id, !m.isBanned))
                     }}
                     className={`flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3 py-2.5 transition-colors disabled:opacity-50 ${
                       m.isBanned
-                        ? 'text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:bg-green-900/40'
-                        : 'text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:bg-red-900/40'
+                        ? 'text-primary-600 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 hover:bg-primary-100 dark:bg-primary-900/40'
+                        : 'text-expired dark:text-expired-dark bg-expired-soft dark:bg-expired-dark-soft hover:bg-expired-soft dark:bg-expired-dark-soft'
                     }`}
                   >
                     <svg className="w-3.5 h-3.5 flex-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -190,12 +186,12 @@ function MembersSection() {
                   {/* Rolle ändern */}
                   <button
                     disabled={!!busy}
-                    onClick={() => {
+                    onClick={async () => {
                       const newRole = m.role === 'owner' ? 'member' : 'owner'
                       const msg = newRole === 'owner'
                         ? `${m.name} zum Inhaber machen? Diese Person kann dann ebenfalls Mitglieder verwalten.`
                         : `${m.name} zum einfachen Mitglied zurückstufen?`
-                      if (!confirm(msg)) return
+                      if (!(await confirmAction({ title: msg, confirmLabel: 'Fortfahren' }))) return
                       handleAction(() => adminChangeRole(household.id, m.id, newRole))
                     }}
                     className="flex items-center gap-1.5 text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 rounded-xl px-3 py-2.5 hover:bg-primary-100 dark:bg-primary-900/40 transition-colors disabled:opacity-50"
@@ -209,8 +205,8 @@ function MembersSection() {
                   {/* Aus Haushalt entfernen */}
                   <button
                     disabled={!!busy}
-                    onClick={() => {
-                      if (!confirm(`${m.name} aus dem Haushalt entfernen? Die Person verliert den Zugriff auf alle Daten.`)) return
+                    onClick={async () => {
+                      if (!(await confirmAction({ title: `${m.name} aus dem Haushalt entfernen? Die Person verliert den Zugriff auf alle Daten.`, confirmLabel: 'Fortfahren' }))) return
                       handleAction(() => adminRemoveMember(household.id, m.id))
                     }}
                     className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2.5 hover:bg-gray-200 transition-colors disabled:opacity-50"

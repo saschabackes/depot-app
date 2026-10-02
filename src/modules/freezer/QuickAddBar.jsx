@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useFreezer, parseVoiceInput, autoCategory } from './store'
+import Icon from '../../ui/Icon'
+import { showToast } from '../../ui/feedback'
 
 // Häufigkeit aus aktuellem Bestand + recentNames ableiten
 function suggestions(items, recentNames) {
@@ -19,19 +21,18 @@ export default function QuickAddBar() {
   const quickAddByName = useFreezer(s => s.quickAddByName)
   const addItem = useFreezer(s => s.addItem)
   const [text, setText] = useState('')
-  const [hint, setHint] = useState('')
   const [listening, setListening] = useState(false)
   const recRef = useRef(null)
 
   const chips = suggestions(items, recentNames)
-  const lastStorage = storages.find(s => s.id === lastUsed?.storageId)
-  const lastComp = lastStorage?.compartments.find(c => c.id === lastUsed?.compartmentId)
-  const lastLabel = lastStorage ? `${lastStorage.emoji} ${lastComp?.label || lastStorage.label}` : 'Default-Schublade'
+  const lastStorage = storages.find(s => s.id === lastUsed?.storageId) || storages[0]
+  const lastComp = lastStorage?.compartments.find(c => c.id === lastUsed?.compartmentId) || (!lastUsed && lastStorage?.compartments[0])
+  const lastLabel = lastStorage ? (lastComp?.label || lastStorage.label) : 'das erste Fach'
 
   function quickByText() {
     const t = text.trim()
     if (!t) return
-    // Erst Voice-Parser probieren (verstehen wir Lokationsangaben?)
+    // Erst Sprach-Parser probieren (verstehen wir Ortsangaben?)
     const parsed = parseVoiceInput(t, storages)
     if (parsed && (parsed.storageId || parsed.portions > 1)) {
       addItem({
@@ -41,26 +42,25 @@ export default function QuickAddBar() {
         storageId: parsed.storageId || lastUsed?.storageId || storages[0]?.id,
         compartmentId: parsed.compartmentId || lastUsed?.compartmentId || storages[0]?.compartments[0]?.id,
       })
-      setHint(`✓ ${parsed.portions}× ${parsed.name} eingelegt`)
+      showToast(`${parsed.portions} × ${parsed.name} eingefroren`, { duration: 2500 })
     } else {
       quickAddByName(t)
-      setHint(`✓ ${t} → ${lastLabel}`)
+      showToast(`${t} → ${lastLabel}`, { duration: 2500 })
     }
     setText('')
-    setTimeout(() => setHint(''), 2500)
   }
 
   function startVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SR) { setHint('Sprache wird in diesem Browser nicht unterstützt'); setTimeout(()=>setHint(''),2500); return }
+    if (!SR) { showToast('Spracheingabe wird in diesem Browser nicht unterstützt.', { duration: 2500 }); return }
+    if (listening) { recRef.current?.stop?.(); return }
     const rec = new SR()
     rec.lang = 'de-DE'; rec.interimResults = false; rec.maxAlternatives = 1
     rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript
-      setText(transcript)
+      setText(e.results[0][0].transcript)
       setListening(false)
     }
-    rec.onerror = () => { setListening(false); setHint('Sprache nicht verstanden'); setTimeout(()=>setHint(''),2500) }
+    rec.onerror = () => { setListening(false); showToast('Sprache nicht verstanden.', { duration: 2500 }) }
     rec.onend   = () => setListening(false)
     rec.start()
     recRef.current = rec
@@ -69,40 +69,43 @@ export default function QuickAddBar() {
   useEffect(() => () => recRef.current?.abort?.(), [])
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-2">
-      <div className="flex gap-2 items-center">
-        <input
-          className="flex-1 input py-2 text-sm"
-          placeholder='z.B. „2 Lasagne in Keller Korb 2"'
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') quickByText() }}
-        />
-        <button onClick={startVoice}
-          className={`flex-none w-10 h-10 rounded-full text-white text-lg transition-colors ${listening ? 'bg-red-500 animate-pulse' : 'bg-primary-600'}`}
-          title="Sprache">🎙️</button>
-        <button onClick={quickByText} disabled={!text.trim()}
-          className="flex-none px-3 h-10 rounded-full bg-primary-600 text-white text-sm font-semibold disabled:opacity-40">
-          ＋
-        </button>
-      </div>
-
-      {chips.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
-          <span className="flex-none text-[10px] text-gray-400 font-bold self-center pr-1">HÄUFIG:</span>
-          {chips.map(name => (
-            <button key={name}
-              onClick={() => { quickAddByName(name); setHint(`✓ +1 ${name} → ${lastLabel}`); setTimeout(()=>setHint(''),2000) }}
-              className="flex-none text-xs bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold px-2.5 py-1 rounded-full active:scale-95"
-            >+ {name}</button>
-          ))}
+    <section className="px-4">
+      <div className="bg-white dark:bg-gray-800 rounded-card px-2 py-1.5">
+        <div className="flex items-center gap-1">
+          <input
+            className="flex-1 min-w-0 bg-transparent outline-none px-2 py-2 text-body text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+            placeholder="Schnell einfrieren, z. B. „2 Lasagne Keller“"
+            aria-label="Schnell einfrieren"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') quickByText() }}
+          />
+          <button onClick={startVoice} aria-label={listening ? 'Spracheingabe beenden' : 'Spracheingabe'}
+            className={`flex-none w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+              listening ? 'bg-expired text-white animate-pulse' : 'text-primary-500 dark:text-primary-300'}`}>
+            <Icon name="mic" size={22} />
+          </button>
+          <button onClick={quickByText} disabled={!text.trim()} aria-label="Hinzufügen"
+            className="flex-none w-11 h-11 rounded-full bg-primary-500 text-white flex items-center justify-center disabled:opacity-40">
+            <Icon name="plus" size={22} strokeWidth={2.4} />
+          </button>
         </div>
-      )}
 
-      {hint && <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">{hint}</p>}
-      <p className="text-[10px] text-gray-400">
-        Quick-Add legt in {lastLabel} ab · 🎙️ versteht „3 Lasagne Keller Korb 2"
+        {chips.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pt-1 pb-1.5">
+            {chips.map(name => (
+              <button key={name}
+                onClick={() => { quickAddByName(name); showToast(`+1 ${name} → ${lastLabel}`, { duration: 2000 }) }}
+                className="flex-none min-h-[34px] px-3 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-600 dark:text-primary-200 text-[14px] font-semibold active:scale-95 transition-transform">
+                + {name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="px-4 pt-1.5 text-footnote text-gray-500 dark:text-gray-400">
+        Landet in {lastLabel}. Menge und Ort werden erkannt, z. B. „3 Lasagne Keller Korb 2“.
       </p>
-    </div>
+    </section>
   )
 }

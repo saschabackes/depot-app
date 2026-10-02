@@ -1,85 +1,33 @@
 import { useState } from 'react'
-import { MODULES_ENABLED, APP_NAME } from '../branding'
+import { MODULES_ENABLED } from '../branding'
+import { IconTile } from '../ui/List'
 
 const SLIDES_DEPOT = [
-  {
-    emoji: '🏠',
-    title: 'Willkommen!',
-    text: 'Depot hilft dir und deinem Haushalt, den Überblick über Gewürze, Tiefkühl-Vorräte und Weine zu behalten – was da ist, wo es liegt, was abläuft und was nachgekauft werden muss.',
-  },
-  {
-    emoji: '🧭',
-    title: 'Fünf Bereiche',
-    text: 'Unten wechselst du zwischen Gewürzen, Tiefkühl, Wein, Kochen und der Einkaufsliste. Jeder Bereich hat seine eigene Ansicht – alles greift ineinander.',
-  },
-  {
-    emoji: '➕',
-    title: 'Produkte erfassen',
-    text: 'Tippe auf den runden Plus-Button unten rechts. Je nach Bereich (Gewürze, TK, Wein, Rezept) öffnet sich das passende Formular. Name reicht zum Start – der Rest kann später ergänzt werden.',
-  },
-  {
-    emoji: '❄️',
-    title: 'Tiefkühl & Wein',
-    text: 'Tiefkühl-Vorräte mit Portionen, Einfrierdatum und mehreren Schränken. Weine mit Trinkfenster, Lagerbedingungen und Bewertungen – inklusive Empfehlungen zum Teilen per Link.',
-  },
-  {
-    emoji: '📅',
-    title: 'Ablauf & Einräumen',
-    text: 'Jedes Modul hat einen Ablauf-Tab: MHD bei Gewürzen, Verfallsdaten bei TK, Trinkfenster bei Wein. Neue Einkäufe landen in der Einräumen-Queue und werden mit einem Tipp dem richtigen Lagerplatz zugeordnet.',
-  },
-  {
-    emoji: '🛒',
-    title: 'Zentrale Einkaufsliste',
-    text: 'Gewürze, TK-Produkte und Weine können zum Nachkaufen markiert werden – alles landet auf einer zentralen Einkaufsliste. Bring!-Anbindung für die Familien-Einkaufsliste inklusive.',
-  },
-  {
-    emoji: '📖',
-    title: 'Kochen & Rezepte',
-    text: 'Speichere Rezepte per Link (Cookidoo, YouTube, Webseiten) – Zutaten werden automatisch erkannt. Der Bestandscheck zeigt, was du schon hast, und fehlende Zutaten wandern mit einem Tipp auf die Einkaufsliste.',
-  },
-  {
-    emoji: '🏠',
-    title: 'Gemeinsam nutzen',
-    text: 'Lade Familie oder Mitbewohner ein: alle sehen denselben Bestand, dieselbe Einkaufsliste und dieselben Rezepte. Änderungen synchronisieren sich automatisch.',
-  },
-  {
-    emoji: '💡',
-    title: 'Tipps & Hilfe',
-    text: 'Oben im Header findest du Verlauf (Uhr), Hilfe (?) und Einstellungen (Zahnrad). In den Einstellungen verbindest du Bring! und Cookidoo, lädst Haushaltsmitglieder ein und kannst die Tour jederzeit neu starten.',
-  },
+  { icon: 'home', tone: 'accent', title: 'Willkommen bei Depot',
+    text: 'Behalte gemeinsam den Überblick über Gewürze, Tiefkühl, Wein und Vorrat – was da ist, wo es liegt, was abläuft und was nachgekauft werden muss.' },
+  { icon: 'boxes', tone: 'accent', title: 'Fünf Tabs unten',
+    text: 'Start zeigt, was Aufmerksamkeit braucht. Unter Bestand findest du Gewürze, Tiefkühl, Wein und Vorrat. Dazu Kochen, Einkauf und Mehr mit Einstellungen und Hilfe.' },
+  { icon: 'plus', tone: 'accent', title: 'Etwas erfassen',
+    text: 'In jedem Bereich oben rechts auf „+“ tippen. Der Name reicht zum Start – per Barcode oder Foto geht es noch schneller. Alles andere kannst du später ergänzen.' },
+  { icon: 'search', tone: 'accent', title: 'Alles schnell finden',
+    text: 'Die Suche auf der Startseite durchsucht alle Bereiche auf einmal. Antippen öffnet den Eintrag mit allen Aktionen: Füllstand, Nachkaufen, Entsorgen, Etikett drucken.' },
+  { icon: 'cart', tone: 'accent', title: 'Einkaufen & Kochen',
+    text: 'Was zur Neige geht, landet mit einem Tipp auf der Einkaufsliste – auf Wunsch direkt in Bring!. Rezepte zeigen, welche Zutaten du schon im Haus hast.' },
+  { icon: 'user', tone: 'accent', title: 'Gemeinsam nutzen',
+    text: 'Lade Familie oder Mitbewohner unter Mehr → Einstellungen ein. Alle sehen denselben Bestand, Änderungen erscheinen sofort bei allen.' },
 ]
 
 const SLIDES_SPICE = [
-  {
-    emoji: '🌿',
-    title: 'Willkommen!',
-    text: 'Der Gewürzmanager hilft dir, den Überblick über deine Gewürze zu behalten – was da ist, wo es steht, was abläuft und was nachgekauft werden muss.',
-  },
-  {
-    emoji: '➕',
-    title: 'Gewürz hinzufügen',
-    text: 'Tippe auf den Plus-Button. Name und Verpackungstyp reichen zum Start – Marke, Foto, MHD und mehr kannst du jederzeit ergänzen.',
-  },
-  {
-    emoji: '📊',
-    title: 'Füllstand & MHD',
-    text: 'Tippe auf die Balken einer Karte, um den Füllstand zu aktualisieren. Der Ablauf-Tab zeigt dir, welche Gewürze bald ablaufen.',
-  },
-  {
-    emoji: '🛒',
-    title: 'Einkaufsliste',
-    text: 'Gewürze mit niedrigem Füllstand zum Nachkaufen markieren – optional direkt in deine Bring!-Liste übernehmen.',
-  },
-  {
-    emoji: '🏠',
-    title: 'Gemeinsam nutzen',
-    text: 'Lade Familie oder Mitbewohner ein: alle sehen denselben Bestand und dieselbe Einkaufsliste.',
-  },
-  {
-    emoji: '💡',
-    title: 'Tipps & Hilfe',
-    text: 'Oben im Header findest du Verlauf (Uhr), Hilfe (?) und Einstellungen (Zahnrad). In den Einstellungen verbindest du Bring!, lädst Haushaltsmitglieder ein und kannst die Tour jederzeit neu starten.',
-  },
+  { icon: 'leaf', tone: 'spices', title: 'Willkommen!',
+    text: 'Der Gewürzmanager hilft dir, den Überblick über deine Gewürze zu behalten – was da ist, wo es steht, was abläuft und was nachgekauft werden muss.' },
+  { icon: 'plus', tone: 'accent', title: 'Gewürz hinzufügen',
+    text: 'Oben rechts auf „+“ tippen. Name und Verpackungstyp reichen zum Start – per Barcode geht es am schnellsten.' },
+  { icon: 'clock', tone: 'accent', title: 'Füllstand & Ablauf',
+    text: 'Tippe ein Gewürz an, um den Füllstand zu ändern. Die Ansicht „Ablauf“ zeigt, was bald abläuft.' },
+  { icon: 'cart', tone: 'accent', title: 'Einkaufsliste',
+    text: 'Fast leere Gewürze mit einem Tipp nachkaufen – optional direkt in deiner Bring!-Liste.' },
+  { icon: 'user', tone: 'accent', title: 'Gemeinsam nutzen',
+    text: 'Lade Familie oder Mitbewohner in den Einstellungen ein: alle sehen denselben Bestand.' },
 ]
 
 const SLIDES = MODULES_ENABLED ? SLIDES_DEPOT : SLIDES_SPICE
@@ -90,48 +38,30 @@ export default function OnboardingView({ onFinish }) {
   const slide = SLIDES[i]
 
   return (
-    <div className="fixed inset-0 z-[60] bg-gradient-to-br from-primary-600 to-green-800 flex flex-col pt-safe pb-safe fade-enter">
-      {/* Überspringen */}
-      <div className="flex justify-end px-5 py-3 flex-none">
+    <div className="fixed inset-0 z-[60] bg-gray-50 dark:bg-gray-900 flex flex-col fade-enter"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <div className="flex justify-end px-3 pt-2 min-h-[48px]">
         {!last && (
-          <button onClick={onFinish} className="text-primary-100 text-sm font-medium hover:text-white transition-colors">
-            Überspringen
-          </button>
+          <button onClick={onFinish} className="min-h-[44px] px-3 text-callout text-primary-500 dark:text-primary-300">Überspringen</button>
         )}
       </div>
 
-      {/* Inhalt */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
-        <div className="text-7xl mb-8">{slide.emoji}</div>
-        <h2 className="text-2xl font-bold text-white mb-4">{slide.title}</h2>
-        <p className="text-primary-50 leading-relaxed max-w-sm">{slide.text}</p>
+      <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-5">
+        <IconTile icon={slide.icon} tone={slide.tone} size={88} />
+        <h2 className="text-title text-gray-900 dark:text-gray-50">{slide.title}</h2>
+        <p className="text-body text-gray-600 dark:text-gray-300 leading-relaxed max-w-sm">{slide.text}</p>
       </div>
 
-      {/* Punkte */}
-      <div className="flex justify-center gap-2 mb-6 flex-none">
+      <div className="flex justify-center gap-2 mb-6" aria-label={`Schritt ${i + 1} von ${SLIDES.length}`}>
         {SLIDES.map((_, idx) => (
-          <div
-            key={idx}
-            className={`h-2 rounded-full transition-all ${idx === i ? 'w-6 bg-white' : 'w-2 bg-white/40'}`}
-          />
+          <div key={idx} className={`h-2 rounded-full transition-all ${idx === i ? 'w-6 bg-primary-500' : 'w-2 bg-gray-300 dark:bg-gray-600'}`} />
         ))}
       </div>
 
-      {/* Navigation */}
-      <div className="flex gap-3 px-6 pb-6 flex-none">
-        {i > 0 && (
-          <button
-            onClick={() => setI(i - 1)}
-            className="flex-1 bg-white/15 text-white rounded-2xl py-3.5 font-semibold text-sm hover:bg-white/25 transition-colors backdrop-blur-sm"
-          >
-            Zurück
-          </button>
-        )}
-        <button
-          onClick={() => last ? onFinish() : setI(i + 1)}
-          className="flex-1 bg-white text-primary-700 rounded-2xl py-3.5 font-bold text-sm hover:bg-primary-50 transition-colors"
-        >
-          {last ? 'Los geht’s 🎉' : 'Weiter'}
+      <div className="flex gap-2.5 px-5 pb-5">
+        {i > 0 && <button onClick={() => setI(i - 1)} className="btn-secondary flex-1">Zurück</button>}
+        <button onClick={() => (last ? onFinish() : setI(i + 1))} className="btn-primary flex-1">
+          {last ? 'Los geht’s' : 'Weiter'}
         </button>
       </div>
     </div>

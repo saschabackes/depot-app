@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import useStore from '../store/useStore'
 import { APP_NAME, MODULES_ENABLED } from '../branding'
+import Sheet from '../ui/Sheet'
+import Icon from '../ui/Icon'
+import { ListGroup, ListRow } from '../ui/List'
 
 // Hilfe-Inhalte, gruppiert nach Themenbereich
 const HELP_GROUPS = [
@@ -232,99 +235,43 @@ export default function HelpView({ onClose }) {
   const startOnboarding = useStore(s => s.startOnboarding)
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <svg className="w-5 h-5 text-sky-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="17" r=".5" fill="currentColor"/>
-            </svg>
-            Hilfe &amp; Anleitung
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+    <Sheet title="Hilfe" onClose={onClose} cancelLabel="Schließen">
+      <div className="space-y-6">
+        <p className="px-6 text-callout text-gray-600 dark:text-gray-300">
+          Willkommen bei {APP_NAME}! Tippe auf ein Thema, um die Erklärung aufzuklappen.
+        </p>
+        <div className="px-4">
+          <button onClick={() => { startOnboarding(); onClose() }} className="btn-secondary w-full">
+            <Icon name="sparkle" size={20} />Einführung erneut ansehen
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 pb-safe">
-          {/* Intro */}
-          <div className="bg-sky-50 dark:bg-sky-950/40 rounded-2xl px-4 py-3 mb-5">
-            <p className="text-sm text-sky-800 dark:text-sky-200 leading-relaxed">
-              Willkommen bei {APP_NAME}! Hier findest du alles Wichtige.
-              Tippe auf ein Thema, um die Erklärung auszuklappen.
-            </p>
-          </div>
+        {HELP_GROUPS.map(group => (
+          <ListGroup key={group.group} title={group.group}>
+            {group.items.map(item => {
+              const key = group.group + item.title
+              const isOpen = openKey === key
+              return (
+                <div key={key}>
+                  <ListRow onClick={() => setOpenKey(isOpen ? null : key)} title={item.title}
+                    trailing={<Icon name="chevron" size={18} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />} />
+                  {isOpen && (
+                    <ul className="px-4 pb-4 space-y-2">
+                      {item.body.map((line, i) => (
+                        <li key={i} className="text-callout text-gray-600 dark:text-gray-300 leading-relaxed">{line}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </ListGroup>
+        ))}
 
-          {/* Einführung erneut starten */}
-          <button
-            onClick={() => { startOnboarding(); onClose() }}
-            className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white rounded-2xl py-3 text-sm font-semibold hover:bg-primary-700 transition-colors mb-5"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="12" cy="12" r="9"/>
-            </svg>
-            Einführung erneut ansehen
-          </button>
-
-          {HELP_GROUPS.map(group => (
-            <div key={group.group} className="mb-5">
-              <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-1">
-                {group.group}
-              </h3>
-              <div className="space-y-1.5">
-                {group.items.map(item => {
-                  const key = group.group + item.title
-                  const isOpen = openKey === key
-                  return (
-                    <div key={key} className="card overflow-hidden">
-                      <button
-                        onClick={() => setOpenKey(isOpen ? null : key)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                      >
-                        <span className="text-base flex-none">{item.emoji}</span>
-                        <span className="flex-1 font-semibold text-sm text-gray-800 dark:text-gray-100">{item.title}</span>
-                        <svg
-                          className={`w-4 h-4 text-gray-400 flex-none transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                          fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
-                        >
-                          <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
-                      {isOpen && (
-                        <div className="px-4 pb-4 pt-0">
-                          <div className="h-px bg-gray-100 dark:bg-gray-700 mb-3" />
-                          <ul className="space-y-2">
-                            {item.body.map((line, i) => (
-                              <li key={i} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                                {line}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-
-          <p className="text-xs text-gray-400 text-center pt-2 pb-4">
-            Noch Fragen? Wende dich an den Betreiber deiner App.
-          </p>
-        </div>
+        <p className="text-footnote text-gray-500 text-center pb-2">
+          Noch Fragen? Schreib uns über „Feedback“ in den Einstellungen.
+        </p>
       </div>
-    </>
+    </Sheet>
   )
 }

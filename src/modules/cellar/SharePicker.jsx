@@ -2,27 +2,29 @@ import { useState } from 'react'
 import { useCellar } from './store'
 import { encodeShareData } from './shareCodec'
 import { APP_URL } from '../../branding'
+import { WineThumb, CheckCircle, Stars, FormSection, EmptyState } from './cellarUi'
+import Sheet from '../../ui/Sheet'
+import Icon from '../../ui/Icon'
+import { ListGroup, ListRow } from '../../ui/List'
+import { showToast } from '../../ui/feedback'
 
-const COLOR_EMOJI = { rot: '🍷', weiß: '🥂', rosé: '🌸', schaum: '🍾' }
+const MAX = 5
 
 export default function SharePicker({ onClose, preselected }) {
   const { bottles } = useCellar()
   const inStock = bottles.filter(b => b.count > 0)
 
-  const [selected, setSelected] = useState(() => {
-    if (preselected) return new Set([preselected])
-    return new Set()
-  })
+  const [selected, setSelected] = useState(() => (preselected ? new Set([preselected]) : new Set()))
   const [senderName, setSenderName] = useState('')
   const [message, setMessage] = useState('')
   const [shareUrl, setShareUrl] = useState('')
   const [copied, setCopied] = useState(false)
 
   function toggle(id) {
+    if (!selected.has(id) && selected.size >= MAX) { showToast(`Höchstens ${MAX} Weine pro Empfehlung.`); return }
     setSelected(s => {
       const next = new Set(s)
-      if (next.has(id)) next.delete(id)
-      else if (next.size < 5) next.add(id)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
     setShareUrl('')
@@ -34,8 +36,7 @@ export default function SharePicker({ onClose, preselected }) {
     if (senderName.trim()) meta.sn = senderName.trim()
     if (message.trim()) meta.msg = message.trim()
     const encoded = encodeShareData(picks, meta)
-    const url = `${APP_URL}/#share=${encoded}`
-    setShareUrl(url)
+    setShareUrl(`${APP_URL}/#share=${encoded}`)
   }
 
   async function copyLink() {
@@ -44,7 +45,7 @@ export default function SharePicker({ onClose, preselected }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      prompt('Link kopieren:', shareUrl)
+      showToast('Kopieren nicht möglich – bitte den Link oben markieren und kopieren.')
     }
   }
 
@@ -61,105 +62,65 @@ export default function SharePicker({ onClose, preselected }) {
   }
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-[55]" onClick={onClose} />
-      <div className="fixed inset-x-0 bottom-0 top-10 z-[60] bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl flex flex-col">
-        <div className="flex justify-center pt-3"><div className="w-10 h-1.5 rounded-full bg-gray-200" /></div>
-        <div className="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">🔗 Weine empfehlen</h2>
-          <button onClick={onClose} className="p-2 text-gray-500">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {!shareUrl ? (
-            <div className="space-y-4">
-              <div>
-                <label className="label">Dein Name (optional)</label>
-                <input className="input text-sm" placeholder="z.B. Sascha"
-                  value={senderName} onChange={e => setSenderName(e.target.value)} />
-              </div>
-              <div>
-                <label className="label">Persönliche Nachricht (optional)</label>
-                <textarea className="input text-sm" rows={2} placeholder="z.B. Probier mal den Barolo — perfekt zum Sonntagsbraten!"
-                  value={message} onChange={e => setMessage(e.target.value)} />
-              </div>
-
-              <div>
-                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2">
-                  Weine auswählen <span className="text-gray-400 font-normal">({selected.size}/5)</span>
-                </p>
-                <div className="space-y-1.5">
-                  {inStock.map(b => {
-                    const active = selected.has(b.id)
-                    return (
-                      <button key={b.id} onClick={() => toggle(b.id)}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-                          active
-                            ? 'bg-primary-50 dark:bg-primary-900/30 ring-2 ring-primary-500'
-                            : 'bg-gray-50 dark:bg-gray-900/40 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}>
-                        <span className="text-xl flex-none">{COLOR_EMOJI[b.color] || '🍷'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{b.name}</p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {[b.winery, b.vintage, b.region].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        {b.rating > 0 && (
-                          <span className="text-xs text-amber-500 flex-none">{'★'.repeat(b.rating)}</span>
-                        )}
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-none ${
-                          active ? 'border-primary-500 bg-primary-500' : 'border-gray-300'
-                        }`}>
-                          {active && <span className="text-white text-xs">✓</span>}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-                {inStock.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-4">Keine Flaschen im Bestand.</p>
-                )}
-              </div>
+    <Sheet title="Weine empfehlen" onClose={onClose} z={60}
+      cancelLabel={shareUrl ? 'Schließen' : 'Abbrechen'}
+      confirmLabel={shareUrl ? 'Fertig' : 'Link erstellen'}
+      onConfirm={shareUrl ? onClose : generate}
+      confirmDisabled={!shareUrl && selected.size === 0}>
+      {!shareUrl ? (
+        <div className="space-y-5">
+          <FormSection>
+            <div>
+              <label className="label" htmlFor="sp-name">Dein Name (optional)</label>
+              <input id="sp-name" className="input" placeholder="z. B. Sascha" value={senderName} onChange={e => setSenderName(e.target.value)} />
             </div>
+            <div>
+              <label className="label" htmlFor="sp-msg">Persönliche Nachricht (optional)</label>
+              <textarea id="sp-msg" className="input resize-none" rows={2} placeholder="z. B. Probier mal den Barolo – perfekt zum Sonntagsbraten!"
+                value={message} onChange={e => setMessage(e.target.value)} />
+            </div>
+          </FormSection>
+
+          {inStock.length === 0 ? (
+            <EmptyState title="Keine Flaschen im Bestand" text="Empfehlen kannst du nur Weine, die gerade im Keller liegen." />
           ) : (
-            <div className="space-y-4 text-center py-6">
-              <p className="text-5xl">🎉</p>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Link erstellt!</h3>
-              <p className="text-sm text-gray-500">
-                Der Empfänger kann die Empfehlung ohne Account ansehen.
-              </p>
-              <div className="bg-gray-50 dark:bg-gray-900/40 rounded-xl p-3 break-all text-xs text-gray-600 dark:text-gray-300 text-left font-mono">
-                {shareUrl}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={copyLink}
-                  className="btn-primary flex-1 py-2.5">
-                  {copied ? '✓ Kopiert!' : '📋 Link kopieren'}
-                </button>
-                {typeof navigator.share === 'function' && (
-                  <button onClick={nativeShare}
-                    className="btn-secondary flex-1 py-2.5">
-                    📤 Teilen
-                  </button>
-                )}
-              </div>
-              <button onClick={() => setShareUrl('')}
-                className="text-xs text-gray-400 hover:text-gray-600">← Auswahl ändern</button>
-            </div>
+            <ListGroup title={`Weine auswählen · ${selected.size}/${MAX}`}>
+              {inStock.map(b => (
+                <ListRow key={b.id} onClick={() => toggle(b.id)}
+                  leading={<WineThumb bottle={b} />}
+                  title={b.name}
+                  subtitle={[b.winery, b.vintage, b.region].filter(Boolean).join(' · ')}
+                  trailing={<>
+                    {b.rating > 0 && <Stars value={b.rating} size={12} />}
+                    <CheckCircle on={selected.has(b.id)} />
+                  </>} />
+              ))}
+            </ListGroup>
           )}
         </div>
-
-        {!shareUrl && (
-          <div className="border-t dark:border-gray-700 px-5 py-3 flex gap-2">
-            <button onClick={onClose} className="btn-secondary flex-1">Abbrechen</button>
-            <button onClick={generate} disabled={selected.size === 0}
-              className="btn-primary flex-1 disabled:opacity-40">
-              Link erstellen ({selected.size})
-            </button>
+      ) : (
+        <div className="space-y-5">
+          <div className="flex flex-col items-center text-center px-8 pt-6 gap-3">
+            <span className="w-16 h-16 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-500 dark:text-primary-300 flex items-center justify-center"><Icon name="check" size={30} strokeWidth={2.4} /></span>
+            <h3 className="text-headline text-gray-900 dark:text-gray-100">Link erstellt</h3>
+            <p className="text-callout text-gray-500 dark:text-gray-400">Der Empfänger kann die Empfehlung ohne Konto ansehen.</p>
           </div>
-        )}
-      </div>
-    </>
+          <div className="px-4">
+            <div className="bg-white dark:bg-gray-800 rounded-card p-3 break-all text-footnote text-gray-600 dark:text-gray-300 font-mono select-all">{shareUrl}</div>
+          </div>
+          <div className="px-4 space-y-2">
+            <button onClick={copyLink} className="btn-primary w-full">
+              <Icon name={copied ? 'check' : 'share'} size={20} />{copied ? 'Kopiert' : 'Link kopieren'}
+            </button>
+            {typeof navigator.share === 'function' && (
+              <button onClick={nativeShare} className="btn-secondary w-full"><Icon name="share" size={20} />Teilen …</button>
+            )}
+          </div>
+          <div className="flex justify-center">
+            <button onClick={() => setShareUrl('')} className="min-h-[44px] px-4 text-callout font-semibold text-primary-500 dark:text-primary-300">Auswahl ändern</button>
+          </div>
+        </div>
+      )}
+    </Sheet>
   )
 }

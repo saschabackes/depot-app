@@ -3,6 +3,8 @@ import useStore from '../store/useStore'
 import { importRecipe } from '../lib/recipeImport'
 import { parseRecipeDescription } from '../utils/recipeDescription'
 import InventoryCheck from './InventoryCheck'
+import Sheet from '../ui/Sheet'
+import Icon from '../ui/Icon'
 
 export default function RecipeForm({ recipe, onClose, onSaved }) {
   const { addRecipe, updateRecipe, cookidooSettings, recipes: allRecipes } = useStore()
@@ -109,75 +111,65 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
     onClose()
   }
 
+  const fieldBlock = 'bg-white dark:bg-gray-800 rounded-card'
+  const bareInput = 'w-full bg-transparent outline-none px-4 min-h-[48px] text-body text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+  const groupTitle = 'px-4 pb-1.5 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40 fade-enter" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl sheet-enter max-h-[92vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-none">
-          <div className="w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-600" />
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 flex-none border-b border-gray-100 dark:border-gray-700">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{isEdit ? 'Rezept bearbeiten' : 'Rezept kochen / speichern'}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 pb-safe">
-          {/* Link */}
-          <div>
-            <label className="label">Link (Cookidoo, YouTube, Chefkoch, Website…)</label>
-            <div className="flex gap-2">
-              <input type="url" className="input py-2.5 text-sm flex-1" placeholder="https://youtube.com/shorts/…"
-                value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
-              <button onClick={loadMeta} disabled={!sourceUrl.trim() || loadingMeta}
-                className="btn-primary px-4 py-2.5 text-sm flex-none disabled:opacity-50">
-                {loadingMeta ? '…' : 'Laden'}
-              </button>
-            </div>
-            {metaError && <p className="text-xs text-red-600 dark:text-red-300 mt-1">{metaError}</p>}
-            {autoFilled && (
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Zutaten &amp; Schritte aus der Videobeschreibung übernommen – bitte prüfen.
-              </p>
-            )}
+    <Sheet title={isEdit ? 'Rezept bearbeiten' : 'Neues Rezept'} onClose={onClose}
+      confirmLabel="Sichern" onConfirm={handleSave} confirmDisabled={!title.trim()}>
+      <div className="space-y-5">
+        {/* Import per Link */}
+        <section className="px-4">
+          <h3 className={groupTitle}>Aus Link übernehmen</h3>
+          <div className={`${fieldBlock} flex items-center pr-1.5`}>
+            <input type="url" inputMode="url" className={`${bareInput} flex-1 min-w-0`} placeholder="YouTube, Cookidoo, Chefkoch …"
+              aria-label="Link zum Rezept" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); loadMeta() } }} />
+            <button onClick={loadMeta} disabled={!sourceUrl.trim() || loadingMeta}
+              className="flex-none min-h-[36px] px-3.5 rounded-[10px] bg-primary-50 dark:bg-primary-900 text-primary-600 dark:text-primary-200 text-callout font-semibold disabled:opacity-40">
+              {loadingMeta ? 'Lädt …' : 'Laden'}
+            </button>
           </div>
+          {metaError
+            ? <p role="alert" className="px-4 pt-1.5 text-footnote text-expired dark:text-expired-dark">{metaError}</p>
+            : autoFilled
+              ? <p className="px-4 pt-1.5 text-footnote text-primary-600 dark:text-primary-300 flex items-center gap-1"><Icon name="check" size={15} strokeWidth={2.6} />Zutaten &amp; Schritte übernommen – bitte kurz prüfen.</p>
+              : <p className="px-4 pt-1.5 text-footnote text-gray-500 dark:text-gray-400">Titel, Bild, Zutaten und Schritte werden automatisch ausgefüllt.</p>}
+        </section>
 
-          {/* Vorschau */}
-          {thumbnailUrl && (
-            <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl p-2">
-              <img src={thumbnailUrl} alt="" className="w-20 h-14 object-cover rounded-lg flex-none" />
+        {/* Vorschau */}
+        {thumbnailUrl && (
+          <div className="px-4">
+            <div className={`${fieldBlock} flex items-center gap-3 p-2.5`}>
+              <img src={thumbnailUrl} alt="" className="w-16 h-16 object-cover rounded-[10px] flex-none" />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-800 dark:text-gray-100 line-clamp-2">{title || '—'}</p>
-                {author && <p className="text-xs text-gray-400">{author}</p>}
+                <p className="text-body font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">{title || '–'}</p>
+                {author && <p className="text-footnote text-gray-500 dark:text-gray-400 truncate">{author}</p>}
               </div>
             </div>
-          )}
-
-          {/* Titel */}
-          <div>
-            <label className="label">Titel *</label>
-            <input type="text" className="input py-2.5 text-sm" value={title} onChange={e => setTitle(e.target.value)} placeholder="Rezeptname" />
           </div>
+        )}
 
-          {/* Tags */}
-          <div>
-            <label className="label">Kategorien / Tags</label>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {tags.map(t => (
-                  <span key={t} className="text-xs bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full pl-2.5 pr-1 py-0.5 flex items-center gap-1">
-                    {t}
-                    <button onClick={() => setTags(tags.filter(x => x !== t))} className="hover:text-red-500">✕</button>
-                  </span>
-                ))}
-              </div>
-            )}
+        {/* Titel + Tags */}
+        <section className="px-4">
+          <h3 className={groupTitle}>Rezept</h3>
+          <div className={`${fieldBlock} divide-y divide-gray-100 dark:divide-gray-700`}>
+            <input type="text" className={bareInput} value={title} onChange={e => setTitle(e.target.value)} placeholder="Titel (Pflicht)" aria-label="Titel" />
             <div className="relative">
-              <input type="text" className="input py-2 text-sm" placeholder="z.B. Suppe, schnell, vegetarisch + Enter"
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-4 pt-2.5">
+                  {tags.map(t => (
+                    <span key={t} className="inline-flex items-center gap-0.5 pl-2.5 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-600 dark:text-primary-200 text-footnote font-semibold">
+                      {t}
+                      <button onClick={() => setTags(tags.filter(x => x !== t))} aria-label={`Tag ${t} entfernen`}
+                        className="w-7 h-7 flex items-center justify-center rounded-full"><Icon name="close" size={13} strokeWidth={2.6} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <input type="text" className={bareInput} placeholder="Tag hinzufügen, z. B. Suppe, schnell"
+                aria-label="Tag hinzufügen" enterKeyHint="done"
                 value={tagInput}
                 onChange={e => { setTagInput(e.target.value); setShowSuggestions(true) }}
                 onFocus={() => setShowSuggestions(true)}
@@ -185,10 +177,10 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput) } }}
               />
               {showSuggestions && filteredSuggestions.length > 0 && (
-                <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg max-h-32 overflow-y-auto">
+                <div className="absolute z-10 left-2 right-2 top-full mt-1 bg-white dark:bg-gray-700 rounded-[14px] shadow-xl max-h-44 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-600">
                   {filteredSuggestions.slice(0, 8).map(t => (
                     <button key={t} type="button"
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary-50 dark:hover:bg-primary-900/30"
+                      className="w-full text-left px-4 min-h-[44px] text-body text-gray-800 dark:text-gray-100 active:bg-gray-100 dark:active:bg-gray-600"
                       onMouseDown={e => { e.preventDefault(); addTag(t); setShowSuggestions(false) }}>
                       {t}
                     </button>
@@ -197,76 +189,69 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
               )}
             </div>
           </div>
+        </section>
 
-          {/* Rezepttext einfügen → automatisch erkennen */}
-          <div className="bg-sky-50 dark:bg-sky-950/40 rounded-xl p-3">
-            {!showPaste ? (
+        {/* Rezepttext einfügen → automatisch erkennen */}
+        <section className="px-4">
+          {!showPaste ? (
+            <div className={fieldBlock}>
               <button onClick={() => setShowPaste(true)}
-                className="text-sm text-sky-700 dark:text-sky-300 font-semibold flex items-center gap-1.5">
-                <span>✨</span> Rezepttext einfügen &amp; erkennen
+                className="w-full flex items-center gap-3 px-4 min-h-[50px] text-left text-body font-semibold text-primary-500 dark:text-primary-300">
+                <Icon name="sparkle" size={20} />Rezepttext einfügen &amp; erkennen
               </button>
-            ) : (
-              <>
-                <p className="text-xs text-sky-800 dark:text-sky-200 mb-2 leading-relaxed">
-                  Füge einen beliebigen <b>Rezepttext</b> ein (z.B. YouTube-Beschreibung, aus einem Buch oder einer Nachricht).
-                  Zutaten &amp; Schritte werden automatisch erkannt.
-                </p>
-                <textarea className="input text-sm resize-none" rows={4}
-                  placeholder="Rezepttext hier einfügen…"
-                  value={descPaste} onChange={e => setDescPaste(e.target.value)} />
-                <div className="flex items-center gap-3 mt-2">
-                  <button onClick={applyPastedDescription} disabled={!descPaste.trim()}
-                    className="btn-primary py-2 px-4 text-sm disabled:opacity-50">Erkennen</button>
-                  {pasteResult && <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ {pasteResult}</span>}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Zutaten */}
-          <div>
-            <label className="label">Zutaten (eine pro Zeile)</label>
-            <textarea className="input text-sm resize-none" rows={5}
-              placeholder={'z.B.\n1 Hähnchen\n2 Karotten\nSalz, Pfeffer'}
-              value={ingredients} onChange={e => setIngredients(e.target.value)} />
-          </div>
-
-          {/* Schritte */}
-          <div>
-            <label className="label">Zubereitung (ein Schritt pro Zeile)</label>
-            <textarea className="input text-sm resize-none" rows={5}
-              placeholder={'1. Zwiebeln anbraten…\n2. Brühe aufgießen…'}
-              value={steps} onChange={e => setSteps(e.target.value)} />
-          </div>
-
-          {/* Bestandscheck (live, auch ohne Speichern nutzbar) */}
-          {ingredientList.length > 0 && (
-            <div className="card p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">📋</span>
-                <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">Bestandscheck</span>
-              </div>
-              <InventoryCheck ingredients={ingredientList} />
             </div>
+          ) : (
+            <>
+              <h3 className={groupTitle}>Rezepttext erkennen</h3>
+              <div className={`${fieldBlock} p-3 space-y-2.5`}>
+                <p className="text-footnote text-gray-500 dark:text-gray-400">
+                  Füge einen beliebigen Rezepttext ein (z. B. YouTube-Beschreibung, Buch oder Nachricht). Zutaten &amp; Schritte werden automatisch erkannt.
+                </p>
+                <textarea className="input resize-none" rows={4} placeholder="Rezepttext hier einfügen …"
+                  value={descPaste} onChange={e => setDescPaste(e.target.value)} />
+                <div className="flex items-center gap-3">
+                  <button onClick={applyPastedDescription} disabled={!descPaste.trim()} className="btn-secondary px-5 disabled:opacity-40">Erkennen</button>
+                  {pasteResult && <span className="flex items-center gap-1 text-footnote font-semibold text-primary-600 dark:text-primary-300"><Icon name="check" size={15} strokeWidth={2.6} />{pasteResult}</span>}
+                </div>
+              </div>
+            </>
           )}
+        </section>
 
-          {/* Notizen */}
-          <div>
-            <label className="label">Notizen (optional)</label>
-            <textarea className="input text-sm resize-none" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
-          </div>
+        {/* Zutaten */}
+        <section className="px-4">
+          <h3 className={groupTitle}>Zutaten · eine pro Zeile</h3>
+          <textarea className={`${fieldBlock} ${bareInput} py-3 resize-none block`} rows={6} aria-label="Zutaten"
+            placeholder={'z. B.\n1 Hähnchen\n2 Karotten\nSalz, Pfeffer'}
+            value={ingredients} onChange={e => setIngredients(e.target.value)} />
+        </section>
 
-          <div className="flex gap-3 pt-1 pb-4">
-            <button onClick={onClose} className="btn-secondary flex-1">Schließen</button>
-            <button onClick={handleSave} className="btn-primary flex-1">{isEdit ? 'Speichern' : 'Speichern'}</button>
-          </div>
+        {/* Bestandscheck (live, auch ohne Speichern nutzbar) */}
+        {ingredientList.length > 0 && (
+          <section className="space-y-1.5">
+            <h3 className={`px-8 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400`}>Bestandscheck</h3>
+            <InventoryCheck ingredients={ingredientList} />
+          </section>
+        )}
+
+        {/* Schritte */}
+        <section className="px-4">
+          <h3 className={groupTitle}>Zubereitung · ein Schritt pro Zeile</h3>
+          <textarea className={`${fieldBlock} ${bareInput} py-3 resize-none block`} rows={6} aria-label="Zubereitung"
+            placeholder={'1. Zwiebeln anbraten …\n2. Brühe aufgießen …'}
+            value={steps} onChange={e => setSteps(e.target.value)} />
+        </section>
+
+        {/* Notizen */}
+        <section className="px-4">
+          <h3 className={groupTitle}>Notizen</h3>
+          <textarea className={`${fieldBlock} ${bareInput} py-3 resize-none block`} rows={2} aria-label="Notizen" placeholder="Optional"
+            value={notes} onChange={e => setNotes(e.target.value)} />
           {!isEdit && (
-            <p className="text-xs text-gray-400 text-center -mt-2 pb-4">
-              Nur kochen? Einfach „Schließen" – ohne Speichern.
-            </p>
+            <p className="px-4 pt-1.5 text-footnote text-gray-500 dark:text-gray-400">Nur kochen? Einfach „Abbrechen“ – dann wird nichts gespeichert.</p>
           )}
-        </div>
+        </section>
       </div>
-    </>
+    </Sheet>
   )
 }

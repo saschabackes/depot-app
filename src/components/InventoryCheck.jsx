@@ -3,9 +3,20 @@ import useStore from '../store/useStore'
 import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { computeRecipeAvailability } from '../utils/inventoryMatch'
-import { formatMhdDate, getMhdStatus, MHD_STYLES } from '../utils/mhd'
-import FillBar, { FILL_LABELS } from './FillBar'
+import { getMhdStatus } from '../utils/mhd'
+import { FILL_LABELS } from './FillBar'
+import Icon from '../ui/Icon'
+import { ListGroup, ListRow, IconTile } from '../ui/List'
+import { StatusPill } from '../ui/Controls'
+import { showToast } from '../ui/feedback'
 
+const mmYYYY = iso => {
+  const d = new Date(iso)
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+const WINE_LABEL = { rot: 'Rot', 'weiß': 'Weiß' }
+
+// Bestandsabgleich einer Zutatenliste: was ist da (Gewürz/TK/Wein), was fehlt
 export default function InventoryCheck({ ingredients }) {
   const spices = useStore(s => s.spices)
   const locations = useStore(s => s.locations)
@@ -14,192 +25,88 @@ export default function InventoryCheck({ ingredients }) {
   const bottles = useCellar(s => s.bottles)
 
   const [added, setAdded] = useState(new Set())
-  const [expanded, setExpanded] = useState(true)
 
-  const result = useMemo(() => {
-    const r = computeRecipeAvailability({ ingredients }, spices, freezerItems, bottles)
-    return { spicePlan: r.spicePlan, freezerMatches: r.freezerMatches, wineMatches: r.wineMatches, missing: r.missing, totalFound: r.totalFound, totalMissing: r.totalMissing }
-  }, [ingredients, spices, freezerItems, bottles])
+  const result = useMemo(
+    () => computeRecipeAvailability({ ingredients }, spices, freezerItems, bottles),
+    [ingredients, spices, freezerItems, bottles]
+  )
 
   const locName = id => locations.find(l => l.id === id)?.name ?? null
 
   function addMissing(name) {
     addShoppingItem(name, '', true)
     setAdded(a => new Set(a).add(name.toLowerCase()))
+    showToast(`„${name}“ steht auf der Einkaufsliste.`)
   }
 
   function addAllMissing() {
-    result.missing.forEach(name => {
-      if (!added.has(name.toLowerCase())) {
-        addShoppingItem(name, '', true)
-      }
-    })
+    const open = result.missing.filter(n => !added.has(n.toLowerCase()))
+    open.forEach(name => addShoppingItem(name, '', true))
     setAdded(new Set(result.missing.map(n => n.toLowerCase())))
+    if (open.length) showToast(open.length === 1 ? '1 Zutat auf die Einkaufsliste gesetzt.' : `${open.length} Zutaten auf die Einkaufsliste gesetzt.`)
   }
 
-  const hasAny = result.totalFound > 0 || result.totalMissing > 0
-
-  if (!hasAny) {
-    return (
-      <p className="text-sm text-gray-400 py-2">
-        Keine Zutaten im Bestand erkannt.
-      </p>
-    )
+  if (result.totalFound === 0 && result.totalMissing === 0) {
+    return <p className="px-8 text-footnote text-gray-500 dark:text-gray-400">Keine Zutaten im Bestand erkannt.</p>
   }
+
+  const allAdded = result.missing.every(n => added.has(n.toLowerCase()))
 
   return (
-    <div className="space-y-3">
-      {/* Summary bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {result.totalFound > 0 && (
-          <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full px-2.5 py-1">
-            ✓ {result.totalFound} vorhanden
-          </span>
-        )}
-        {result.totalMissing > 0 && (
-          <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 rounded-full px-2.5 py-1">
-            ✗ {result.totalMissing} fehlt
-          </span>
-        )}
-      </div>
+    <div className="space-y-5">
+      {result.totalFound > 0 && (
+        <ListGroup title={`Im Bestand · ${result.totalFound}`}>
+          {result.spicePlan.matched.map((m, idx) => {
+            const jar = m.jars[0]
+            const mhd = getMhdStatus(jar.expiryDate)
+            const sub = [jar.name !== m.recipeName && jar.name, jar.brand, locName(jar.locationId), FILL_LABELS[jar.fillLevel ?? 4]].filter(Boolean)
+            if (m.jars.length > 1) sub.push(`+${m.jars.length - 1} weitere`)
+            return (
+              <ListRow key={'sp' + idx} leading={<IconTile icon="leaf" tone="spices" size={32} />}
+                title={m.recipeName}
+                subtitle={(m.jars.length > 1 ? 'Zuerst: ' : '') + sub.join(' · ')}
+                trailing={mhd.status === 'expired' ? <StatusPill tone="expired">Abgelaufen</StatusPill>
+                  : mhd.status === 'critical' ? <StatusPill tone="soon">Bald weg</StatusPill>
+                  : mhd.status !== 'none' ? <span className="text-footnote text-gray-500 dark:text-gray-400">{mmYYYY(jar.expiryDate)}</span>
+                  : null} />
+            )
+          })}
+          {result.freezerMatches.map((m, idx) => (
+            <ListRow key={'tk' + idx} leading={<IconTile icon="snow" tone="freezer" size={32} />}
+              title={m.recipeName}
+              subtitle={m.items.map(i => `${i.name} (${i.portions}× ${i.portionSize || 'Portion'})`).join(' · ')}
+              trailing={<StatusPill tone="neutral">TK</StatusPill>} />
+          ))}
+          {result.wineMatches.map((m, idx) => (
+            <ListRow key={'wn' + idx} leading={<IconTile icon="wine" tone="cellar" size={32} />}
+              title={m.recipeName}
+              subtitle={m.bottles.map(b => [b.name, b.vintage].filter(Boolean).join(' ')).join(' · ')}
+              trailing={<StatusPill tone="neutral">{WINE_LABEL[m.bottles[0]?.color] ?? 'Rosé'}</StatusPill>} />
+          ))}
+        </ListGroup>
+      )}
 
-      {/* Spice matches */}
-      {result.spicePlan.matched.map((m, idx) => (
-        <div key={'sp' + idx} className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm">🌿</span>
-            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{m.recipeName}</span>
-          </div>
-          <div className="space-y-1.5">
-            {m.jars.map((sp, j) => {
-              const loc = locName(sp.locationId)
-              const mhd = getMhdStatus(sp.expiryDate)
-              const mhdStyle = MHD_STYLES[mhd.status]
-              return (
-                <div key={sp.id}
-                  className={`rounded-lg px-3 py-2 flex items-center gap-3 ${
-                    j === 0 ? 'bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700'
-                            : 'bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700'}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {j === 0 && <span className="text-[10px] bg-green-600 text-white font-bold rounded-full px-1.5 py-0.5">zuerst</span>}
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{sp.name}</span>
-                      {sp.brand && <span className="text-xs text-gray-400">· {sp.brand}</span>}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {loc && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-0.5">
-                          📦 {loc}
-                        </span>
-                      )}
-                      {mhd.status !== 'none' && (
-                        <span className={`text-xs font-semibold rounded-full px-1.5 py-0.5 ${mhdStyle.bg} ${mhdStyle.text}`}>
-                          {formatMhdDate(sp.expiryDate)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-none flex flex-col items-center gap-0.5">
-                    <FillBar level={sp.fillLevel ?? 4} />
-                    <span className="text-[10px] text-gray-400">{FILL_LABELS[sp.fillLevel ?? 4]}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-
-      {/* Freezer matches */}
-      {result.freezerMatches.map((m, idx) => (
-        <div key={'tk' + idx} className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm">❄️</span>
-            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{m.recipeName}</span>
-          </div>
-          <div className="space-y-1.5">
-            {m.items.map(item => (
-              <div key={item.id} className="rounded-lg px-3 py-2 bg-sky-50 dark:bg-sky-900/20 border border-sky-300 dark:border-sky-700 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{item.name}</span>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-0.5">
-                    <span>{item.portions}× {item.portionSize || 'Portion'}</span>
-                  </div>
-                </div>
-                <span className="text-[10px] bg-sky-600 text-white font-bold rounded-full px-1.5 py-0.5">TK</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Wine matches */}
-      {result.wineMatches.map((m, idx) => (
-        <div key={'wn' + idx} className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm">🍷</span>
-            <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">{m.recipeName}</span>
-          </div>
-          <div className="space-y-1.5">
-            {m.bottles.map(b => (
-              <div key={b.id} className="rounded-lg px-3 py-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-700 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{b.name}</span>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    {b.grape && <span>{b.grape} · </span>}
-                    <span>{b.vintage}</span>
-                  </div>
-                </div>
-                <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 ${
-                  b.color === 'rot' ? 'bg-red-600 text-white' :
-                  b.color === 'weiß' ? 'bg-amber-500 text-white' :
-                  'bg-pink-500 text-white'
-                }`}>{b.color === 'rot' ? 'Rot' : b.color === 'weiß' ? 'Weiß' : 'Rosé'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Missing → shopping */}
       {result.missing.length > 0 && (
-        <div className="rounded-xl border border-dashed border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/15 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wide">
-              Fehlt im Bestand
-            </p>
-            {result.missing.length > 1 && (
-              <button
-                onClick={addAllMissing}
-                disabled={result.missing.every(n => added.has(n.toLowerCase()))}
-                className="text-[11px] font-semibold rounded-lg px-2 py-1 bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 transition-colors"
-              >
-                Alle auf Einkaufsliste
-              </button>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            {result.missing.map(name => {
-              const done = added.has(name.toLowerCase())
-              return (
-                <div key={name} className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-200">{name}</span>
-                  <button
-                    onClick={() => addMissing(name)}
-                    disabled={done}
-                    className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 transition-colors flex-none ${
-                      done
-                        ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    {done ? '✓ Einkauf' : '+ Einkauf'}
+        <ListGroup title={`Fehlt · ${result.missing.length}`}>
+          {result.missing.map(name => {
+            const done = added.has(name.toLowerCase())
+            return (
+              <ListRow key={name} title={<span className="font-normal">{name}</span>}
+                trailing={
+                  <button onClick={() => addMissing(name)} disabled={done}
+                    aria-label={done ? `${name} steht auf der Einkaufsliste` : `${name} auf die Einkaufsliste`}
+                    className={`w-11 h-11 -mr-2 flex items-center justify-center rounded-full ${done ? 'text-gray-400 dark:text-gray-500' : 'text-primary-500 dark:text-primary-300 active:opacity-60'}`}>
+                    <Icon name={done ? 'check' : 'cart'} size={22} strokeWidth={done ? 2.4 : 1.9} />
                   </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+                } />
+            )
+          })}
+          {result.missing.length > 1 && (
+            <ListRow tone="accent" onClick={allAdded ? undefined : addAllMissing}
+              title={allAdded ? 'Alle auf der Einkaufsliste' : 'Alle auf die Einkaufsliste'}
+              className={allAdded ? 'opacity-50' : ''} />
+          )}
+        </ListGroup>
       )}
     </div>
   )

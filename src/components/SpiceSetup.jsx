@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import useStore from '../store/useStore'
 import SetupWizard from './SetupWizard'
+import { confirmAction } from '../ui/feedback'
+import Icon from '../ui/Icon'
 
 function WelcomeStep() {
   return (
     <div className="space-y-4 text-center">
-      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-5 text-left space-y-3">
+      <div className="bg-primary-50 dark:bg-primary-900/20 rounded-2xl p-5 text-left space-y-3">
         <p className="text-sm text-gray-700 dark:text-gray-200">
           <strong>Was du hier machen kannst:</strong>
         </p>
@@ -47,8 +49,8 @@ function LocationStep() {
               <input className="input py-1.5 text-sm flex-1"
                 value={loc.name}
                 onChange={e => updateLocation(loc.id, { name: e.target.value })} />
-              <button onClick={() => { if (confirm(`"${loc.name}" löschen?`)) deleteLocation(loc.id) }}
-                className="text-gray-300 hover:text-red-500 px-2">✕</button>
+              <button onClick={async () => { if (await confirmAction({ title: `„${loc.name}“ löschen?`, confirmLabel: 'Löschen', destructive: true })) deleteLocation(loc.id) }}
+                aria-label={`${loc.name} löschen`} className="w-11 h-11 flex items-center justify-center text-gray-400"><Icon name="close" size={18} /></button>
             </div>
           ))}
         </div>
@@ -90,7 +92,7 @@ function LocationStep() {
 function TipsStep() {
   return (
     <div className="space-y-4">
-      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 space-y-3">
+      <div className="bg-soon-soft dark:bg-soon-dark-soft rounded-2xl p-4 space-y-3">
         <p className="font-bold text-sm text-gray-800 dark:text-gray-100">💡 Tipps für den Start</p>
         <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
           <li><strong>Foto-Scan:</strong> Fotografiere dein Gewürz — Name und Marke werden automatisch erkannt.</li>
