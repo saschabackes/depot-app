@@ -4,6 +4,21 @@
 
 export const CHANGELOG = [
   {
+    version: '2.9.0',
+    date: '2026-10-02',
+    entries: [
+      { type: 'new',      text: 'Vorrat: neues Modul für die Vorratskammer mit Lagerorten, MHD und QR-Etiketten zum Ausdrucken.' },
+      { type: 'new',      text: 'Entsorgen mit Grund (z. B. Schädlingsbefall, Schimmel, abgelaufen) für Vorräte und Gewürze — inkl. Verlauf der entsorgten Einträge.' },
+      { type: 'new',      text: 'Wein: „Weitere Flasche" legt eine Kopie mit allen Merkmalen an.' },
+      { type: 'new',      text: 'Wein: Tipp auf eine leere Gitter-Zelle startet die Neuanlage mit vorgewählter Position.' },
+      { type: 'improved', text: 'Wein: Gitter-Ansicht im Bestand, Sortierung nach Regal, farbspezifische Emojis und mehrspaltige Liste auf breiten Bildschirmen.' },
+      { type: 'improved', text: 'Gewürze: Aktionsknöpfe in der aufgeklappten Karte übersichtlich angeordnet.' },
+      { type: 'improved', text: 'Sicherheit: Haushalte, Einladungen, Admin-Funktionen und Schnittstellen deutlich besser abgesichert. Einladungscodes wurden neu erzeugt.' },
+      { type: 'improved', text: 'Bring!- und Cookidoo-Zugangsdaten werden jetzt getrennt und geschützt gespeichert.' },
+      { type: 'fixed',    text: 'Bring!: Fehler 401 beim Hinzufügen von Artikeln.' },
+    ],
+  },
+  {
     version: '2.8.1',
     date: '2026-08-03',
     entries: [
