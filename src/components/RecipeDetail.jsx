@@ -10,6 +10,7 @@ import { ListGroup } from '../ui/List'
 import { StatusPill } from '../ui/Controls'
 import { confirmAction, showToast } from '../ui/feedback'
 import { scaleIngredientLine } from '../utils/scaleRecipe'
+import CookMode from './CookMode'
 
 const SOURCE_LABELS = { youtube: 'YouTube', cookidoo: 'Cookidoo', kptncook: 'KptnCook', web: 'Web', manual: 'Manuell' }
 const ingName = ing => (typeof ing === 'string' ? ing : ing?.name ?? '')
@@ -27,6 +28,7 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
   const [people, setPeople] = useState(recipe.servings ?? 4)
   useEffect(() => { setPeople(recipe.servings ?? 4) }, [recipe.id, recipe.servings])
   const factor = recipe.servings ? people / recipe.servings : 1
+  const [cooking, setCooking] = useState(false)
 
   const ingredients = recipe.ingredients ?? []
   const steps = recipe.steps ?? []
@@ -130,6 +132,15 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
           </div>
         )}
 
+        {/* Kochmodus */}
+        {steps.length > 0 && (
+          <div className="px-4">
+            <button onClick={() => setCooking(true)} className="btn-secondary w-full">
+              <Icon name="pot" size={20} />Kochmodus starten
+            </button>
+          </div>
+        )}
+
         {/* Portionen */}
         {ingredients.length > 0 && (
           <ServingsControl base={recipe.servings} value={people} onChange={setPeople}
@@ -206,6 +217,7 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
           <button onClick={handleDelete} className="min-h-[44px] px-4 text-callout font-semibold text-expired dark:text-expired-dark">Rezept löschen</button>
         </div>
       </div>
+      {cooking && <CookMode recipe={recipe} factor={factor} people={recipe.servings ? people : null} onClose={() => setCooking(false)} />}
     </Screen>
   )
 }
