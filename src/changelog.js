@@ -4,6 +4,15 @@
 
 export const CHANGELOG = [
   {
+    version: '3.3.0',
+    date: '2026-10-11',
+    entries: [
+      { type: 'new', text: 'Wein „Erklärt“: Jeder Wein bekommt eine Beschreibung in Alltagssprache – Rebsorte, Geschmack, ob er jetzt trinkreif ist, passende Gerichte.' },
+      { type: 'new', text: 'Praxis-Tipps je Wein: Trinktemperatur mit Kühlschrank-Hinweis, ob und wie lange dekantieren, welches Glas.' },
+      { type: 'new', text: 'Fachbegriffe wie Kabinett, Grand Cru, feinherb, Tannin oder Cuvée einfach erklärt – zum Antippen direkt am Wein.' },
+    ],
+  },
+  {
     version: '3.2.0',
     date: '2026-10-11',
     entries: [

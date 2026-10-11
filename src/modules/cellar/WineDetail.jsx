@@ -11,6 +11,7 @@ import Icon from '../../ui/Icon'
 import { ListGroup, ListRow } from '../../ui/List'
 import { StatusPill } from '../../ui/Controls'
 import { confirmAction, showToast } from '../../ui/feedback'
+import WineGuideCard from './WineGuideCard'
 
 const COLOR_BG = { rot: 'from-rose-900 to-rose-700', weiß: 'from-yellow-700 to-yellow-500', rosé: 'from-pink-800 to-rose-600', schaum: 'from-amber-600 to-amber-400' }
 const COLOR_NAME = { rot: 'Rotwein', weiß: 'Weißwein', rosé: 'Rosé', schaum: 'Schaumwein' }
@@ -153,6 +154,8 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, on
               title={bottle.archived ? 'Aus dem Archiv holen' : 'Archivieren'}
               subtitle={bottle.archived ? null : 'Im Weintagebuch ausblenden'} />
           </ListGroup>
+
+          <WineGuideCard bottle={bottle} effectiveUntil={effUntil} />
 
           {/* Verwendung */}
           <section className="px-4">
