@@ -42,6 +42,7 @@ const HOST_ALLOWLIST = [
   /^(www\.)?gutekueche\.(at|de|ch)$/,
   /^(www\.)?kochbar\.de$/,
   /^(mobile\.)?kptncook\.com$/,
+  /^(www\.)?emmikochteinfach\.de$/,
 ]
 
 function isAllowedUrl(raw) {
@@ -274,7 +275,7 @@ exports.handler = async function (event) {
   if (!url) return err('url erforderlich')
 
   if (!isAllowedUrl(url)) {
-    return err('URL nicht unterstützt – nur YouTube, Chefkoch, Cookidoo und andere Rezeptseiten')
+    return err('Diese Seite wird noch nicht unterstützt – möglich sind YouTube, Cookidoo, Chefkoch, Emmi kocht einfach und weitere Rezeptseiten.')
   }
 
   const vid = youtubeId(url)

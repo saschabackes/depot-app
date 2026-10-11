@@ -80,7 +80,8 @@ export function cleanIngredientName(s) {
   return (s || '')
     .replace(/^optional:\s*/i, '')
     .replace(/^\s*[\d¼½¾⅓⅔/.,]+\s*/, '')
-    .replace(/^(g|kg|ml|l|tl|el|prise[n]?|stangen?|zehen?|knolle[n]?|stück|bund|dose[n]?|pck\.?)\s+/i, '')
+    .replace(/^(g|kg|ml|l|tl|el|msp\.?|prise[n]?|stangen?|zehen?|knolle[n]?|stück|bund|dose[n]?|pck\.?|päckchen|zweige?|scheibe[n]?|becher|glas|gläser|tasse[n]?|beutel|handvoll|kugel[n]?)\s+/i, '')
+    .replace(/^(kleine[rsn]?|große[rsn]?|mittelgroße[rsn]?|mittlere[rsn]?)\s+/i, '')
     .replace(/\s*\([^)]*\)\s*$/, '')
     .trim()
 }

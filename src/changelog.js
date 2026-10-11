@@ -11,6 +11,8 @@ export const CHANGELOG = [
       { type: 'improved', text: 'Rezepte schlagen beim Bestandscheck zuerst Kochweine vor; Flaschen zum Aufheben oder Verschenken werden nicht mehr fürs Kochen vorgeschlagen.' },
       { type: 'improved', text: 'Ein Gewürz, das du über „+“ anlegst, verschwindet automatisch aus „Noch einzuräumen“ bzw. dem offenen Nachkauf.' },
       { type: 'improved', text: 'Einräumen: „Nicht gekauft“ heißt jetzt „Entfernen“ – mit Hinweis, dass der Bestand unverändert bleibt.' },
+      { type: 'new',      text: 'Rezepte von „Emmi kocht einfach“ (emmikochteinfach.de) per Link importieren – mit Zutaten, Schritten und Bild.' },
+      { type: 'improved', text: 'Bessere Zutatenerkennung: Mengenangaben wie „Zweige“, „Becher“ oder „Päckchen“ und Größen wie „kleine Zwiebel“ werden sauber entfernt.' },
     ],
   },
   {
