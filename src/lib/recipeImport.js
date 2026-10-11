@@ -24,6 +24,7 @@ export async function importRecipe(url, cookidooSettings) {
         (typeof i === 'string' ? i : [i.amount, i.name].filter(Boolean).join(' ')).trim()
       ).filter(Boolean),
       steps: data.steps || [],
+      servings: data.servings ?? null,
     }
   }
 
@@ -37,5 +38,6 @@ export async function importRecipe(url, cookidooSettings) {
     sourceType: m.sourceType || 'web',
     ingredients: m.ingredients || [],
     steps: m.steps || [],
+    servings: m.servings ?? null,
   }
 }

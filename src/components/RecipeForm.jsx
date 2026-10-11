@@ -5,6 +5,7 @@ import { parseRecipeDescription } from '../utils/recipeDescription'
 import InventoryCheck from './InventoryCheck'
 import Sheet from '../ui/Sheet'
 import Icon from '../ui/Icon'
+import { servingsFromText } from '../utils/scaleRecipe'
 
 export default function RecipeForm({ recipe, onClose, onSaved }) {
   const { addRecipe, updateRecipe, cookidooSettings, recipes: allRecipes } = useStore()
@@ -23,6 +24,7 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
   )
   const [steps, setSteps]           = useState((recipe?.steps ?? []).join('\n'))
   const [notes, setNotes]           = useState(recipe?.notes ?? '')
+  const [servings, setServings]     = useState(recipe?.servings ? String(recipe.servings) : '')
   const [loadingMeta, setLoadingMeta] = useState(false)
   const [metaError, setMetaError]   = useState('')
   const [autoFilled, setAutoFilled] = useState(false)
@@ -47,7 +49,9 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
     const { ingredients: ing, steps: st } = parseRecipeDescription(descPaste)
     if (ing.length) setIngredients(ing.join('\n'))
     if (st.length)  setSteps(st.join('\n'))
-    setPasteResult(`${ing.length} Zutaten, ${st.length} Schritte erkannt`)
+    const serv = servingsFromText(descPaste)
+    if (serv && !servings) setServings(String(serv))
+    setPasteResult(`${ing.length} Zutaten, ${st.length} Schritte erkannt${serv ? `, für ${serv} Personen` : ''}`)
   }
 
   // Zutaten-Textarea → Objekte für die Gewürz-Zuordnung (live)
@@ -68,6 +72,7 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
       setVideoId(m.videoId ?? null)
       setSourceType(m.sourceType ?? 'web')
       if (m.thumbnailUrl) setThumb(m.thumbnailUrl)
+      if (m.servings && !servings) setServings(String(m.servings))
       // Zutaten/Schritte übernehmen (nur wenn Felder leer)
       let filled = false
       if (m.ingredients?.length && !ingredients.trim()) {
@@ -105,6 +110,7 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
       ingredients: ingredients.split('\n').map(l => l.trim()).filter(Boolean).map(name => ({ name, amount: '' })),
       steps: steps.split('\n').map(l => l.trim()).filter(Boolean),
       notes: notes.trim(),
+      servings: Number(servings) > 0 ? Math.min(100, Math.round(Number(servings))) : null,
     }
     if (isEdit) { updateRecipe(recipe.id, data); onSaved?.(recipe.id) }
     else { const id = addRecipe(data); onSaved?.(id) }
@@ -220,6 +226,13 @@ export default function RecipeForm({ recipe, onClose, onSaved }) {
 
         {/* Zutaten */}
         <section className="px-4">
+          <div className={`${fieldBlock} flex items-center gap-3 px-4 min-h-[48px] mb-3`}>
+            <label htmlFor="rf-servings" className="flex-1 text-body text-gray-900 dark:text-gray-100">Zutaten reichen für</label>
+            <input id="rf-servings" type="number" inputMode="numeric" min="1" max="100" placeholder="?"
+              className="w-16 bg-transparent outline-none text-right text-body font-semibold text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+              value={servings} onChange={e => setServings(e.target.value)} />
+            <span className="text-body text-gray-500 dark:text-gray-400">Personen</span>
+          </div>
           <h3 className={groupTitle}>Zutaten · eine pro Zeile</h3>
           <textarea className={`${fieldBlock} ${bareInput} py-3 resize-none block`} rows={6} aria-label="Zutaten"
             placeholder={'z. B.\n1 Hähnchen\n2 Karotten\nSalz, Pfeffer'}

@@ -23,6 +23,7 @@ export async function cookidooFetchRecipe(email, password, url) {
     steps: data.steps ?? [],
     thumbnailUrl: data.thumbnailUrl ?? '',
     categories: data.categories ?? [],
+    servings: data.servings ?? null,
   }
 }
 

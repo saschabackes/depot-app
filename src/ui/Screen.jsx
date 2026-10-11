@@ -30,7 +30,7 @@ export default function Screen({ title, eyebrow, back, actions, children, classN
               </button>
             )}
           </div>
-          <div className={`flex-none max-w-[55%] truncate text-[17px] font-semibold text-gray-900 dark:text-gray-100 transition-opacity ${compact ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!compact}>
+          <div className={`flex-none max-w-[50%] truncate text-[17px] font-semibold text-gray-900 dark:text-gray-100 transition-opacity ${compact ? 'opacity-100' : 'opacity-0'}`} aria-hidden={!compact}>
             {title}
           </div>
           <div className="flex-1 min-w-0 flex justify-end items-center">{actions}</div>

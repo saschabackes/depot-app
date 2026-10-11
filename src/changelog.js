@@ -4,6 +4,15 @@
 
 export const CHANGELOG = [
   {
+    version: '3.2.0',
+    date: '2026-10-11',
+    entries: [
+      { type: 'new',      text: 'Rezepte umrechnen: Mit + und − stellst du die Personenzahl ein, alle Zutatenmengen werden automatisch angepasst (inkl. Brüchen, Mengenbereichen und kg/l ab 1000 g/ml). „Prise“ und „Messerspitze“ bleiben nach Geschmack.' },
+      { type: 'new',      text: 'Beim Import (Webseiten, Cookidoo, YouTube-Beschreibungen) wird erkannt, für wie viele Personen ein Rezept gedacht ist. Fehlt die Angabe, fragt die App einmal nach.' },
+      { type: 'improved', text: 'Bereits gespeicherte Rezepte wurden um die Personenzahl ergänzt, soweit die Originalseite sie angibt.' },
+    ],
+  },
+  {
     version: '3.1.0',
     date: '2026-10-11',
     entries: [

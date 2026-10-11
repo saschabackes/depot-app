@@ -295,6 +295,7 @@ exports.handler = async function (event) {
         description,
         ingredients,
         steps,
+        servings: servingsFromText(description),
       })
     } catch (e) {
       return ok({
@@ -330,6 +331,7 @@ exports.handler = async function (event) {
         description: '',
         ingredients: recipe.ingredients,
         steps: recipe.steps,
+        servings: recipe.servings,
       })
     }
     // kein JSON-LD → wenigstens Titel/Bild
@@ -344,6 +346,20 @@ exports.handler = async function (event) {
 }
 
 // ── schema.org/Recipe aus JSON-LD extrahieren ────────────────────────────────
+// Portionen aus schema.org recipeYield („4“, „4 Personen“, ["4", "4 Portionen"]) oder Freitext
+function parseServings(value) {
+  const list = Array.isArray(value) ? value : [value]
+  for (const v of list) {
+    const m = String(v ?? '').match(/\d+/)
+    if (m && Number(m[0]) > 0 && Number(m[0]) <= 100) return Number(m[0])
+  }
+  return null
+}
+function servingsFromText(text) {
+  const m = String(text || '').match(/(?:für|ergibt|reicht für)\s*(\d{1,2})\s*(?:personen|portionen|pers\.|stück)/i)
+  return m ? parseServings(m[1]) : null
+}
+
 function extractJsonLdRecipe(html) {
   const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1])
   for (const raw of blocks) {
@@ -375,6 +391,7 @@ function extractJsonLdRecipe(html) {
         image: typeof image === 'string' ? image : '',
         ingredients,
         steps,
+        servings: parseServings(obj.recipeYield ?? obj.yield),
       }
     }
   }

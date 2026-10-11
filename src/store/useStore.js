@@ -110,6 +110,7 @@ function recipeToJS(r) {
     ingredients:  r.ingredients  ?? [],   // [{ name, amount }]
     steps:        r.steps        ?? [],   // [ "..." ]
     notes:        r.notes        ?? '',
+    servings:     r.servings     ?? null,
     createdAt:    r.created_at,
   }
 }
@@ -127,6 +128,7 @@ function recipeToDB(d) {
     ingredients:   d.ingredients  ?? [],
     steps:         d.steps        ?? [],
     notes:         d.notes        ?? null,
+    servings:      d.servings     ?? null,
   }
 }
 
@@ -822,6 +824,7 @@ const useStore = create((set, get) => ({
           tags: detail.categories || [],
           ingredients,
           steps: detail.steps || [],
+          servings: detail.servings ?? null,
         })
         imported++
         if (onProgress) onProgress(imported, toImport.length)

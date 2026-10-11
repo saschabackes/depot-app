@@ -291,7 +291,11 @@ exports.handler = async function (event) {
     const thumbnailUrl = extractImage(data)
     const categories = (data.categories || []).map(c => c.title || c.name).filter(Boolean)
     if (ingredients.length === 0 && steps.length === 0) return err('Keine Zutaten/Schritte im Rezept gefunden')
-    return ok({ ok: true, title, ingredients, steps, thumbnailUrl, categories })
+    // Portionen: Cookidoo liefert sie je nach API-Version unterschiedlich verschachtelt
+    const rawServ = data.servingSize?.quantity?.value ?? data.servingSize?.quantity ?? data.servingSize ?? data.servings ?? data.recipeYield ?? data.yield?.value ?? data.yield
+    const servMatch = String(typeof rawServ === 'object' ? JSON.stringify(rawServ) : rawServ ?? '').match(/\d+/)
+    const servings = servMatch && Number(servMatch[0]) > 0 && Number(servMatch[0]) <= 100 ? Number(servMatch[0]) : null
+    return ok({ ok: true, title, ingredients, steps, thumbnailUrl, categories, servings })
   } catch (e) {
     return err('Cookidoo-Fehler: ' + e.message)
   }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import useStore from '../store/useStore'
 import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
@@ -9,6 +9,7 @@ import Icon from '../ui/Icon'
 import { ListGroup } from '../ui/List'
 import { StatusPill } from '../ui/Controls'
 import { confirmAction, showToast } from '../ui/feedback'
+import { scaleIngredientLine } from '../utils/scaleRecipe'
 
 const SOURCE_LABELS = { youtube: 'YouTube', cookidoo: 'Cookidoo', kptncook: 'KptnCook', web: 'Web', manual: 'Manuell' }
 const ingName = ing => (typeof ing === 'string' ? ing : ing?.name ?? '')
@@ -22,6 +23,10 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
   const freezerItems = useFreezer(s => s.items)
   const bottles = useCellar(s => s.bottles)
   const [addedMissing, setAddedMissing] = useState(false)
+  const updateRecipe = useStore(s => s.updateRecipe)
+  const [people, setPeople] = useState(recipe.servings ?? 4)
+  useEffect(() => { setPeople(recipe.servings ?? 4) }, [recipe.id, recipe.servings])
+  const factor = recipe.servings ? people / recipe.servings : 1
 
   const ingredients = recipe.ingredients ?? []
   const steps = recipe.steps ?? []
@@ -64,7 +69,7 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
           <BarButton label={recipe.favorite ? 'Aus Favoriten entfernen' : 'Als Favorit markieren'} onClick={() => toggleFavorite(recipe.id)}>
             <Icon name="star" size={24} strokeWidth={2} filled={recipe.favorite} />
           </BarButton>
-          <BarButton label="Rezept bearbeiten" onClick={() => onEdit(recipe)}>Bearbeiten</BarButton>
+          <BarButton icon="edit" label="Rezept bearbeiten" onClick={() => onEdit(recipe)} />
         </>
       }>
       <div className="space-y-6 pt-2">
@@ -125,6 +130,12 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
           </div>
         )}
 
+        {/* Portionen */}
+        {ingredients.length > 0 && (
+          <ServingsControl base={recipe.servings} value={people} onChange={setPeople}
+            onSaveBase={n => { updateRecipe(recipe.id, { servings: n }); showToast(`Gespeichert: Rezept für ${n} ${n === 1 ? 'Person' : 'Personen'}.`) }} />
+        )}
+
         {/* Zutaten */}
         {ingredients.length > 0 && (
           <ListGroup title={`Zutaten · ${ingredients.length}`}
@@ -150,7 +161,7 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
               return (
                 <div key={i} className="flex items-center gap-3 px-4 py-2.5 min-h-[50px]">
                   <div className="flex-1 min-w-0">
-                    <div className="text-body text-gray-900 dark:text-gray-100 break-words">{name}</div>
+                    <div className="text-body text-gray-900 dark:text-gray-100 break-words">{scaleIngredientLine(name, factor)}</div>
                     {subtitle && <div className="text-footnote text-gray-500 dark:text-gray-400 truncate">{subtitle}</div>}
                   </div>
                   {trailing}
@@ -212,6 +223,53 @@ export function AvailBar({ found, total, className = '' }) {
   return (
     <div className={`h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden ${className}`} role="img" aria-label={`${found} von ${total} Zutaten vorhanden`}>
       <div className="h-full rounded-full bg-primary-500 dark:bg-primary-300" style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+// Personen-Regler: mit bekannter Basis umrechnen, sonst einmal die Basis abfragen
+function ServingsControl({ base, value, onChange, onSaveBase }) {
+  const step = d => onChange(Math.min(50, Math.max(1, value + d)))
+  const stepper = (
+    <div className="flex items-center gap-1">
+      <button onClick={() => step(-1)} disabled={value <= 1} aria-label="Eine Person weniger"
+        className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-center disabled:opacity-40">
+        <Icon name="minus" size={20} strokeWidth={2.4} />
+      </button>
+      <span className="w-12 text-center text-headline text-gray-900 dark:text-gray-50" aria-live="polite">{value}</span>
+      <button onClick={() => step(1)} disabled={value >= 50} aria-label="Eine Person mehr"
+        className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 flex items-center justify-center disabled:opacity-40">
+        <Icon name="plus" size={20} strokeWidth={2.4} />
+      </button>
+    </div>
+  )
+
+  if (!base) {
+    return (
+      <div className="px-4">
+        <div className="bg-white dark:bg-gray-800 rounded-card px-4 py-3.5 space-y-3">
+          <p className="text-body font-semibold text-gray-900 dark:text-gray-100">Für wie viele Personen ist das Rezept?</p>
+          <p className="text-footnote text-gray-500 dark:text-gray-400">Einmal angeben – danach kannst du die Mengen für beliebig viele Personen umrechnen.</p>
+          <div className="flex items-center justify-between gap-3">
+            {stepper}
+            <button onClick={() => onSaveBase(value)} className="btn-secondary px-5">Speichern</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4">
+      <div className="bg-white dark:bg-gray-800 rounded-card px-4 py-2.5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-body font-semibold text-gray-900 dark:text-gray-100">{value === 1 ? 'Person' : 'Personen'}</p>
+          {value !== base
+            ? <button onClick={() => onChange(base)} className="text-footnote font-semibold text-primary-500 dark:text-primary-300">Original: {base} – zurücksetzen</button>
+            : <p className="text-footnote text-gray-500 dark:text-gray-400">Mengen wie im Original</p>}
+        </div>
+        {stepper}
+      </div>
     </div>
   )
 }
