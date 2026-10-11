@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useCellar } from './store'
-import { isSparkling, CountryPicker, ClassificationPicker, Chip, COLOR_EMOJI, COLOR_OPTIONS } from './wineConstants'
+import { isSparkling, CountryPicker, ClassificationPicker, Chip, COLOR_EMOJI, COLOR_OPTIONS, WINE_USAGES } from './wineConstants'
 import { estimateDrinkWindow } from './drinkWindow'
 import { FormSection, RackGrid } from './cellarUi'
 import AutocompleteInput from '../../components/AutocompleteInput'
@@ -59,6 +59,7 @@ export default function CellarForm({ prefilled, onClose }) {
   const [drinkUntil, setDrinkUntil] = useState(prefilled?.drinkUntil || '')
   const [manualDrink, setManualDrink] = useState(!!(prefilled?.drinkFrom || prefilled?.drinkUntil))
   const [note, setNote] = useState('')
+  const [usage, setUsage] = useState(prefilled?.usage || [])
   const [photoData, setPhotoData] = useState(null)
   const [barcode, setBarcode] = useState('')
   const [barMsg, setBarMsg] = useState('')
@@ -199,7 +200,7 @@ export default function CellarForm({ prefilled, onClose }) {
       addBottle({
         name, winery, vintage, region, country, grape, color, wineType, sweetness, classification,
         drinkFrom, drinkUntil, note, photoData, barcode,
-        retailer, priceEur, purchaseDate, link,
+        retailer, priceEur, purchaseDate, link, usage,
         locations: locations.map(l => ({ rackId: l.rackId, slot: l.slot, row: l.row, col: l.col, count: 1 })),
       })
     }
@@ -375,6 +376,16 @@ export default function CellarForm({ prefilled, onClose }) {
               <button type="button" onClick={() => setManualDrink(false)}
                 className="min-h-[44px] -my-2 text-callout font-semibold text-primary-500 dark:text-primary-300">Automatisch berechnen</button>
             )}
+          </FormSection>
+
+          {/* ── Verwendung ─────────────────────────────────────────── */}
+          <FormSection title="Verwendung" footer="Mehrfachauswahl. Kochweine schlägt der Bestandscheck bei Rezepten zuerst vor.">
+            <div className="flex flex-wrap gap-2">
+              {WINE_USAGES.map(u => (
+                <Chip key={u.id} on={usage.includes(u.id)}
+                  onClick={() => setUsage(cur => cur.includes(u.id) ? cur.filter(x => x !== u.id) : [...cur, u.id])}>{u.label}</Chip>
+              ))}
+            </div>
           </FormSection>
 
           {/* ── 5. Optionale Details ───────────────────────────────── */}

@@ -12,7 +12,7 @@ import CellarStockTab from './CellarStockTab'
 import CellarRackTab from './CellarRackTab'
 import CellarDiaryTab, { memoryCounts, filterMemories } from './CellarDiaryTab'
 import { CellarFilterSheet, CellarActionsSheet, SWEETNESS_OPTIONS } from './CellarSheets'
-import { COLOR_OPTIONS } from './wineConstants'
+import { COLOR_OPTIONS, WINE_USAGES } from './wineConstants'
 import { ChipRow } from './cellarUi'
 import SelectionBar from '../../components/SelectionBar'
 import Icon from '../../ui/Icon'
@@ -63,6 +63,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
   const [sweetnessFilter, setSweetnessFilter] = useState('all')
   const [countryFilter, setCountryFilter] = useState('all')
   const [vintageFilter, setVintageFilter] = useState('all')
+  const [usageFilter, setUsageFilter] = useState('all')
   const [sort, setSort] = useState('name') // name | vintage | price | rack
   const [sortDir, setSortDir] = useState('asc')
   const [showGrid, setShowGrid] = useState(false)
@@ -94,6 +95,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
       if (sweetnessFilter !== 'all' && exclude !== 'sweetness') arr = arr.filter(b => b.sweetness === sweetnessFilter)
       if (countryFilter !== 'all' && exclude !== 'country') arr = arr.filter(b => b.country === countryFilter)
       if (vintageFilter !== 'all' && exclude !== 'vintage') arr = arr.filter(b => b.vintage === parseInt(vintageFilter))
+      if (usageFilter !== 'all' && exclude !== 'usage') arr = arr.filter(b => (b.usage ?? []).includes(usageFilter))
       if (search.trim()) arr = arr.filter(b => matchesSearch(b, search.toLowerCase()))
       return arr
     }
@@ -102,9 +104,10 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
       sweetness: SWEETNESS_OPTIONS.filter(s => applyExcept('sweetness').some(b => b.sweetness === s.id)),
       vintages: [...new Set(applyExcept('vintage').map(b => b.vintage).filter(v => v > 0))].sort((a, b) => b - a),
       countries: [...new Set(applyExcept('country').map(b => b.country).filter(Boolean))].sort(),
+      usages: WINE_USAGES.map(u => ({ ...u, count: applyExcept('usage').filter(b => (b.usage ?? []).includes(u.id)).length })).filter(u => u.count > 0),
       colorCounts: Object.fromEntries([['all', forColor.length], ...COLOR_OPTIONS.map(c => [c.id, forColor.filter(b => b.color === c.id).length])]),
     }
-  }, [bottles, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search])
+  }, [bottles, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, usageFilter, search])
 
   // Filter zurücksetzen, deren Wert nicht mehr vorkommt
   useEffect(() => {
@@ -121,6 +124,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
     if (sweetnessFilter !== 'all') arr = arr.filter(b => b.sweetness === sweetnessFilter)
     if (countryFilter !== 'all')   arr = arr.filter(b => b.country === countryFilter)
     if (vintageFilter !== 'all')   arr = arr.filter(b => b.vintage === parseInt(vintageFilter))
+    if (usageFilter !== 'all')     arr = arr.filter(b => (b.usage ?? []).includes(usageFilter))
     if (search.trim()) arr = arr.filter(b => matchesSearch(b, search.toLowerCase()))
 
     if (tab === 'ablauf') {
@@ -136,7 +140,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
       return dir * ((pos(a) - pos(b)) || (a.slot || '').localeCompare(b.slot || '', 'de'))
     })
     return arr.sort((a, b) => dir * a.name.localeCompare(b.name, 'de'))
-  }, [bottles, tab, racks, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, search, sort, sortDir])
+  }, [bottles, tab, racks, alcoholFilter, colorFilter, sweetnessFilter, countryFilter, vintageFilter, usageFilter, search, sort, sortDir])
 
   // Bestand nach Regal gruppiert
   const groups = useMemo(() => {
@@ -152,7 +156,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
     return <CellarSetup onComplete={completeSetup} />
   }
 
-  const extraFilters = [sweetnessFilter, countryFilter, vintageFilter, alcoholFilter].filter(v => v !== 'all').length
+  const extraFilters = [sweetnessFilter, countryFilter, vintageFilter, alcoholFilter, usageFilter].filter(v => v !== 'all').length
     + (sort !== 'name' || sortDir !== 'asc' ? 1 : 0)
 
   function toggleSelect(id) {
@@ -165,7 +169,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
     if (t === 'lager' || t === 'tagebuch') { setSelectMode(false); setSelected(new Set()) }
   }
   function resetFilters() {
-    setSort('name'); setSortDir('asc'); setSweetnessFilter('all'); setCountryFilter('all'); setVintageFilter('all'); setAlcoholFilter('all'); setColorFilter('all')
+    setSort('name'); setSortDir('asc'); setSweetnessFilter('all'); setCountryFilter('all'); setVintageFilter('all'); setAlcoholFilter('all'); setColorFilter('all'); setUsageFilter('all')
   }
 
   const listTab = tab === 'bestand' || tab === 'ablauf'
@@ -251,6 +255,7 @@ export default function CellarView({ focusId = null, onFocusHandled = () => {} }
           sweetness={sweetnessFilter} setSweetness={setSweetnessFilter}
           vintage={vintageFilter} setVintage={setVintageFilter}
           country={countryFilter} setCountry={setCountryFilter}
+          usage={usageFilter} setUsage={setUsageFilter}
           options={dynamicOptions} onReset={resetFilters} showSort={tab === 'bestand'}
           onSelectMode={() => { setSheet(null); setSelectMode(true); setSelected(new Set()) }} />
       )}

@@ -858,6 +858,12 @@ const useStore = create((set, get) => ({
         }
       })
     get()._logActivity('spice_added', data.name)
+
+    // Wartet dasselbe Gewürz auf „Einräumen“ oder steht noch zum Nachkauf an → erledigt
+    const key = data.name.trim().toLowerCase()
+    get().pendingInventory
+      .filter(p => p.name.trim().toLowerCase() === key)
+      .forEach(p => get().resolvePending(p.id))
   },
 
   updateSpice(id, data) {

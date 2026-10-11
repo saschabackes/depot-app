@@ -22,7 +22,7 @@ function Option({ label, on, onClick }) {
 
 export function CellarFilterSheet({
   onClose, sort, setSort, sortDir, setSortDir, alcohol, setAlcohol, sweetness, setSweetness,
-  vintage, setVintage, country, setCountry, options, onReset, onSelectMode, showSort = true,
+  vintage, setVintage, country, setCountry, usage = 'all', setUsage = () => {}, options, onReset, onSelectMode, showSort = true,
 }) {
   return (
     <Sheet title="Filtern & sortieren" onClose={onClose} cancelLabel="Schließen" confirmLabel="Fertig" onConfirm={onClose}>
@@ -42,6 +42,13 @@ export function CellarFilterSheet({
           <Segmented label="Alkohol" value={alcohol} onChange={setAlcohol}
             options={[{ id: 'all', label: 'Alle' }, { id: 'alc', label: 'Mit Alkohol' }, { id: 'free', label: 'Alkoholfrei' }]} />
         </section>
+
+        {options.usages?.length > 0 && (
+          <ListGroup title="Verwendung">
+            <Option label="Alle" on={usage === 'all'} onClick={() => setUsage('all')} />
+            {options.usages.map(u => <Option key={u.id} label={`${u.label} (${u.count})`} on={usage === u.id} onClick={() => setUsage(u.id)} />)}
+          </ListGroup>
+        )}
 
         {options.sweetness.length > 0 && (
           <ListGroup title="Geschmack">

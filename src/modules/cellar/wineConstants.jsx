@@ -184,3 +184,13 @@ export function CountryPicker({ value, onChange }) {
     </div>
   )
 }
+
+// Verwendungszweck (Mehrfachauswahl)
+export const WINE_USAGES = [
+  { id: 'trinken',  label: 'Zum Trinken' },
+  { id: 'kochen',   label: 'Zum Kochen' },
+  { id: 'anlass',   label: 'Gäste & Anlass' },
+  { id: 'geschenk', label: 'Zum Verschenken' },
+  { id: 'aufheben', label: 'Aufheben' },
+]
+export const usageLabel = id => WINE_USAGES.find(u => u.id === id)?.label ?? id

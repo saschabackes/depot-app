@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useCellar, effectiveDrinkUntil } from './store'
 import { DISH_CATEGORIES, TASTE_AXES, AROMAS, dishById } from './pairing'
-import { isSparkling, CountryPicker, ClassificationPicker, Chip, colorEmoji } from './wineConstants'
+import { isSparkling, CountryPicker, ClassificationPicker, Chip, colorEmoji, WINE_USAGES } from './wineConstants'
 import { estimateDrinkWindow } from './drinkWindow'
 import { windowInfo, quality, positionLabel, FactTile, FormSection, Stars, RackGrid } from './cellarUi'
 import { isSafeUrl } from '../../utils/safeUrl'
@@ -64,6 +64,7 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, on
       classification: bottle.classification, alcohol: bottle.alcohol,
       alcoholFree: bottle.alcoholFree, drinkFrom: bottle.drinkFrom, drinkUntil: bottle.drinkUntil,
       priceEur: bottle.priceEur, retailer: bottle.retailer, rackId: bottle.rackId,
+      usage: bottle.usage ?? [],
     })
   }
 
@@ -152,6 +153,21 @@ export default function WineDetail({ bottle, onClose, onOpenPairing, onShare, on
               title={bottle.archived ? 'Aus dem Archiv holen' : 'Archivieren'}
               subtitle={bottle.archived ? null : 'Im Weintagebuch ausblenden'} />
           </ListGroup>
+
+          {/* Verwendung */}
+          <section className="px-4">
+            <h3 className="px-1 pb-1.5 text-footnote font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Verwendung</h3>
+            <div className="flex flex-wrap gap-2">
+              {WINE_USAGES.map(u => {
+                const cur = bottle.usage ?? []
+                const on = cur.includes(u.id)
+                return (
+                  <Chip key={u.id} on={on}
+                    onClick={() => updateBottle(bottle.id, { usage: on ? cur.filter(x => x !== u.id) : [...cur, u.id] })}>{u.label}</Chip>
+                )
+              })}
+            </div>
+          </section>
 
           {/* Bewertung */}
           <ListGroup title="Deine Bewertung">

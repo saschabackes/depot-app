@@ -58,7 +58,7 @@ export default function InventoryReviewView({ onClose, onNewPackage }) {
       ) : (
         <div className="space-y-4">
           <p className="px-6 text-callout text-gray-500 dark:text-gray-400">
-            Diese Gewürze wurden auf der Einkaufsliste abgehakt. Eingekauft? Dann einräumen.
+            Diese Gewürze wurden auf der Einkaufsliste abgehakt. Wähle, wie sie in den Bestand kommen. „Entfernen“ streicht nur den Hinweis und ändert nichts am Bestand.
           </p>
           {ready.map(item => {
             const jars = matchingJars(item.name)
@@ -70,7 +70,7 @@ export default function InventoryReviewView({ onClose, onNewPackage }) {
                   trailing={
                     <button onClick={() => resolvePending(item.id)}
                       className="flex-none min-h-[44px] -mr-2 px-2 text-footnote font-semibold text-gray-500 dark:text-gray-400">
-                      Nicht gekauft
+                      Entfernen
                     </button>
                   } />
                 <div className="p-3">

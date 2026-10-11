@@ -4,6 +4,16 @@
 
 export const CHANGELOG = [
   {
+    version: '3.1.0',
+    date: '2026-10-11',
+    entries: [
+      { type: 'new',      text: 'Wein: Verwendung festlegen (Zum Trinken, Zum Kochen, Gäste & Anlass, Zum Verschenken, Aufheben) – im Formular, in der Detailansicht und als Filter.' },
+      { type: 'improved', text: 'Rezepte schlagen beim Bestandscheck zuerst Kochweine vor; Flaschen zum Aufheben oder Verschenken werden nicht mehr fürs Kochen vorgeschlagen.' },
+      { type: 'improved', text: 'Ein Gewürz, das du über „+“ anlegst, verschwindet automatisch aus „Noch einzuräumen“ bzw. dem offenen Nachkauf.' },
+      { type: 'improved', text: 'Einräumen: „Nicht gekauft“ heißt jetzt „Entfernen“ – mit Hinweis, dass der Bestand unverändert bleibt.' },
+    ],
+  },
+  {
     version: '3.0.0',
     date: '2026-10-02',
     entries: [

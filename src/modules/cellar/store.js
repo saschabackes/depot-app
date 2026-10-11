@@ -128,6 +128,7 @@ function bottleToJS(row) {
     history:        row.history ?? [],
     archived:       row.archived ?? false,
     bought:         row.bought ?? '',
+    usage:          row.usage ?? [],
   }
 }
 
@@ -168,6 +169,7 @@ function bottleToDB(data) {
     history:         data.history ?? [],
     archived:        data.archived ?? false,
     bought:          data.bought ?? '',
+    usage:           data.usage ?? [],
   }
 }
 
@@ -465,6 +467,7 @@ export const useCellar = create(
           drinkFrom: Number(data.drinkFrom) || (estimateDrinkWindow(Number(data.vintage), data.color, data.grape, data.classification, data.alcoholFree)?.drinkFrom ?? (Number(data.vintage) || new Date().getFullYear()) + 1),
           drinkUntil: Number(data.drinkUntil) || (estimateDrinkWindow(Number(data.vintage), data.color, data.grape, data.classification, data.alcoholFree)?.drinkUntil ?? (Number(data.vintage) || new Date().getFullYear()) + 5),
           bought: data.bought || '',
+          usage: data.usage || [],
           priceEur: data.priceEur ? Number(data.priceEur) : null,
           retailer: data.retailer || '',
           purchaseDate: data.purchaseDate || '',
@@ -552,6 +555,7 @@ export const useCellar = create(
         if ('history' in patch)        dbPatch.history = patch.history
         if ('archived' in patch)       dbPatch.archived = patch.archived
         if ('bought' in patch)         dbPatch.bought = patch.bought
+        if ('usage' in patch)          dbPatch.usage = patch.usage
         if (Object.keys(dbPatch).length) supabase.from('cellar_bottles').update(dbPatch).eq('id', id).then(...synced('cellar_bottles'))
       },
 

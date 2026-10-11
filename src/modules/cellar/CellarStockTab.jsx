@@ -9,7 +9,7 @@ export function WineRow({ bottle, rack, subtitle, selectMode, selected, onClick 
     <ListRow onClick={onClick}
       leading={selectMode ? <CheckCircle on={selected} /> : <WineThumb bottle={bottle} />}
       title={bottle.name}
-      subtitle={subtitle ?? [bottle.winery, bottle.vintage, bottle.grape].filter(Boolean).join(' · ')}
+      subtitle={subtitle ?? [(bottle.usage ?? []).includes('kochen') ? 'Kochwein' : null, bottle.winery, bottle.vintage, bottle.grape].filter(Boolean).join(' · ')}
       trailing={
         <div className="flex flex-col items-end gap-0.5 flex-none">
           {w.text && <span className={`text-footnote whitespace-nowrap ${toneText(w.tone)}`}>{w.text}</span>}

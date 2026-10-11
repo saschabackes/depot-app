@@ -28,11 +28,15 @@ export function matchWineBottles(ingredientName, bottles) {
   const wantsRed = n.includes('rotwein') || n.includes('rot')
   const wantsWhite = n.includes('weißwein') || n.includes('weiß') || n.includes('weisswein')
 
+  // Kochweine zuerst; Flaschen zum Aufheben/Verschenken nur, wenn sie auch zum Kochen markiert sind
+  const has = (b, u) => (b.usage ?? []).includes(u)
   return bottles.filter(b => {
+    if ((b.count ?? 1) <= 0 || b.archived) return false
     if (wantsRed && b.color !== 'rot') return false
     if (wantsWhite && b.color !== 'weiß') return false
+    if ((has(b, 'aufheben') || has(b, 'geschenk')) && !has(b, 'kochen')) return false
     return true
-  }).slice(0, 3)
+  }).sort((a, b) => Number(has(b, 'kochen')) - Number(has(a, 'kochen'))).slice(0, 3)
 }
 
 export function computeRecipeAvailability(recipe, spices, freezerItems, bottles) {
