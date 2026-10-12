@@ -4,6 +4,14 @@
 
 export const CHANGELOG = [
   {
+    version: '3.3.1',
+    date: '2026-10-12',
+    entries: [
+      { type: 'fixed',    text: 'Login: Die Sicherheitsprüfung (Captcha) verschwand, nachdem man „Passwort vergessen?“ geöffnet und wieder zurückgewechselt hatte – Anmelden war dann nicht möglich.' },
+      { type: 'improved', text: 'Login: Lädt die Sicherheitsprüfung nicht (z. B. schlechte Verbindung, Inhaltsblocker), gibt es jetzt einen verständlichen Hinweis und „Erneut versuchen“.' },
+    ],
+  },
+  {
     version: '3.3.0',
     date: '2026-10-11',
     entries: [

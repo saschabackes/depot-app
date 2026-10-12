@@ -80,50 +80,85 @@ function FeatureCarousel() {
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAADkEqPyn3goEqAgu'
 
-function useTurnstile() {
-  const containerRef = useRef(null)
+const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__turnstileReady'
+const LOAD_TIMEOUT_MS = 12_000
+
+// Turnstile einbinden. Der Container ist ein Callback-Ref: Verschwindet das Formular
+// (z. B. Wechsel zu „Passwort vergessen“) und kommt zurück, wird das Widget neu gerendert.
+function useTurnstile(enabled) {
+  const elRef = useRef(null)
   const widgetId = useRef(null)
   const [token, setToken] = useState('')
   const [ready, setReady] = useState(false)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState(null) // null | 'timeout' | 'widget'
+  const [scriptReady, setScriptReady] = useState(() => typeof window !== 'undefined' && !!window.turnstile)
+
+  const removeWidget = useCallback(() => {
+    if (widgetId.current != null && window.turnstile) {
+      try { window.turnstile.remove(widgetId.current) } catch { /* schon entfernt */ }
+    }
+    widgetId.current = null
+  }, [])
 
   const render = useCallback(() => {
-    if (!containerRef.current || !window.turnstile) return
-    if (widgetId.current != null) {
-      try { window.turnstile.remove(widgetId.current) } catch {}
-    }
-    setError(false)
-    widgetId.current = window.turnstile.render(containerRef.current, {
+    if (!elRef.current || !window.turnstile) return
+    removeWidget()
+    setError(null)
+    setToken('')
+    setReady(false)
+    widgetId.current = window.turnstile.render(elRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
-      callback: (t) => { setToken(t); setReady(true) },
+      callback: t => { setToken(t); setReady(true) },
       'expired-callback': () => { setToken(''); setReady(false) },
-      'error-callback': () => { setToken(''); setReady(false); setError(true) },
+      'error-callback': () => { setToken(''); setReady(false); setError('widget') },
       theme: 'auto',
       size: 'flexible',
       appearance: 'always',
     })
+  }, [removeWidget])
+
+  const loadScript = useCallback(() => {
+    document.querySelectorAll('script[data-turnstile]').forEach(s => s.remove())
+    const script = document.createElement('script')
+    script.src = TURNSTILE_SRC
+    script.async = true
+    script.dataset.turnstile = '1'
+    script.onerror = () => setError('timeout')
+    window.__turnstileReady = () => setScriptReady(true)
+    document.head.appendChild(script)
+    setTimeout(() => { if (!window.turnstile) setError('timeout') }, LOAD_TIMEOUT_MS)
   }, [])
 
   useEffect(() => {
-    if (window.turnstile) { render(); return }
-    const script = document.createElement('script')
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__turnstileReady'
-    script.async = true
-    window.__turnstileReady = render
-    script.onerror = () => setError(true)
-    document.head.appendChild(script)
-    return () => { delete window.__turnstileReady }
-  }, [render])
+    if (!enabled) return
+    if (window.turnstile) setScriptReady(true)
+    else loadScript()
+  }, [enabled, loadScript])
+
+  useEffect(() => { if (scriptReady) render() }, [scriptReady, render])
+  useEffect(() => removeWidget, [removeWidget])
+
+  const containerRef = useCallback(node => {
+    elRef.current = node
+    if (node && window.turnstile) render()
+    else if (!node) { removeWidget(); setToken(''); setReady(false) }
+  }, [render, removeWidget])
+
+  const retry = useCallback(() => {
+    setError(null)
+    if (window.turnstile) render()
+    else loadScript()
+  }, [render, loadScript])
 
   const reset = useCallback(() => {
     setToken('')
     setReady(false)
     if (widgetId.current != null && window.turnstile) {
-      try { window.turnstile.reset(widgetId.current) } catch {}
+      try { window.turnstile.reset(widgetId.current) } catch { render() }
     }
-  }, [])
+  }, [render])
 
-  return { containerRef, getToken: () => token, reset, ready, error }
+  return { containerRef, getToken: () => token, reset, retry, ready, error }
 }
 
 export default function Login() {
@@ -136,7 +171,9 @@ export default function Login() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
-  const turnstile = useTurnstile()
+  // Lokal (Entwicklung) erst bei Interaktion laden – sonst verfälschen Seitenaufrufe die Cloudflare-Statistik
+  const [interacted, setInteracted] = useState(!import.meta.env.DEV)
+  const turnstile = useTurnstile(interacted)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -145,7 +182,7 @@ export default function Login() {
     setLoading(true)
     try {
       const captchaToken = turnstile.getToken()
-      if (mode !== 'reset' && !captchaToken) throw new Error('Sicherheitsprüfung nicht bereit. Bitte warte kurz oder lade die Seite neu.')
+      if (mode !== 'reset' && !captchaToken) throw new Error('Sicherheitsprüfung noch nicht abgeschlossen – bitte kurz warten.')
       if (mode === 'register') {
         if (!name.trim()) throw new Error('Bitte Namen eingeben')
         if (password.length < 6) throw new Error('Passwort muss mindestens 6 Zeichen haben')
@@ -253,7 +290,7 @@ export default function Login() {
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+        <form onFocusCapture={() => setInteracted(true)} onSubmit={handleSubmit} className="space-y-4 mt-4">
           {mode === 'register' && (
             <div>
               <label className="label">Name</label>
@@ -330,10 +367,18 @@ export default function Login() {
             <div>
               <div ref={turnstile.containerRef} className="flex justify-center" />
               {turnstile.error && (
-                <p className="text-footnote text-expired dark:text-expired-dark text-center mt-1">
-                  Sicherheitsprüfung konnte nicht geladen werden. Bitte Seite neu laden.
-                </p>
+                <div className="mt-2 text-center space-y-1" role="alert">
+                  <p className="text-footnote text-expired dark:text-expired-dark">
+                    {turnstile.error === 'timeout'
+                      ? 'Die Sicherheitsprüfung lädt nicht. Prüfe deine Internetverbindung oder schalte Inhaltsblocker für diese Seite aus.'
+                      : 'Die Sicherheitsprüfung ist fehlgeschlagen.'}
+                  </p>
+                  <button type="button" onClick={turnstile.retry} className="min-h-[44px] px-3 text-footnote font-semibold text-primary-500 dark:text-primary-300">
+                    Erneut versuchen
+                  </button>
+                </div>
               )}
+              {!interacted && <p className="text-footnote text-gray-500 text-center">Sicherheitsprüfung startet, sobald du ein Feld antippst.</p>}
             </div>
           )}
 
