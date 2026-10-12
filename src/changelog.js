@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.4.0',
+    date: '2026-10-12',
+    entries: [
+      { type: 'new', text: 'Gewürze: „Aufgebraucht“ für leere Gläser – entfernt die Packung und setzt sie auf Wunsch gleich auf die Einkaufsliste. Im Verlauf steht „aufgebraucht“ statt „gelöscht“.' },
+    ],
+  },
+  {
     version: '3.3.1',
     date: '2026-10-12',
     entries: [

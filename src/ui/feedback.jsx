@@ -14,14 +14,21 @@ export function showToast(message, { actionLabel, onAction, duration = 5000 } = 
 // Rückfrage als Action-Sheet: `if (await confirmAction({...}))`
 export function confirmAction({ title, message, confirmLabel = 'Bestätigen', destructive = false, cancelLabel = 'Abbrechen' }) {
   return new Promise(resolve => {
-    useFeedback.setState({ dialog: { title, message, confirmLabel, destructive, cancelLabel, resolve } })
+    useFeedback.setState({ dialog: { title, message, cancelLabel, options: [{ id: true, label: confirmLabel, destructive }], resolve: r => resolve(r === true) } })
+  })
+}
+
+// Mehrere Möglichkeiten: liefert die id der gewählten Option oder null (Abbrechen)
+export function chooseAction({ title, message, options, cancelLabel = 'Abbrechen' }) {
+  return new Promise(resolve => {
+    useFeedback.setState({ dialog: { title, message, cancelLabel, options, resolve: r => resolve(r === false ? null : r) } })
   })
 }
 
 // Hinweis mit nur einer Taste
 export function notify(title, message) {
   return new Promise(resolve => {
-    useFeedback.setState({ dialog: { title, message, confirmLabel: 'OK', cancelLabel: null, resolve } })
+    useFeedback.setState({ dialog: { title, message, cancelLabel: null, options: [{ id: true, label: 'OK' }], resolve } })
   })
 }
 
@@ -39,11 +46,13 @@ function ActionSheet({ dialog }) {
             <p className="text-callout font-semibold text-gray-900 dark:text-gray-100">{dialog.title}</p>
             {dialog.message && <p className="text-footnote text-gray-500 dark:text-gray-400 mt-1">{dialog.message}</p>}
           </div>
-          <button onClick={() => close(true)} autoFocus
-            className={`w-full min-h-[56px] border-t border-gray-200 dark:border-gray-700 text-[18px] ${
-              dialog.destructive ? 'text-expired dark:text-expired-dark' : 'text-primary-500 dark:text-primary-300 font-semibold'}`}>
-            {dialog.confirmLabel}
-          </button>
+          {dialog.options.map((o, i) => (
+            <button key={String(o.id)} onClick={() => close(o.id)} autoFocus={i === 0}
+              className={`w-full min-h-[56px] border-t border-gray-200 dark:border-gray-700 text-[18px] ${
+                o.destructive ? 'text-expired dark:text-expired-dark' : `text-primary-500 dark:text-primary-300 ${i === 0 ? 'font-semibold' : ''}`}`}>
+              {o.label}
+            </button>
+          ))}
         </div>
         {dialog.cancelLabel && (
           <button onClick={() => close(false)}

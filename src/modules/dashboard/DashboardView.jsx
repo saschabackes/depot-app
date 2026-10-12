@@ -235,7 +235,7 @@ function DailyFactSection({ fact }) {
 }
 
 const ACTION_LABELS = {
-  spice_added: 'hat hinzugefügt', spice_updated: 'hat aktualisiert', spice_deleted: 'hat gelöscht', spice_disposed: 'hat entsorgt',
+  spice_added: 'hat hinzugefügt', spice_updated: 'hat aktualisiert', spice_deleted: 'hat gelöscht', spice_used_up: 'hat aufgebraucht', spice_disposed: 'hat entsorgt',
   fill_changed: 'Füllstand geändert', shopping_added: 'auf die Einkaufsliste', shopping_checked: 'abgehakt', shopping_deleted: 'entfernt',
   freezer_added: 'eingefroren', freezer_removed: 'entnommen', cellar_added: 'eingelagert', cellar_removed: 'entnommen',
   wine_added: 'eingelagert', recipe_added: 'Rezept gespeichert', pantry_added: 'in den Vorrat',

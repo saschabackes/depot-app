@@ -7,6 +7,7 @@ import { ListGroup } from '../ui/List'
 const ACTIONS = {
   spice_added:    { emoji: '🌿', bg: 'bg-green-100 dark:bg-green-900/40',   text: (e) => <>hat <b>{e.target}</b> hinzugefügt</> },
   spice_updated:  { emoji: '✏️', bg: 'bg-blue-100 dark:bg-blue-900/40',     text: (e) => <>hat <b>{e.target}</b> bearbeitet</> },
+  spice_used_up:  { text: (e) => <>hat <b>{e.target}</b> aufgebraucht{e.detail ? ' und auf die Einkaufsliste gesetzt' : ''}</> },
   spice_deleted:  { emoji: '🗑️', bg: 'bg-red-100 dark:bg-red-900/40',       text: (e) => <>hat <b>{e.target}</b> gelöscht</> },
   fill_changed:   { emoji: '📊', bg: 'bg-amber-100 dark:bg-amber-900/40',   text: (e) => <><b>{e.target}</b> → {e.detail}</> },
   shopping_added: { emoji: '🛒', bg: 'bg-purple-100 dark:bg-purple-900/40', text: (e) => <>hat <b>{e.target}</b> zum Einkauf hinzugefügt</> },

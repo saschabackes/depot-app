@@ -912,6 +912,17 @@ const useStore = create((set, get) => ({
     if (sp) get()._logActivity('spice_deleted', sp.name)
   },
 
+  // Glas leer: entfernen, optional nachkaufen; im Verlauf als „aufgebraucht“
+  markSpiceUsedUp(id, { restock = false } = {}) {
+    const sp = get().spices.find(s => s.id === id)
+    if (!sp) return
+    if (restock) get().addShoppingItem(sp.name, '', true, { spiceId: null, brand: sp.brand })
+    set(s => ({ spices: s.spices.filter(x => x.id !== id) }))
+    supabase.from('spices').delete().eq('id', id)
+      .then(...synced('markSpiceUsedUp'))
+    get()._logActivity('spice_used_up', sp.name, restock ? 'nachgekauft' : null)
+  },
+
   bulkDeleteSpices(ids) {
     if (!ids.length) return
     set(s => ({ spices: s.spices.filter(sp => !ids.includes(sp.id)) }))

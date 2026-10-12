@@ -9,7 +9,7 @@ import Icon from '../ui/Icon'
 import { ListGroup, ListRow } from '../ui/List'
 import { SearchField, StatusPill, FillSegments, Segmented } from '../ui/Controls'
 import DisposeSheet, { disposalLabel } from '../ui/DisposeSheet'
-import { confirmAction, showToast } from '../ui/feedback'
+import { confirmAction, chooseAction, showToast } from '../ui/feedback'
 
 const STATUS_FILTERS = [
   { id: 'all',     label: 'Alle' },
@@ -217,6 +217,8 @@ function SpiceDetailSheet({ spice, reorder, onClose, onEdit }) {
   const addShoppingItem = useStore(s => s.addShoppingItem)
   const disposeSpice = useStore(s => s.disposeSpice)
   const deleteSpice = useStore(s => s.deleteSpice)
+  const markSpiceUsedUp = useStore(s => s.markSpiceUsedUp)
+  const allSpices = useStore(s => s.spices)
   const [disposing, setDisposing] = useState(false)
   const [zoom, setZoom] = useState(false)
 
@@ -241,8 +243,25 @@ function SpiceDetailSheet({ spice, reorder, onClose, onEdit }) {
     showToast(`„${spice.name}“ steht auf der Einkaufsliste.`)
   }
 
+  async function usedUp() {
+    const others = allSpices.filter(s => s.id !== spice.id && !s.disposedAt && s.name.trim().toLowerCase() === spice.name.trim().toLowerCase())
+    const choice = await chooseAction({
+      title: `„${spice.name}“ aufgebraucht`,
+      message: others.length
+        ? `Du hast noch ${others.length} ${others.length === 1 ? 'weitere Packung' : 'weitere Packungen'}. Trotzdem nachkaufen?`
+        : 'Das war die letzte Packung. Soll es auf die Einkaufsliste?',
+      options: others.length
+        ? [{ id: 'remove', label: 'Nur entfernen' }, { id: 'restock', label: 'Entfernen und nachkaufen' }]
+        : [{ id: 'restock', label: 'Ja, nachkaufen' }, { id: 'remove', label: 'Nein, nur entfernen' }],
+    })
+    if (!choice) return
+    markSpiceUsedUp(spice.id, { restock: choice === 'restock' })
+    onClose()
+    showToast(choice === 'restock' ? `„${spice.name}“ ist aufgebraucht und steht auf der Einkaufsliste.` : `„${spice.name}“ ist aufgebraucht.`)
+  }
+
   async function remove() {
-    const ok = await confirmAction({ title: `„${spice.name}“ löschen?`, message: 'Zum Aussortieren mit Grund lieber „Entsorgen“ nutzen.', confirmLabel: 'Löschen', destructive: true })
+    const ok = await confirmAction({ title: `„${spice.name}“ löschen?`, message: 'Leeres Glas? Dann lieber „Aufgebraucht“. Weggeworfen? Dann „Entsorgen“ mit Grund.', confirmLabel: 'Löschen', destructive: true })
     if (ok) { deleteSpice(spice.id); onClose() }
   }
 
@@ -286,6 +305,8 @@ function SpiceDetailSheet({ spice, reorder, onClose, onEdit }) {
           </div>
 
           <ListGroup>
+            <ListRow onClick={usedUp} leading={<Icon name="check" size={20} className="text-primary-500 dark:text-primary-300" />}
+              title="Aufgebraucht" trailing={<span className="text-footnote text-gray-500">Glas ist leer</span>} />
             <ListRow onClick={() => setDisposing(true)} leading={<Icon name="trash" size={20} className="text-soon dark:text-soon-dark" />}
               title={<span className="text-soon dark:text-soon-dark">Entsorgen …</span>} trailing={<span className="text-footnote text-gray-500">mit Grund</span>} />
           </ListGroup>
