@@ -229,10 +229,10 @@ function SpiceDetailSheet({ spice, reorder, onClose, onEdit }) {
   const fill = Math.max(0, Math.min(4, spice.fillLevel ?? 4))
 
   const facts = [
+    ['Lagerort', location ?? 'Ohne Lagerort', true],
     ['Menge', formatAmount(spice)],
     ['Haltbar bis', formatMhdDate(spice.expiryDate) ?? '–'],
     ['Verpackung', pkg],
-    ['Lagerort', location ?? 'Ohne Lagerort'],
     cat && ['Kategorie', cat],
     spice.form && ['Form', spice.form],
   ].filter(Boolean)
@@ -286,8 +286,8 @@ function SpiceDetailSheet({ spice, reorder, onClose, onEdit }) {
           </div>
 
           <div className="px-4 grid grid-cols-2 gap-2.5">
-            {facts.map(([k, v]) => (
-              <div key={k} className="bg-white dark:bg-gray-800 rounded-[14px] px-3.5 py-3">
+            {facts.map(([k, v, wide]) => (
+              <div key={k} className={`bg-white dark:bg-gray-800 rounded-[14px] px-3.5 py-3 ${wide ? 'col-span-2' : ''}`}>
                 <div className="text-footnote text-gray-500 dark:text-gray-400">{k}</div>
                 <div className="text-[17px] font-semibold text-gray-900 dark:text-gray-100 mt-0.5 break-words">{v}</div>
               </div>

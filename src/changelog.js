@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.4.1',
+    date: '2026-10-12',
+    entries: [
+      { type: 'improved', text: 'Gewürz-Detail: Der Lagerort steht jetzt ganz oben – so weißt du sofort, wo das Glas steht.' },
+    ],
+  },
+  {
     version: '3.4.0',
     date: '2026-10-12',
     entries: [
