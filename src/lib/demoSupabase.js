@@ -74,6 +74,10 @@ function seed() {
       { id: 'cb1', name: 'Riesling Kabinett', winery: 'Weingut Beispiel', vintage: 2019, region: 'Rheingau', country: 'Deutschland', grape: 'Riesling', color: 'weiß', wine_type: 'wein', sweetness: 'feinherb', classification: '', alcohol: '', alcohol_free: false, drink_from: 2021, drink_until: new Date().getFullYear(), rack_id: 'cr1', slot: '', grid_row: 1, grid_col: 2, count: 2, price_eur: 14, retailer: '', household_id: HID, created_at: now },
       { id: 'cb2', name: 'Spätburgunder', winery: 'Weingut Muster', vintage: 2021, region: 'Ahr', country: 'Deutschland', grape: 'Spätburgunder', color: 'rot', wine_type: 'wein', sweetness: 'trocken', classification: '', alcohol: '', alcohol_free: false, drink_from: 2023, drink_until: 2030, rack_id: 'cr1', slot: '', grid_row: 2, grid_col: 4, count: 1, price_eur: 19, usage: ['kochen'], retailer: '', household_id: HID, created_at: now },
     ],
+    price_watch: [
+      { id: 'pw1', name: 'Alpro No Milk', search_term: 'alpro', target_price: 1.99, offer_price: 1.99, offer_store: 'PENNY', offer_until: day(2), best_price: 1.79, best_store: 'Kaufland', checked_at: now, sort_order: 0, household_id: HID, created_at: now },
+      { id: 'pw2', name: 'Lavazza Crema e Gusto', search_term: 'lavazza', target_price: 11.99, offer_price: null, offer_store: '', offer_until: null, best_price: null, best_store: '', checked_at: null, sort_order: 1, household_id: HID, created_at: now },
+    ],
     pantry_locations: [{ id: 'pl1', label: 'Vorratsschrank', emoji: '📦', shelves: [{ id: 'ps1', label: 'Fach 1' }, { id: 'ps2', label: 'Fach 2' }], sort_order: 0, household_id: HID, created_at: now }],
     pantry_items: [
       { id: 'pi1', name: 'Haferflocken zart', category: 'müsli', location_id: 'pl1', shelf_id: 'ps2', quantity: 2, unit: 'Packung', best_before: day(12), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: null, disposal_reason: '', household_id: HID, created_at: now },

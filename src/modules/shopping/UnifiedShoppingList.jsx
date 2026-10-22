@@ -13,6 +13,8 @@ import Icon from '../../ui/Icon'
 import { ListGroup, ListRow } from '../../ui/List'
 import { Segmented } from '../../ui/Controls'
 import { confirmAction, showToast } from '../../ui/feedback'
+import { DealsSection } from './DealsView'
+import { MODULES_ENABLED } from '../../branding'
 
 const BRING_POLL_MS = 180_000 // alle 3 Minuten
 const wineEmoji = c => (c === 'weiß' ? '🥂' : c === 'schaum' ? '🍾' : c === 'rosé' ? '🌸' : '🍷')
@@ -243,6 +245,8 @@ export default function UnifiedShoppingList({ onReview }) {
             ))}
           </ListGroup>
         )}
+
+        {MODULES_ENABLED && <DealsSection />}
 
         {/* ── Erledigt (eingebaute Liste) ──────────────────────────────── */}
         {checked.length > 0 && (

@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.5.0',
+    date: '2026-10-22',
+    entries: [
+      { type: 'new', text: 'Einkauf: Angebots-Merkliste. Produkte mit Zielpreis merken (z. B. Alpro No Milk) und mit „Alle prüfen“ nacheinander bei marktguru oder kaufDA nachschauen. Gefundene Angebote stehen oben im Einkauf – mit Preis, Händler und Gültigkeit.' },
+    ],
+  },
+  {
     version: '3.4.1',
     date: '2026-10-12',
     entries: [
