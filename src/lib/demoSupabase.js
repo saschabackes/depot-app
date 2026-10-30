@@ -43,6 +43,7 @@ function seed() {
       spice('sp5', 'Oregano', 'Fuchs', 'loc2', day(150), 2, 'gerebelt'),
       spice('sp6', 'Muskatnuss', 'Edora', 'loc2', day(700), 4, 'ganz', 'nachfuell', 50),
       spice('sp7', 'Currypulver', 'Ostmann', 'loc1', day(-10), 1),
+      spice('sp8', 'Basilikum', 'Fuchs', 'loc2', day(300), 3, 'gerebelt'),
     ],
     shopping_items: [
       { id: 'sh1', name: 'Milch', amount: '2 l', checked: false, household_id: HID, created_at: now },
