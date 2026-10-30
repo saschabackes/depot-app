@@ -1,6 +1,6 @@
 # Betrieb
 
-Wie Depot läuft: Aufbau, lokale Entwicklung, Deploy, Migrationen. Stand: 30.10.2026 (v3.5.1 live).
+Wie Depot läuft: Aufbau, lokale Entwicklung, Deploy, Migrationen. Stand: 30.10.2026 (v3.6.0 live).
 
 ## Aufbau
 

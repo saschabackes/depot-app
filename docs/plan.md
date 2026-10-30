@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 30.10.2026 – live v3.5.1, lokal fertig v3.6.0 (Migration 0013 ist eingespielt).
+ab. Stand: 30.10.2026 – live v3.6.0.
 
 ## Jetzt
 
@@ -11,7 +11,6 @@ ab. Stand: 30.10.2026 – live v3.5.1, lokal fertig v3.6.0 (Migration 0013 ist e
 | Gewürzmanager-Site: `main` steht seit 09.06. still (99 Commits hinter `haushalt-manager`). Klären, ob der Gewürzmanager die Neuerungen bekommen soll; wenn ja, `main` gezielt nachziehen und Site prüfen | Plattform | Leitstand | offen, Sascha entscheidet |
 
 
-| v3.6.0 Wochenplan deployen (Migration 0013 ist schon eingespielt) | Kochen | Leitstand | wartet auf „deploy“ |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -31,7 +30,7 @@ ab. Stand: 30.10.2026 – live v3.5.1, lokal fertig v3.6.0 (Migration 0013 ist e
 
 | Version | Inhalt |
 |---|---|
-| 3.6.0 | Wochenplan (Kochen): Rezepte auf Tage legen, Einplanen im Rezept, Fehlendes der Woche auf die Liste, Startseite zeigt Geplantes – lokal, noch nicht live |
+| 3.6.0 | Wochenplan (Kochen): Rezepte auf Tage legen, Einplanen im Rezept, Fehlendes der Woche auf die Liste, Startseite zeigt Geplantes |
 | 3.5.1 | Einkaufsliste: Abhak-Kreis und Entfernen als eigene Tippflächen (kein Button im Button) |
 | 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) |
 | 3.4.1 | Lagerort als erste Kachel im Gewürz-Detail |
