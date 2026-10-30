@@ -198,7 +198,7 @@ export default function UnifiedShoppingList({ onReview }) {
                     subtitle={isSpice ? 'Gewürz' : item.specification || null}
                     trailing={
                       <button onClick={() => bringDiscard(item, isSpice)} aria-label={`${item.name} entfernen`}
-                        className="w-11 h-11 -mr-2 flex-none flex items-center justify-center text-gray-400">
+                        className="relative w-11 h-11 -mr-2 flex-none flex items-center justify-center text-gray-400">
                         <Icon name="close" size={18} strokeWidth={2.2} />
                       </button>
                     } />
@@ -282,7 +282,7 @@ function Emoji({ children }) {
 function CheckCircle({ checked, onClick, label }) {
   return (
     <button onClick={e => { e.stopPropagation(); onClick() }} aria-label={label} aria-pressed={checked}
-      className="w-11 h-11 -ml-2.5 -my-1 flex-none flex items-center justify-center">
+      className="relative w-11 h-11 -ml-2.5 -my-1 flex-none flex items-center justify-center">
       <span className={`w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center transition-colors ${
         checked ? 'bg-primary-500 border-primary-500 text-white dark:bg-primary-400 dark:border-primary-400' : 'border-gray-300 dark:border-gray-600'}`}>
         {checked && <Icon name="check" size={15} strokeWidth={3} />}
@@ -296,7 +296,7 @@ function StoreTrailing({ onRemove, name }) {
     <span className="flex items-center flex-none">
       <span className="text-footnote font-semibold text-primary-500 dark:text-primary-300">Einräumen</span>
       <button onClick={e => { e.stopPropagation(); onRemove() }} aria-label={`${name} aus „Einräumen“ entfernen`}
-        className="w-11 h-11 -mr-2 flex items-center justify-center text-gray-400">
+        className="relative w-11 h-11 -mr-2 flex items-center justify-center text-gray-400">
         <Icon name="close" size={18} strokeWidth={2.2} />
       </button>
     </span>
