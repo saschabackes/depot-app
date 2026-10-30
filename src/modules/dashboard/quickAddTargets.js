@@ -46,7 +46,7 @@ const where = {
 /**
  * Ziele in der Reihenfolge, in der sie angezeigt werden; das erste ist der Vorschlag.
  * `have` zählt Treffer je Bereich, `onList` sagt, ob der Name schon offen auf der Einkaufsliste steht.
- * Rückgabe: [{ ...TARGET, suggested, hint }]
+ * Rückgabe: [{ ...TARGET, suggested, hint, onList }] – onList: steht schon offen auf der Einkaufsliste
  */
 export function rankTargets(query, { spices, freezerItems, bottles, pantryItems, shoppingItems, modulesEnabled }) {
   const name = cap(query.trim())
@@ -75,7 +75,7 @@ export function rankTargets(query, { spices, freezerItems, bottles, pantryItems,
     : have[t.id] > 0 ? where[t.id](have[t.id]) : null
 
   return [...active.filter(t => t.id === top), ...active.filter(t => t.id !== top)]
-    .map(t => ({ ...t, suggested: t.id === top, hint: hintFor(t) }))
+    .map(t => ({ ...t, suggested: t.id === top, hint: hintFor(t), onList: t.id === 'shopping' && onList }))
 }
 
 export { cap as capitalizeName }

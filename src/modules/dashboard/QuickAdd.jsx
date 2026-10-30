@@ -47,8 +47,9 @@ export default function QuickAdd({ query, onDone }) {
 
   function start(id) {
     if (id === 'shopping') {
-      addShoppingItem(name, '', false)
-      showToast(`„${name}“ steht auf der Einkaufsliste.`)
+      // Steht es schon offen auf der Liste, nichts doppelt anlegen
+      if (targets.find(t => t.id === 'shopping')?.onList) showToast(`„${name}“ steht schon auf der Einkaufsliste.`)
+      else { addShoppingItem(name, '', false); showToast(`„${name}“ steht auf der Einkaufsliste.`) }
       onDone()
       return
     }

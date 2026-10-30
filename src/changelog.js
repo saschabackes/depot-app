@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.7.0',
+    date: '2026-10-31',
+    entries: [
+      { type: 'new', text: 'Schnell erfassen: Tippe auf der Startseite im Suchfeld einen Namen – darunter bietet Depot „neu anlegen“ an: Einkaufsliste sofort, Gewürze, Tiefkühl, Wein oder Vorrat mit vorausgefülltem Namen. Das wahrscheinlichste Ziel steht oben als Vorschlag.' },
+    ],
+  },
+  {
     version: '3.6.1',
     date: '2026-10-31',
     entries: [
