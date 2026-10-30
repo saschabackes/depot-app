@@ -5,6 +5,7 @@ import { useCellar } from '../modules/cellar/store'
 import { computeRecipeAvailability } from '../utils/inventoryMatch'
 import RecipeForm from './RecipeForm'
 import RecipeDetail, { AvailBar } from './RecipeDetail'
+import WeekPlan from './WeekPlan'
 import Screen, { BarButton } from '../ui/Screen'
 import Sheet from '../ui/Sheet'
 import Icon from '../ui/Icon'
@@ -27,6 +28,7 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
   const bottles = useCellar(s => s.bottles)
 
   const [mode, setMode]       = useState('list')
+  const [view, setView]       = useState('recipes') // 'recipes' | 'week'
   const [selectedId, setSelectedId] = useState(null)
   const [editing, setEditing] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -147,6 +149,16 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
   return (
     <Screen title="Kochen" actions={<BarButton icon="plus" label="Rezept hinzufügen" onClick={openNew} />}>
       {recipes.length > 0 && (
+        <div className="px-4 pb-2.5">
+          <Segmented label="Ansicht" value={view} onChange={setView}
+            options={[{ id: 'recipes', label: 'Rezepte' }, { id: 'week', label: 'Woche' }]} />
+        </div>
+      )}
+
+      {recipes.length > 0 && view === 'week' ? (
+        <WeekPlan onOpenRecipe={id => { setSelectedId(id); setMode('detail') }} />
+      ) : (<>
+      {recipes.length > 0 && (
         <div className="px-4 space-y-2.5">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
@@ -201,6 +213,8 @@ export default function RecipesView({ focusId = null, onFocusHandled = () => {} 
           </>
         )}
       </div>
+
+      </>)}
 
       {showFilters && (
         <FilterSheet onClose={() => setShowFilters(false)}

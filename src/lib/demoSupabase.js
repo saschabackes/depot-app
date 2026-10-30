@@ -4,6 +4,7 @@
 const HID = '00000000-0000-4000-8000-000000000001'
 const UID = '00000000-0000-4000-8000-0000000000aa'
 const now = new Date().toISOString()
+const localDay = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 const user = {
@@ -58,6 +59,11 @@ function seed() {
         ingredients: ['600 g Rindergulasch', '400 ml Rinderfond', '300 g Schalotten', '200 ml trockener Rotwein', '40 g Tomatenmark',
           '2-3 EL Butterschmalz', '1 Knoblauchzehe', '2 TL Paprika edelsüß', '1/2 TL Majoran', '1 Prise Salz'].map(name => ({ name, amount: '' })),
         steps: ['Fleisch anbraten.', 'Schmoren lassen.'], notes: '', household_id: HID, created_at: now },
+    ],
+    meal_plan: [
+      { id: 'mp1', household_id: HID, date: localDay(0), recipe_id: 'rc2', servings: null, position: 0, created_at: now },
+      { id: 'mp2', household_id: HID, date: localDay(1), recipe_id: 'rc1', servings: null, position: 0, created_at: now },
+      { id: 'mp3', household_id: HID, date: localDay(3), recipe_id: 'rc2', servings: 6, position: 0, created_at: now },
     ],
     activity_log: [],
     api_usage: [],
