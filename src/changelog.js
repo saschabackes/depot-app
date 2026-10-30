@@ -4,6 +4,14 @@
 
 export const CHANGELOG = [
   {
+    version: '3.6.0',
+    date: '2026-10-30',
+    entries: [
+      { type: 'new', text: 'Wochenplan: Unter Kochen auf „Woche“ umschalten und Rezepte auf die nächsten Tage legen – auch direkt im Rezept über „Einplanen“. Ein Tipp setzt alles Fehlende für die Woche auf die Einkaufsliste.' },
+      { type: 'improved', text: 'Startseite: „Heute kochen“ zeigt zuerst, was für heute geplant ist.' },
+    ],
+  },
+  {
     version: '3.5.1',
     date: '2026-10-30',
     entries: [
