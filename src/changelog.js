@@ -4,6 +4,14 @@
 
 export const CHANGELOG = [
   {
+    version: '3.6.1',
+    date: '2026-10-31',
+    entries: [
+      { type: 'fixed', text: 'Zutaten mit Mengenbereich („2-3 EL Butterschmalz“) landen jetzt sauber als „Butterschmalz“ auf der Einkaufsliste.' },
+      { type: 'improved', text: 'Rezept: „Fehlende auf die Einkaufsliste“ setzt nur noch, was dort noch nicht steht – wie die Wochenansicht.' },
+    ],
+  },
+  {
     version: '3.6.0',
     date: '2026-10-30',
     entries: [

@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 30.10.2026 – live v3.6.0.
+ab. Stand: 31.10.2026 – live v3.6.0, lokal fertig v3.6.1.
 
 ## Jetzt
 
@@ -12,24 +12,7 @@ ab. Stand: 30.10.2026 – live v3.6.0.
 
 
 
-| Zwei Kleinigkeiten Kochen (siehe Auftrag unten) | Kochen | Entwicklung | in Arbeit, Branch `kochen/zutaten-liste` |
-
-### Auftrag: Zwei Kleinigkeiten Kochen
-
-**1. Zutaten-Namen mit Mengenbereich.** `cleanIngredientName` in `src/utils/recipeParser.js` entfernt nur eine Zahl am
-Anfang. Aus „2-3 EL Butterschmalz“ wird deshalb „-3 EL Butterschmalz“ (Einkaufsliste, Rezeptdetail, Wochenansicht).
-Bereiche wie „2-3“, „2 – 3“, „2 bis 3“, „1½-2“ sollen komplett wegfallen, inklusive der Einheit dahinter → „Butterschmalz“.
-Mit ein paar Beispielen im Demo-Modus prüfen (Gulasch-Rezept hat so eine Zeile); normale Zeilen wie „600 g Rindergulasch“
-dürfen sich nicht ändern.
-
-**2. Rezeptdetail wie die Wochenansicht.** „Fehlende auf die Einkaufsliste“ im Rezeptdetail (`src/components/RecipeDetail.jsx`)
-setzt Zutaten auch dann auf die Liste, wenn sie schon drauf stehen. Gleiche Regel wie in `src/components/WeekPlan.jsx`
-(`toBuy`): offene Einträge der Einkaufsliste und Bring!-Einträge überspringen, Vergleich ohne Groß-/Kleinschreibung.
-Steht schon alles drauf, Knopf durch den Hinweis „Alles Fehlende steht schon auf der Einkaufsliste.“ ersetzen. Am besten
-die Logik an eine Stelle ziehen (kleine Hilfsfunktion), damit beide Ansichten dasselbe tun.
-
-**Regeln:** Branch `kochen/zutaten-liste` von `origin/haushalt-manager` im eigenen Worktree. Keine Migration. Prüfen laut
-Regel 6 mit echten Klicks. Changelog-Text in die PR-Beschreibung.
+| v3.6.1 deployen (keine Migration) | Kochen | Leitstand | wartet auf „deploy“ |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -47,6 +30,7 @@ Regel 6 mit echten Klicks. Changelog-Text in die PR-Beschreibung.
 
 | Version | Inhalt |
 |---|---|
+| 3.6.1 | Zutaten mit Mengenbereich sauber auf der Liste; Rezeptdetail setzt nur noch, was nicht schon drauf steht – lokal, noch nicht live |
 | 3.6.0 | Wochenplan (Kochen): Rezepte auf Tage legen, Einplanen im Rezept, Fehlendes der Woche auf die Liste, Startseite zeigt Geplantes |
 | 3.5.1 | Einkaufsliste: Abhak-Kreis und Entfernen als eigene Tippflächen (kein Button im Button) |
 | 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) |
