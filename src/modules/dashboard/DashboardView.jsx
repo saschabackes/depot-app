@@ -96,7 +96,7 @@ export default function DashboardView({ onNavigate, onOpenProfile }) {
             switch (s.id) {
               case 'attention': return <AttentionSection key={s.id} items={data.attention} onNavigate={onNavigate} />
               case 'counts':    return <CountsSection key={s.id} counts={data.counts} onNavigate={onNavigate} />
-              case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} counts={data.counts} onNavigate={onNavigate} />
+              case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} planned={data.planned} counts={data.counts} onNavigate={onNavigate} />
               case 'dailyfact': return <DailyFactSection key={s.id} fact={data.dailyFact} />
               case 'activity':  return data.recentActivity.length > 0 ? <ActivitySection key={s.id} items={data.recentActivity} /> : null
               default: return null
@@ -178,8 +178,11 @@ function CountsSection({ counts, onNavigate }) {
   )
 }
 
-function CookingSection({ suggestions, counts, onNavigate }) {
-  if (suggestions.length === 0) {
+function CookingSection({ suggestions, planned = [], counts, onNavigate }) {
+  // Was für heute geplant ist, steht zuerst; der Rest wird mit Vorschlägen aufgefüllt
+  const plannedIds = new Set(planned.map(p => p.recipe.id))
+  const items = [...planned, ...suggestions.filter(s => !plannedIds.has(s.recipe.id))].slice(0, Math.max(3, planned.length))
+  if (items.length === 0) {
     if (counts.recipes > 0) return null
     return (
       <section>
@@ -195,7 +198,7 @@ function CookingSection({ suggestions, counts, onNavigate }) {
     <section>
       <SectionTitle>Heute kochen</SectionTitle>
       <div className="space-y-2 px-4">
-        {suggestions.slice(0, 3).map(s => {
+        {items.map(s => {
           const total = s.totalFound + s.totalMissing
           return (
             <button key={s.recipe.id} onClick={() => onNavigate('recipes', s.recipe.id)}
@@ -205,12 +208,15 @@ function CookingSection({ suggestions, counts, onNavigate }) {
                 : <IconTile icon="pot" size={64} />}
               <div className="flex-1 min-w-0 space-y-1.5">
                 <p className="text-body font-semibold text-gray-900 dark:text-gray-100 truncate">{s.recipe.title}</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
-                    <div className="h-full bg-primary-500 dark:bg-primary-300" style={{ width: `${total ? (s.totalFound / total) * 100 : 0}%` }} />
+                {s.planned && <StatusPill tone="accent">Für heute geplant</StatusPill>}
+                {total > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                      <div className="h-full bg-primary-500 dark:bg-primary-300" style={{ width: `${total ? (s.totalFound / total) * 100 : 0}%` }} />
+                    </div>
+                    <span className="text-footnote text-gray-500 dark:text-gray-400 flex-none">{s.totalFound} von {total} da</span>
                   </div>
-                  <span className="text-footnote text-gray-500 dark:text-gray-400 flex-none">{s.totalFound} von {total} da</span>
-                </div>
+                )}
                 {s.matchedExpiring > 0 && <StatusPill tone="soon">Verbraucht {s.matchedExpiring}× bald Ablaufendes</StatusPill>}
               </div>
             </button>

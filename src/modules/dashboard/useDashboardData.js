@@ -6,6 +6,8 @@ import { usePantry } from '../pantry/store'
 import { getMhdStatus } from '../../utils/mhd'
 import { computeRecipeAvailability } from '../../utils/inventoryMatch'
 import { getPersonalizedFact } from './dailyFacts'
+import { useMealPlan, plannedOn } from '../../store/mealPlanStore'
+import { localISODate } from '../../utils/date'
 
 export default function useDashboardData() {
   const spices = useStore(s => s.spices)
@@ -15,6 +17,7 @@ export default function useDashboardData() {
   const freezerItems = useFreezer(s => s.items)
   const bottles = useCellar(s => s.bottles)
   const pantryItems = usePantry(s => s.items)
+  const mealPlan = useMealPlan(s => s.plan)
 
   return useMemo(() => {
     const activeSpices = spices.filter(sp => !sp.disposedAt)
@@ -83,6 +86,12 @@ export default function useDashboardData() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
 
+    // Für heute geplant: kommt in „Heute kochen“ vor den Vorschlägen
+    const planned = plannedOn(mealPlan, recipes, localISODate()).map(e => ({
+      recipe: e.recipe, planned: true,
+      ...computeRecipeAvailability(e.recipe, spices, freezerItems, bottles),
+    }))
+
     const recentActivity = activityLog.slice(0, 5)
 
     const now2 = new Date()
@@ -94,6 +103,6 @@ export default function useDashboardData() {
     }
     const dailyFact = getPersonalizedFact(dayOfYear, inventory)
 
-    return { counts, attention: topAttention, attentionAll: attention, suggestions, recentActivity, dailyFact }
-  }, [spices, freezerItems, bottles, pantryItems, shoppingItems, recipes, activityLog])
+    return { counts, attention: topAttention, attentionAll: attention, suggestions, planned, recentActivity, dailyFact }
+  }, [spices, freezerItems, bottles, pantryItems, shoppingItems, recipes, activityLog, mealPlan])
 }

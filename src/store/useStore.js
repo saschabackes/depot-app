@@ -6,6 +6,7 @@ import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { usePantry } from '../modules/pantry/store'
 import { useDeals } from '../modules/shopping/dealsStore'
+import { useMealPlan } from './mealPlanStore'
 import { synced, syncedAll, reportSyncError } from '../lib/sync'
 import { localISODate } from '../utils/date'
 
@@ -15,7 +16,7 @@ let loadWaiters = []
 
 // Setzt TK, Wein und Vorrat inkl. lokal gespeicherter Warteschlangen zurück
 function resetModuleStores() {
-  for (const store of [useFreezer, useCellar, usePantry, useDeals]) store.setState(store.getInitialState(), true)
+  for (const store of [useFreezer, useCellar, usePantry, useDeals, useMealPlan]) store.setState(store.getInitialState(), true)
 }
 
 const EMPTY_HOUSEHOLD_DATA = {
@@ -715,6 +716,7 @@ const useStore = create((set, get) => ({
         cellar._loadFromSupabase(household.id),
         pantry._loadFromSupabase(household.id),
         useDeals.getState()._loadFromSupabase(household.id),
+        useMealPlan.getState()._loadFromSupabase(household.id),
       ])
 
       if (!freezerResult.storages.length && !freezerResult.items.length) {
