@@ -14,21 +14,28 @@ export function ListGroup({ title, footer, children, className = '' }) {
 }
 
 export function ListRow({ leading, title, subtitle, trailing, chevron = false, onClick, tone = 'default', className = '' }) {
-  const Tag = onClick ? 'button' : 'div'
   const titleColor = tone === 'danger' ? 'text-expired dark:text-expired-dark'
     : tone === 'accent' ? 'text-primary-500 dark:text-primary-300'
     : 'text-gray-900 dark:text-gray-100'
+  const text = (
+    <>
+      <div className={`text-body font-semibold truncate ${titleColor}`}>{title}</div>
+      {subtitle && <div className="text-footnote text-gray-500 dark:text-gray-400 truncate">{subtitle}</div>}
+    </>
+  )
+  // Antippbare Zeile: Der Text ist der Button und spannt seine Tippfläche über die ganze Zeile auf.
+  // So bleiben Abhak-Kreis und Entfernen-Knopf (müssen `relative` sein) eigene Buttons – kein Button im Button.
   return (
-    <Tag onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 min-h-[50px] text-left ${onClick ? 'active:bg-gray-100 dark:active:bg-gray-700' : ''} ${className}`}>
+    <div className={`relative w-full flex items-center gap-3 px-4 py-2.5 min-h-[50px] text-left ${onClick ? 'has-[.row-main:active]:bg-gray-100 dark:has-[.row-main:active]:bg-gray-700' : ''} ${className}`}>
       {leading}
-      <div className="flex-1 min-w-0">
-        <div className={`text-body font-semibold truncate ${titleColor}`}>{title}</div>
-        {subtitle && <div className="text-footnote text-gray-500 dark:text-gray-400 truncate">{subtitle}</div>}
-      </div>
+      {onClick ? (
+        <button onClick={onClick} className="row-main flex-1 min-w-0 text-left after:content-[''] after:absolute after:inset-0">{text}</button>
+      ) : (
+        <div className="flex-1 min-w-0">{text}</div>
+      )}
       {trailing}
       {chevron && <Icon name="chevron" size={18} strokeWidth={2.2} className="text-gray-300 dark:text-gray-600" />}
-    </Tag>
+    </div>
   )
 }
 
