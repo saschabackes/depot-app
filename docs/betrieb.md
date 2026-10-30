@@ -1,6 +1,6 @@
 # Betrieb
 
-Wie Depot läuft: Aufbau, lokale Entwicklung, Deploy, Migrationen. Stand: 30.10.2026 (v3.5.0, noch nicht live).
+Wie Depot läuft: Aufbau, lokale Entwicklung, Deploy, Migrationen. Stand: 30.10.2026 (v3.5.0 live).
 
 ## Aufbau
 
@@ -27,9 +27,16 @@ Lokal (`npm run dev`) ist immer Depot aktiv.
 
 Produktionsstand von **Depot** ist der Branch **`haushalt-manager`**. `main` gehört zur **Gewürzmanager**-Site und steht seit 09.06.2026 still – nicht versehentlich dorthin pushen (siehe Plan).
 
+Immer aus einem **eigenen Worktree** deployen, nie aus dem gemeinsamen Ordner `~/Code/depot`: Dort arbeitet die
+Entwicklungs-Sitzung und wechselt Branches – `netlify deploy --build` baut sonst den falschen Stand (passiert am 30.10.).
+
 ```
 git push origin haushalt-manager
+git worktree add --detach /tmp/depot-deploy origin/haushalt-manager
+cp .env /tmp/depot-deploy/ && ln -s ~/Code/depot/node_modules /tmp/depot-deploy/node_modules
+cd /tmp/depot-deploy
 NETLIFY_SITE_ID=aac4e06e-ac62-4394-8037-1c4aeb4edc12 npx netlify deploy --build --prod --site=aac4e06e-ac62-4394-8037-1c4aeb4edc12
+cd ~/Code/depot && git worktree remove --force /tmp/depot-deploy
 ```
 
 **Falle Site-ID:** Ohne beide Angaben deployt die Netlify-CLI auf die **Gewürzmanager**-Site. Für Depot immer

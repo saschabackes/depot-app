@@ -1,21 +1,21 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 30.10.2026 – live v3.4.1, lokal fertig v3.5.0.
+ab. Stand: 30.10.2026 – live v3.5.0.
 
 ## Jetzt
 
 | Auftrag | Bereich | Sitzung | Stand |
 |---|---|---|---|
-| v3.5.0 Angebots-Merkliste deployen (Migration 0012 ist schon eingespielt) | Einkauf | Leitstand | wartet auf „deploy“ |
 | Alten iCloud-Ordner `…/Claude/Code/gewuerz-manager` löschen | Plattform | Leitstand | ab ~06.11. nach Saschas Okay |
 | Gewürzmanager-Site: `main` steht seit 09.06. still (99 Commits hinter `haushalt-manager`). Klären, ob der Gewürzmanager die Neuerungen bekommen soll; wenn ja, `main` gezielt nachziehen und Site prüfen | Plattform | Leitstand | offen, Sascha entscheidet |
+
+| Abhak-Kreis in der Einkaufsliste nicht mehr als Button im Button | Einkauf | Entwicklung | PR #4 offen, Leitstand prüft |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
 | Idee | Bereich | Notiz |
 |---|---|---|
-| Abhak-Kreis in der Einkaufsliste steckt in einer Schaltfläche (Konsolen-Warnung „button in button“) | Einkauf | klein, unsichtbar für Nutzer |
 | Wochenplan (Rezepte auf Tage legen, Zutaten auf die Liste) | Kochen | |
 | Push-Erinnerungen (Ablauf, Angebote) | Plattform | |
 | Schnell erfassen (ein Feld für alle Bereiche) | Bestand | |
@@ -29,7 +29,7 @@ ab. Stand: 30.10.2026 – live v3.4.1, lokal fertig v3.5.0.
 
 | Version | Inhalt |
 |---|---|
-| 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) – lokal, noch nicht live |
+| 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) |
 | 3.4.1 | Lagerort als erste Kachel im Gewürz-Detail |
 | 3.4.0 | Gewürz „Aufgebraucht“ mit optionalem Nachkauf |
 | 3.3.1 | Turnstile-Captcha robust (Neu-Einhängen, Timeout, Retry) |
