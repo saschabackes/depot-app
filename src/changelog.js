@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.5.1',
+    date: '2026-10-30',
+    entries: [
+      { type: 'fixed', text: 'Einkaufsliste: Abhaken und Entfernen sind jetzt sauber getrennte Tippflächen – keine Doppelauslösung mehr auf manchen Geräten.' },
+    ],
+  },
+  {
     version: '3.5.0',
     date: '2026-10-22',
     entries: [

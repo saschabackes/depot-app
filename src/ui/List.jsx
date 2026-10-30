@@ -24,7 +24,8 @@ export function ListRow({ leading, title, subtitle, trailing, chevron = false, o
     </>
   )
   // Antippbare Zeile: Der Text ist der Button und spannt seine Tippfläche über die ganze Zeile auf.
-  // So bleiben Abhak-Kreis und Entfernen-Knopf (müssen `relative` sein) eigene Buttons – kein Button im Button.
+  // So bleiben Abhak-Kreis und Entfernen-Knopf eigene Buttons – kein Button im Button. Eigene Knöpfe in leading
+  // oder trailing brauchen `relative z-10`, sonst liegen sie unter der Tippfläche (vor allem in leading).
   return (
     <div className={`relative w-full flex items-center gap-3 px-4 py-2.5 min-h-[50px] text-left ${onClick ? 'has-[.row-main:active]:bg-gray-100 dark:has-[.row-main:active]:bg-gray-700' : ''} ${className}`}>
       {leading}
