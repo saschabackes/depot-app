@@ -10,6 +10,7 @@ import { ListGroup } from '../ui/List'
 import { StatusPill } from '../ui/Controls'
 import { confirmAction, showToast } from '../ui/feedback'
 import { scaleIngredientLine } from '../utils/scaleRecipe'
+import { namesToBuy } from '../utils/shoppingMissing'
 import CookMode from './CookMode'
 import { PlanDaySheet } from './WeekPlan'
 
@@ -20,6 +21,8 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
   const deleteRecipe = useStore(s => s.deleteRecipe)
   const toggleFavorite = useStore(s => s.toggleFavorite)
   const addShoppingItem = useStore(s => s.addShoppingItem)
+  const shoppingItems = useStore(s => s.shoppingItems)
+  const bringItems = useStore(s => s.bringItems)
   const spices = useStore(s => s.spices)
   const locations = useStore(s => s.locations)
   const freezerItems = useFreezer(s => s.items)
@@ -54,11 +57,14 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
   const missing = avail?.missing ?? []
   const checked = avail ? avail.totalFound + avail.totalMissing : 0
 
+  // Nur, was noch nicht auf der Einkaufsliste (oder in Bring!) steht
+  const toBuy = useMemo(() => namesToBuy(missing, shoppingItems, bringItems), [missing, shoppingItems, bringItems])
+
   function addMissingToShopping() {
-    missing.forEach(name => addShoppingItem(name, '', true))
+    toBuy.forEach(name => addShoppingItem(name, '', true))
     setAddedMissing(true)
     if (navigator.vibrate) navigator.vibrate(30)
-    showToast(missing.length === 1 ? '1 Zutat steht auf der Einkaufsliste.' : `${missing.length} Zutaten stehen auf der Einkaufsliste.`)
+    showToast(toBuy.length === 1 ? '1 Zutat steht auf der Einkaufsliste.' : `${toBuy.length} Zutaten stehen auf der Einkaufsliste.`)
   }
 
   async function handleDelete() {
@@ -123,11 +129,13 @@ export default function RecipeDetail({ recipe, onBack, onEdit }) {
               </div>
               <AvailBar found={avail.totalFound} total={checked} className="mt-2" />
             </div>
-            {missing.length > 0 ? (
+            {toBuy.length > 0 || (addedMissing && missing.length > 0) ? (
               <button onClick={addMissingToShopping} disabled={addedMissing} className="btn-primary w-full">
                 <Icon name={addedMissing ? 'check' : 'cart'} size={20} />
                 {addedMissing ? 'Steht auf der Einkaufsliste' : 'Fehlende auf die Einkaufsliste'}
               </button>
+            ) : missing.length > 0 ? (
+              <p className="px-1 text-footnote text-gray-500 dark:text-gray-400">Alles Fehlende steht schon auf der Einkaufsliste.</p>
             ) : (
               <p className="px-1 text-footnote text-gray-500 dark:text-gray-400">Alles Nötige ist im Bestand – du kannst loslegen.</p>
             )}

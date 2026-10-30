@@ -4,6 +4,7 @@ import { useFreezer } from '../modules/freezer/store'
 import { useCellar } from '../modules/cellar/store'
 import { useMealPlan, weekDays, plannedOn } from '../store/mealPlanStore'
 import { computeRecipeAvailability } from '../utils/inventoryMatch'
+import { namesToBuy } from '../utils/shoppingMissing'
 import Sheet from '../ui/Sheet'
 import Icon from '../ui/Icon'
 import { ListGroup, ListRow, IconTile } from '../ui/List'
@@ -46,19 +47,10 @@ export default function WeekPlan({ onOpenRecipe }) {
 
   // Fehlendes aller geplanten Rezepte: jede Zutat nur einmal, nichts, was schon auf der Liste steht
   const toBuy = useMemo(() => {
-    const onList = new Set([
-      ...shoppingItems.filter(i => !i.checked).map(i => i.name),
-      ...bringItems.map(i => i.name),
-    ].map(n => n.trim().toLowerCase()))
-    const wanted = new Map()
-    weekRecipes.forEach(r => {
-      if (!r.ingredients?.length) return
-      computeRecipeAvailability(r, spices, freezerItems, bottles).missing.forEach(name => {
-        const key = name.trim().toLowerCase()
-        if (!wanted.has(key) && !onList.has(key)) wanted.set(key, name)
-      })
-    })
-    return [...wanted.values()]
+    const missing = weekRecipes
+      .filter(r => r.ingredients?.length)
+      .flatMap(r => computeRecipeAvailability(r, spices, freezerItems, bottles).missing)
+    return namesToBuy(missing, shoppingItems, bringItems)
   }, [weekRecipes, spices, freezerItems, bottles, shoppingItems, bringItems])
 
   function addWeekToShopping() {
