@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 31.10.2026 – live v3.6.0, lokal fertig v3.6.1.
+ab. Stand: 31.10.2026 – live v3.6.1.
 
 ## Jetzt
 
@@ -12,7 +12,6 @@ ab. Stand: 31.10.2026 – live v3.6.0, lokal fertig v3.6.1.
 
 
 
-| v3.6.1 deployen (keine Migration) | Kochen | Leitstand | wartet auf „deploy“ |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -30,7 +29,7 @@ ab. Stand: 31.10.2026 – live v3.6.0, lokal fertig v3.6.1.
 
 | Version | Inhalt |
 |---|---|
-| 3.6.1 | Zutaten mit Mengenbereich sauber auf der Liste; Rezeptdetail setzt nur noch, was nicht schon drauf steht – lokal, noch nicht live |
+| 3.6.1 | Zutaten mit Mengenbereich sauber auf der Liste; Rezeptdetail setzt nur noch, was nicht schon drauf steht |
 | 3.6.0 | Wochenplan (Kochen): Rezepte auf Tage legen, Einplanen im Rezept, Fehlendes der Woche auf die Liste, Startseite zeigt Geplantes |
 | 3.5.1 | Einkaufsliste: Abhak-Kreis und Entfernen als eigene Tippflächen (kein Button im Button) |
 | 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) |
