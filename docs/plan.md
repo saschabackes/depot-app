@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 30.10.2026 – live v3.5.0, lokal fertig v3.5.1.
+ab. Stand: 30.10.2026 – live v3.5.1.
 
 ## Jetzt
 
@@ -10,7 +10,6 @@ ab. Stand: 30.10.2026 – live v3.5.0, lokal fertig v3.5.1.
 | Alten iCloud-Ordner `…/Claude/Code/gewuerz-manager` löschen | Plattform | Leitstand | ab ~06.11. nach Saschas Okay |
 | Gewürzmanager-Site: `main` steht seit 09.06. still (99 Commits hinter `haushalt-manager`). Klären, ob der Gewürzmanager die Neuerungen bekommen soll; wenn ja, `main` gezielt nachziehen und Site prüfen | Plattform | Leitstand | offen, Sascha entscheidet |
 
-| v3.5.1 deployen (kein Migrationsbedarf) | Einkauf | Leitstand | wartet auf „deploy“ |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -29,7 +28,7 @@ ab. Stand: 30.10.2026 – live v3.5.0, lokal fertig v3.5.1.
 
 | Version | Inhalt |
 |---|---|
-| 3.5.1 | Einkaufsliste: Abhak-Kreis und Entfernen als eigene Tippflächen (kein Button im Button) – lokal, noch nicht live |
+| 3.5.1 | Einkaufsliste: Abhak-Kreis und Entfernen als eigene Tippflächen (kein Button im Button) |
 | 3.5.0 | Angebots-Merkliste mit Ein-Klick-Prüfung (marktguru/kaufDA) |
 | 3.4.1 | Lagerort als erste Kachel im Gewürz-Detail |
 | 3.4.0 | Gewürz „Aufgebraucht“ mit optionalem Nachkauf |
