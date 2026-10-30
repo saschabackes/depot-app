@@ -79,7 +79,8 @@ export function normalize(s) {
 export function cleanIngredientName(s) {
   return (s || '')
     .replace(/^optional:\s*/i, '')
-    .replace(/^\s*[\d¼½¾⅓⅔/.,]+\s*/, '')
+    // Menge am Anfang, auch als Bereich: „2“, „1½“, „1 1/2“, „2-3“, „2 – 3“, „2 bis 3“
+    .replace(/^\s*[\d¼½¾⅓⅔⅛][\d¼½¾⅓⅔⅛/.,]*(?:\s+\d+\/\d+)?(?:\s*(?:[-–—]|bis)\s*[\d¼½¾⅓⅔⅛][\d¼½¾⅓⅔⅛/.,]*(?:\s+\d+\/\d+)?)?\s*/i, '')
     .replace(/^(g|kg|ml|l|tl|el|msp\.?|prise[n]?|stangen?|zehen?|knolle[n]?|stück|bund|dose[n]?|pck\.?|päckchen|zweige?|scheibe[n]?|becher|glas|gläser|tasse[n]?|beutel|handvoll|kugel[n]?)\s+/i, '')
     .replace(/^(kleine[rsn]?|große[rsn]?|mittelgroße[rsn]?|mittlere[rsn]?)\s+/i, '')
     .replace(/\s*\([^)]*\)\s*$/, '')
