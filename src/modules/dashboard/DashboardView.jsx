@@ -11,6 +11,7 @@ import Screen from '../../ui/Screen'
 import Icon from '../../ui/Icon'
 import { ListGroup, ListRow, IconTile } from '../../ui/List'
 import { SearchField, StatusPill } from '../../ui/Controls'
+import QuickAdd from './QuickAdd'
 
 const TYPE_META = {
   spice:   { icon: 'leaf',   tone: 'spices',  section: 'spices',  label: 'Gewürze' },
@@ -86,7 +87,7 @@ export default function DashboardView({ onNavigate, onOpenProfile }) {
       </div>
 
       {query.trim() ? (
-        <GlobalSearchResults query={query.trim()} onNavigate={onNavigate} />
+        <GlobalSearchResults query={query.trim()} onNavigate={onNavigate} onCreated={() => setQuery('')} />
       ) : editing ? (
         <EditSections sections={sections} config={config} updateConfig={updateConfig} onDone={() => setEditing(false)} />
       ) : (
@@ -297,7 +298,7 @@ function EditSections({ sections, config, updateConfig, onDone }) {
   )
 }
 
-function GlobalSearchResults({ query, onNavigate }) {
+function GlobalSearchResults({ query, onNavigate, onCreated }) {
   const spices = useStore(s => s.spices)
   const recipes = useStore(s => s.recipes)
   const freezerItems = useFreezer(s => s.items)
@@ -316,19 +317,23 @@ function GlobalSearchResults({ query, onNavigate }) {
     ].slice(0, 30)
   }, [query, spices, recipes, freezerItems, bottles, pantryItems])
 
-  if (results.length === 0) {
-    return <p className="px-6 py-8 text-center text-callout text-gray-500 dark:text-gray-400">Nichts gefunden für „{query}“.</p>
-  }
   return (
-    <ListGroup title={`${results.length} Treffer`}>
-      {results.map(r => {
-        const meta = TYPE_META[r.type]
-        return (
-          <ListRow key={`${r.type}-${r.id}`} onClick={() => onNavigate(meta.section, r.id)} chevron
-            leading={<IconTile icon={meta.icon} tone={meta.tone} />}
-            title={r.name} subtitle={[meta.label, r.sub].filter(Boolean).join(' · ')} />
-        )
-      })}
-    </ListGroup>
+    <div className="space-y-5 pb-6">
+      {results.length === 0 ? (
+        <p className="px-6 pt-4 text-center text-callout text-gray-500 dark:text-gray-400">Nichts gefunden für „{query}“.</p>
+      ) : (
+        <ListGroup title={`${results.length} Treffer`}>
+          {results.map(r => {
+            const meta = TYPE_META[r.type]
+            return (
+              <ListRow key={`${r.type}-${r.id}`} onClick={() => onNavigate(meta.section, r.id)} chevron
+                leading={<IconTile icon={meta.icon} tone={meta.tone} />}
+                title={r.name} subtitle={[meta.label, r.sub].filter(Boolean).join(' · ')} />
+            )
+          })}
+        </ListGroup>
+      )}
+      <QuickAdd query={query} onDone={onCreated} />
+    </div>
   )
 }
