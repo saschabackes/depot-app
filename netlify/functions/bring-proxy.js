@@ -70,6 +70,13 @@ exports.handler = async function(event) {
   var p = Object.assign({}, body)
   delete p.action
 
+  // Bring!-Kennungen sind UUIDs; alles andere darf nicht in den URL-Pfad
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  var ids = ['listUuid', 'userUuid', 'rawUuid']
+  for (var k = 0; k < ids.length; k++) {
+    if (p[ids[k]] != null && p[ids[k]] !== '' && !UUID_RE.test(String(p[ids[k]]))) return err('Ungültige ' + ids[k], 400)
+  }
+
   // ── Login ────────────────────────────────────────────────────────────
   if (action === 'login') {
     if (!p.email || !p.password) return err('E-Mail und Passwort erforderlich')

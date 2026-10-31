@@ -69,6 +69,29 @@ async function fetchAllowed(url, options, maxHops = 5) {
   throw new Error('Zu viele Weiterleitungen')
 }
 
+// Antworten fremder Seiten nur bis zu dieser Größe lesen (Rezeptseiten sind deutlich kleiner)
+const MAX_BYTES = 3 * 1024 * 1024
+async function readLimited(res, max = MAX_BYTES) {
+  const declared = Number(res.headers.get('content-length') || 0)
+  if (declared > max) throw new Error('Antwort zu groß')
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const text = await res.text()
+    if (text.length > max) throw new Error('Antwort zu groß')
+    return text
+  }
+  const reader = res.body.getReader()
+  const chunks = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) { reader.cancel().catch(() => {}); throw new Error('Antwort zu groß') }
+    chunks.push(Buffer.from(value))
+  }
+  return Buffer.concat(chunks).toString('utf8')
+}
+
 let _cors
 function ok(d)  { return { statusCode: 200, headers: _cors, body: JSON.stringify(d) } }
 function err(m) { return { statusCode: 200, headers: _cors, body: JSON.stringify({ ok: false, error: m }) } }
@@ -161,7 +184,7 @@ async function fetchViaPage(vid) {
     },
   })
   if (!res.ok) return null
-  const html = await res.text()
+  const html = await readLimited(res)
 
   // Beschreibung: erst Player-JSON (vollständig), sonst og:description / meta
   const dm = html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/)
@@ -315,7 +338,7 @@ exports.handler = async function (event) {
         'Accept-Language': 'de-DE,de;q=0.9',
       },
     })
-    const html = await res.text()
+    const html = await readLimited(res)
     const recipe = extractJsonLdRecipe(html)
     const og = (prop) => {
       const m = html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
