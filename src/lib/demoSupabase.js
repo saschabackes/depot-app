@@ -43,6 +43,11 @@ function seed() {
       spice('sp5', 'Oregano', 'Fuchs', 'loc2', day(150), 2, 'gerebelt'),
       spice('sp6', 'Muskatnuss', 'Edora', 'loc2', day(700), 4, 'ganz', 'nachfuell', 50),
       spice('sp7', 'Currypulver', 'Ostmann', 'loc1', day(-10), 1),
+      // entsorgt: teils innerhalb, teils außerhalb von 3 Monaten
+      { ...spice('sp20', 'Paprika edelsüß', 'Ostmann', 'loc1', day(-40), 0), disposed_at: localDay(-20), disposal_reason: 'abgelaufen' },
+      { ...spice('sp21', 'Oregano', 'Fuchs', 'loc2', day(100), 0), disposed_at: localDay(-45), disposal_reason: 'schaedling' },
+      { ...spice('sp22', 'Majoran', 'Edora', 'loc1', day(-200), 0), disposed_at: localDay(-200), disposal_reason: 'abgelaufen' },
+      { ...spice('sp23', 'Paprika edelsüß', 'Fuchs', 'loc2', day(-420), 0), disposed_at: localDay(-400), disposal_reason: 'abgelaufen' },
       spice('sp8', 'Basilikum', 'Fuchs', 'loc2', day(300), 3, 'gerebelt'),
     ],
     shopping_items: [
@@ -88,6 +93,9 @@ function seed() {
     pantry_locations: [{ id: 'pl1', label: 'Vorratsschrank', emoji: '📦', shelves: [{ id: 'ps1', label: 'Fach 1' }, { id: 'ps2', label: 'Fach 2' }], sort_order: 0, household_id: HID, created_at: now }],
     pantry_items: [
       { id: 'pi1', name: 'Haferflocken zart', category: 'müsli', location_id: 'pl1', shelf_id: 'ps2', quantity: 2, unit: 'Packung', best_before: day(12), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: null, disposal_reason: '', household_id: HID, created_at: now },
+      { id: 'pi10', name: 'Haferflocken zart', category: 'müsli', location_id: 'pl1', shelf_id: 'ps2', quantity: 0, unit: 'Packung', best_before: day(-30), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: localDay(-15), disposal_reason: 'schimmel', household_id: HID, created_at: now },
+      { id: 'pi11', name: 'Weizenmehl 405', category: 'mehl', location_id: 'pl1', shelf_id: 'ps1', quantity: 0, unit: 'kg', best_before: day(-90), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: localDay(-60), disposal_reason: 'schaedling', household_id: HID, created_at: now },
+      { id: 'pi12', name: 'Basmatireis', category: 'reis', location_id: 'pl1', shelf_id: 'ps1', quantity: 0, unit: 'Packung', best_before: day(-150), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: localDay(-130), disposal_reason: 'abgelaufen', household_id: HID, created_at: now },
       { id: 'pi2', name: 'Weizenmehl 405', category: 'mehl', location_id: 'pl1', shelf_id: 'ps1', quantity: 1, unit: 'kg', best_before: day(180), opened_at: null, photo_data: null, barcode: '', note: '', needs_restock: false, disposed_at: null, disposal_reason: '', household_id: HID, created_at: now },
     ],
   }
