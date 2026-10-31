@@ -45,6 +45,17 @@ Git-Integration von `main` baut – dann liefe dort heute der ungehärtete Juni-
 6. Danach: Branch-Protection für `main` (nur PR), die fünf gemergten Feature-Branches auf GitHub löschen,
    Tag je Version (`v3.8.0`), README-Satz „Produktion: Branch `haushalt-manager`, Deploy per CLI“.
 
+**Ergebnis (31.10.2026, per Netlify-CLI nur lesend geprüft):**
+
+- Gewürzmanager-Site baut aus dem **separaten Repo** `gewuerz-manager` (Branch `main`, letzter Deploy 14.06.).
+  `main` von `depot-app` wird nirgends ausgeliefert → Punkte 1, 2 und 4 entfallen.
+- Depot-Site: Repo `depot-app`, Production branch `haushalt-manager`, Umgebungsvariablen vollständig.
+  Die Git-Builds von Netlify scheitern allerdings alle (Build-Schritt, Exit-Code 2); live geht nur der CLI-Deploy.
+  Offen: automatische Builds abschalten („Stop builds“), damit ein zufällig grüner Build nicht ungewollt deployt.
+- Punkt 5 erledigt: `haushalt-manager` → `main` per Fast-Forward (bf6ded1 → fbc400a), README nennt den
+  Produktionsbranch. Die alten `schema*.sql` sind damit auch von `main` verschwunden.
+- Punkt 6 offen: Branch-Schutz, Feature-Branches löschen, Tags – nur nach Saschas Okay.
+
 ## P-018 – Netlify-Functions (am Stand `haushalt-manager` geprüft)
 
 Bereits vorhanden (Commits `48a3b9c`/`5d850c2`): `verifyJwt` (Supabase `/auth/v1/user`) in `bring-proxy`,
