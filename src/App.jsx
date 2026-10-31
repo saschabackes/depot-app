@@ -7,6 +7,7 @@ import ExpiryView from './components/ExpiryView'
 import SettingsView from './components/SettingsView'
 import HelpView from './components/HelpView'
 import ActivityView from './components/ActivityView'
+import DisposedStatsView from './components/DisposedStatsView'
 import OnboardingView from './components/OnboardingView'
 import InventoryReviewView from './components/InventoryReviewView'
 import RecipesView from './components/RecipesView'
@@ -105,6 +106,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const [showDisposed, setShowDisposed] = useState(false)
   const [showReview, setShowReview] = useState(false)
   const [formPrefill, setFormPrefill] = useState(null)
   const [showSpiceSettings, setShowSpiceSettings] = useState(false)
@@ -264,7 +266,7 @@ export default function App() {
         {tab === 'kochen' && <RecipesView focusId={focusRecipeId} onFocusHandled={() => setFocusRecipeId(null)} />}
         {tab === 'einkauf' && <UnifiedShoppingList onReview={() => setShowReview(true)} />}
         {tab === 'mehr' && (
-          <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
+          <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)} onDisposed={() => setShowDisposed(true)}
             onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
         )}
       </main>
@@ -276,7 +278,7 @@ export default function App() {
 
       {showMore && !MODULES_ENABLED && (
         <div className="fixed inset-0 z-40 flex flex-col bg-gray-50 dark:bg-gray-900">
-          <MoreView onClose={() => setShowMore(false)} onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)}
+          <MoreView onClose={() => setShowMore(false)} onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)} onDisposed={() => setShowDisposed(true)}
             onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
         </div>
       )}
@@ -286,6 +288,7 @@ export default function App() {
       {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
       {showHelp && <HelpView onClose={() => setShowHelp(false)} />}
       {showActivity && <ActivityView onClose={() => setShowActivity(false)} />}
+      {showDisposed && <DisposedStatsView onClose={() => setShowDisposed(false)} onOpen={(target, id) => { setShowDisposed(false); setShowMore(false); openTarget(target, id) }} />}
       {pendingInvite && <InviteJoinDialog code={pendingInvite} onClose={() => setPendingInvite(null)} />}
       {showChangelog && <ChangelogView onClose={() => setShowChangelog(false)} />}
       <FeedbackHost />
