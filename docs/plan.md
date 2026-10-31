@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 31.10.2026 – live v3.8.0.
+ab. Stand: 31.10.2026 – live v3.8.0, lokal fertig v3.8.1.
 
 ## Jetzt
 
@@ -15,7 +15,8 @@ ab. Stand: 31.10.2026 – live v3.8.0.
 
 
 
-| Review-Befunde P-017/018/002/001 umgesetzt (Prüfung) – PR #9 offen, Checkliste in `docs/pruefung/2026-10-31-review-umsetzung.md` | Plattform | Leitstand | PR prüfen, mergen; Checkliste wartet auf Sascha |
+| v3.8.1 deployen (keine Migration) | Plattform | Leitstand | wartet auf „deploy“ |
+| Checkliste aus `docs/pruefung/2026-10-31-review-umsetzung.md` abarbeiten (Netlify-Deploy-Branch der Gewürzmanager-Site), danach `main` per Fast-Forward nachziehen | Plattform | Sascha, dann Leitstand | offen |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -31,6 +32,7 @@ ab. Stand: 31.10.2026 – live v3.8.0.
 
 | Version | Inhalt |
 |---|---|
+| 3.8.1 | Prüfung: Bring!-Kennungen nur als UUID, 3-MB-Limit im Rezept-Import, Baseline-Migration 0014, Prüfbericht – lokal, noch nicht live |
 | 3.8.0 | „Was wir wegwerfen“ im Tab Mehr: Entsorgtes nach Grund und Produkt, Zeitraum, Tipp |
 | 3.7.0 | Schnell erfassen: „neu anlegen“ aus dem Suchfeld der Startseite, mit Vorschlag des Ziels |
 | 3.6.1 | Zutaten mit Mengenbereich sauber auf der Liste; Rezeptdetail setzt nur noch, was nicht schon drauf steht |

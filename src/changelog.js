@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.8.1',
+    date: '2026-10-31',
+    entries: [
+      { type: 'fixed', text: 'Rezept-Import und Bring!-Anbindung prüfen Eingaben strenger (interne Härtung, für dich unsichtbar).' },
+    ],
+  },
+  {
     version: '3.8.0',
     date: '2026-10-31',
     entries: [
