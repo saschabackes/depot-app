@@ -25,7 +25,9 @@ Lokal (`npm run dev`) ist immer Depot aktiv.
 
 ## Deploy (nur Leitstand, nur nach Saschas „deploy“)
 
-Produktionsstand von **Depot** ist der Branch **`haushalt-manager`**. `main` gehört zur **Gewürzmanager**-Site und steht seit 09.06.2026 still – nicht versehentlich dorthin pushen (siehe Plan).
+Produktionsstand von **Depot** ist der Branch **`haushalt-manager`**. `main` wird vom Leitstand per Fast-Forward
+nachgezogen (`git push origin haushalt-manager:main`) und enthält denselben Stand; dort wird nicht direkt entwickelt.
+Die Gewürzmanager-Site baut aus dem separaten Repo `gewuerz-manager` (siehe Plan).
 
 Die Netlify-Site ist zwar mit dem Repo verknüpft (Production branch `haushalt-manager`), die automatischen
 Git-Builds sind aber seit 31.10.2026 **abgeschaltet** („Stop builds“): Ein Push oder Merge deployt nichts, es
