@@ -1,7 +1,7 @@
 # Plan
 
 Geführt vom **Leitstand** (Regeln: [CLAUDE.md](../CLAUDE.md)). Die Entwicklung arbeitet nur Aufträge aus „Als Nächstes“
-ab. Stand: 31.10.2026 – live v3.7.0, lokal fertig v3.8.0.
+ab. Stand: 31.10.2026 – live v3.8.0.
 
 ## Jetzt
 
@@ -14,7 +14,6 @@ ab. Stand: 31.10.2026 – live v3.7.0, lokal fertig v3.8.0.
 
 
 
-| v3.8.0 deployen (keine Migration) | Bestand | Leitstand | wartet auf „deploy“ |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -30,7 +29,7 @@ ab. Stand: 31.10.2026 – live v3.7.0, lokal fertig v3.8.0.
 
 | Version | Inhalt |
 |---|---|
-| 3.8.0 | „Was wir wegwerfen“ im Tab Mehr: Entsorgtes nach Grund und Produkt, Zeitraum, Tipp – lokal, noch nicht live |
+| 3.8.0 | „Was wir wegwerfen“ im Tab Mehr: Entsorgtes nach Grund und Produkt, Zeitraum, Tipp |
 | 3.7.0 | Schnell erfassen: „neu anlegen“ aus dem Suchfeld der Startseite, mit Vorschlag des Ziels |
 | 3.6.1 | Zutaten mit Mengenbereich sauber auf der Liste; Rezeptdetail setzt nur noch, was nicht schon drauf steht |
 | 3.6.0 | Wochenplan (Kochen): Rezepte auf Tage legen, Einplanen im Rezept, Fehlendes der Woche auf die Liste, Startseite zeigt Geplantes |
