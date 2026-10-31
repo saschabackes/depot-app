@@ -27,6 +27,11 @@ Lokal (`npm run dev`) ist immer Depot aktiv.
 
 Produktionsstand von **Depot** ist der Branch **`haushalt-manager`**. `main` gehört zur **Gewürzmanager**-Site und steht seit 09.06.2026 still – nicht versehentlich dorthin pushen (siehe Plan).
 
+Die Netlify-Site ist zwar mit dem Repo verknüpft (Production branch `haushalt-manager`), die automatischen
+Git-Builds sind aber seit 31.10.2026 **abgeschaltet** („Stop builds“): Ein Push oder Merge deployt nichts, es
+deployt nur der Leitstand per CLI. Vorher scheiterten die Git-Builds ohnehin alle; ein zufällig grüner Build hätte
+ungewollt deployt.
+
 Immer aus einem **eigenen Worktree** deployen, nie aus dem gemeinsamen Ordner `~/Code/depot`: Dort arbeitet die
 Entwicklungs-Sitzung und wechselt Branches – `netlify deploy --build` baut sonst den falschen Stand (passiert am 30.10.).
 
