@@ -79,6 +79,10 @@ Auth über Supabase Auth (E-Mail-Bestätigung + Passwort-Reset aktiviert).
 
 ## Deployment (Netlify)
 
+**Produktionsbranch ist `haushalt-manager`** (Depot, depotapp.online). `main` wird per Fast-Forward nachgezogen und
+enthält denselben Stand; entwickelt wird auf Feature-Branches mit Pull Request gegen `haushalt-manager`. Der Ablauf
+des Deploys steht in [docs/betrieb.md](docs/betrieb.md).
+
 1. Repo mit Netlify verbinden
 2. Build-Command `npm run build`, Publish-Dir `dist`
 3. Alle Environment-Variablen (siehe oben) in Netlify hinterlegen
