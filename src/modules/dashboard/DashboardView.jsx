@@ -18,6 +18,7 @@ const TYPE_META = {
   freezer: { icon: 'snow',   tone: 'freezer', section: 'freezer', label: 'Tiefkühl' },
   cellar:  { icon: 'wine',   tone: 'cellar',  section: 'cellar',  label: 'Wein' },
   pantry:  { icon: 'pantry', tone: 'pantry',  section: 'pantry',  label: 'Vorrat' },
+  post:    { icon: 'inbox',  tone: 'accent',  section: 'post',    label: 'Post' },
   recipe:  { icon: 'pot',    tone: 'accent',  section: 'recipes', label: 'Rezept' },
 }
 
@@ -30,6 +31,7 @@ const TILES = [
 
 const ALL_SECTIONS = [
   { id: 'attention', label: 'Braucht Aufmerksamkeit' },
+  { id: 'post',      label: 'Post' },
   { id: 'counts',    label: 'Bestand' },
   { id: 'cooking',   label: 'Heute kochen' },
   { id: 'dailyfact', label: 'Wusstest du?' },
@@ -41,7 +43,14 @@ const STORAGE_KEY = 'depot_dashboard_config_v2'
 function getConfig() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('depot_dashboard_config'))
-    if (saved?.order && saved?.visible) return saved
+    if (saved?.order && saved?.visible) {
+      // Neue Abschnitte (z. B. Post) erscheinen auch bei gespeicherter Anordnung, direkt nach „Braucht Aufmerksamkeit“
+      const missing = ALL_SECTIONS.map(s => s.id).filter(id => !saved.order.includes(id))
+      if (!missing.length) return saved
+      const order = [...saved.order]
+      order.splice(order.indexOf('attention') + 1, 0, ...missing)
+      return { order, visible: { ...saved.visible, ...Object.fromEntries(missing.map(id => [id, true])) } }
+    }
   } catch { /* Standard verwenden */ }
   return { order: ALL_SECTIONS.map(s => s.id), visible: Object.fromEntries(ALL_SECTIONS.map(s => [s.id, true])) }
 }
@@ -96,6 +105,7 @@ export default function DashboardView({ onNavigate, onOpenProfile }) {
             if (!config.visible[s.id]) return null
             switch (s.id) {
               case 'attention': return <AttentionSection key={s.id} items={data.attention} onNavigate={onNavigate} />
+              case 'post':      return <PostSection key={s.id} post={data.post} onNavigate={onNavigate} />
               case 'counts':    return <CountsSection key={s.id} counts={data.counts} onNavigate={onNavigate} />
               case 'cooking':   return <CookingSection key={s.id} suggestions={data.suggestions} planned={data.planned} counts={data.counts} onNavigate={onNavigate} />
               case 'dailyfact': return <DailyFactSection key={s.id} fact={data.dailyFact} />
@@ -150,6 +160,44 @@ function AttentionSection({ items, onNavigate }) {
             />
           )
         })}
+      </ListGroup>
+    </section>
+  )
+}
+
+function PostSection({ post, onNavigate }) {
+  if (post.total === 0) {
+    return (
+      <section>
+        <SectionTitle>Post</SectionTitle>
+        <ListGroup>
+          <ListRow onClick={() => onNavigate('post', 'capture')} chevron leading={<IconTile icon="inbox" />}
+            title="Briefe und Rechnungen" subtitle="Fotografieren, dann erinnert Depot an Zahlung und Einreichung." />
+        </ListGroup>
+      </section>
+    )
+  }
+  const parts = [
+    post.overdue > 0 && `${post.overdue} überfällig`,
+    post.soon > 0 && `${post.soon} bald fällig`,
+    post.submitCount > 0 && `${post.submitCount} einzureichen`,
+    post.sichten > 0 && `${post.sichten} neu`,
+    post.waitingFollowUp > 0 && `${post.waitingFollowUp} nachfassen`,
+  ].filter(Boolean)
+  return (
+    <section>
+      <SectionTitle>Post</SectionTitle>
+      <ListGroup>
+        <ListRow onClick={() => onNavigate('post')} chevron
+          leading={<IconTile icon="inbox" tone={post.overdue > 0 ? 'danger' : 'accent'} />}
+          title={parts.length ? 'Offene Post' : 'Alles erledigt'}
+          subtitle={parts.length ? parts.join(' · ') : 'Keine offene Post.'}
+          trailing={
+            <button onClick={() => onNavigate('post', 'capture')} aria-label="Brief erfassen"
+              className="relative z-10 w-11 h-11 flex-none flex items-center justify-center text-primary-500 dark:text-primary-300">
+              <Icon name="camera" size={22} />
+            </button>
+          } />
       </ListGroup>
     </section>
   )

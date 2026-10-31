@@ -15,6 +15,7 @@ import MoreView from './components/MoreView'
 import FreezerView from './modules/freezer/FreezerView'
 import CellarView from './modules/cellar/CellarView'
 import PantryView from './modules/pantry/PantryView'
+import PostView from './modules/post/PostView'
 import UnifiedShoppingList from './modules/shopping/UnifiedShoppingList'
 import SpiceSettings from './components/SpiceSettings'
 import SpiceSetup from './components/SpiceSetup'
@@ -23,6 +24,8 @@ import BestandView, { SectionBar } from './modules/bestand/BestandView'
 import { useFreezer } from './modules/freezer/store'
 import { useCellar } from './modules/cellar/store'
 import { usePantry } from './modules/pantry/store'
+import { usePost } from './modules/post/store'
+import { summarize as summarizePost } from './modules/post/logic'
 import { MODULES_ENABLED, APP_NAME } from './branding'
 import { hasUnseenChangelog } from './changelog'
 import ChangelogView from './components/ChangelogView'
@@ -76,6 +79,7 @@ export default function App() {
   function openTarget(target, id) {
     if (target === 'recipes') { if (id) setFocusRecipeId(id); return navigate('kochen') }
     if (target === 'shopping') return navigate('einkauf')
+    if (target === 'post') return setShowPost({ capture: id === 'capture', itemId: id && id !== 'capture' ? id : null })
     if (id) setFocus({ section: target, id })
     if (target === 'spices') setSpiceView('bestand')
     navigate('bestand', target)
@@ -112,12 +116,16 @@ export default function App() {
   const [showSpiceSettings, setShowSpiceSettings] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showMore, setShowMore] = useState(false)
+  const [showPost, setShowPost] = useState(null)
   const [swUpdate, setSwUpdate] = useState(false)
   const resolvePending = useStore(s => s.resolvePending)
   const spiceSetupDone = useStore(s => s.spiceSetupDone)
   const completeSpiceSetup = useStore(s => s.completeSpiceSetup)
   const shoppingOpen = useStore(s => s.shoppingItems.filter(i => !i.checked).length)
   const reviewCount = useStore(s => s.pendingInventory.filter(p => p.status === 'ready').length)
+  const postItems = usePost(s => s.items)
+  const postPersons = usePost(s => s.persons)
+  const postBadge = summarizePost(postItems, postPersons).badge
   const freezerReady = useFreezer(s => s.setupDone)
   const cellarReady = useCellar(s => s.setupDone)
   const pantryReady = usePantry(s => s.setupDone)
@@ -267,12 +275,13 @@ export default function App() {
         {tab === 'einkauf' && <UnifiedShoppingList onReview={() => setShowReview(true)} />}
         {tab === 'mehr' && (
           <MoreView onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)} onDisposed={() => setShowDisposed(true)}
-            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
+            onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)}
+            onPost={() => setShowPost({ capture: false })} />
         )}
       </main>
 
       {MODULES_ENABLED && (
-        <TabBar tabs={TABS.map(t => t.id === 'einkauf' ? { ...t, badge: shoppingOpen } : t.id === 'bestand' ? { ...t, badge: reviewCount } : t)} active={tab}
+        <TabBar tabs={TABS.map(t => t.id === 'einkauf' ? { ...t, badge: shoppingOpen } : t.id === 'bestand' ? { ...t, badge: reviewCount } : t.id === 'mehr' ? { ...t, badge: postBadge } : t)} active={tab}
           onChange={t => navigate(t)} />
       )}
 
@@ -280,6 +289,11 @@ export default function App() {
         <div className="fixed inset-0 z-40 flex flex-col bg-gray-50 dark:bg-gray-900">
           <MoreView onClose={() => setShowMore(false)} onSettings={() => setShowSettings(true)} onActivity={() => setShowActivity(true)} onDisposed={() => setShowDisposed(true)}
             onHelp={() => setShowHelp(true)} onChangelog={() => setShowChangelog(true)} onReview={() => setShowReview(true)} />
+        </div>
+      )}
+      {showPost && MODULES_ENABLED && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-gray-50 dark:bg-gray-900">
+          <PostView startCapture={showPost.capture} openId={showPost.itemId} onClose={() => setShowPost(null)} />
         </div>
       )}
       {showAddForm && <SpiceForm spice={editingSpice} prefill={formPrefill} onClose={handleFormClose} />}

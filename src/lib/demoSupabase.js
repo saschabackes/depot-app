@@ -26,6 +26,15 @@ const spice = (id, name, brand, loc, expiry, fill, form = 'gemahlen', pkg = 'fer
   fill_level: fill, form, disposed_at: null, disposal_reason: '', household_id: HID, created_at: now, updated_at: now,
 })
 
+// Post: erfundene Beispieldaten (Personen, Vorgänge in allen Zuständen)
+const postItem = (id, o) => ({
+  id, household_id: HID, created_by: UID, kind: 'rechnung', reviewed: true, sender: '', title: '', note: '', person_id: null,
+  received_on: localDay(-10), invoice_date: null, due_date: null, amount_cents: null, iban: '', reference: '', related_id: null,
+  original_location: '', pay_status: 'offen', paid_on: null, reimb_status: null, submitted_on: null, reimbursed_on: null,
+  reimbursed_cents: null, archived_at: null, created_at: now, ...o,
+})
+const postPage = (id, itemId, n = 0) => ({ id, household_id: HID, item_id: itemId, path: `${HID}/${itemId}/${n}.jpg`, sort_order: n, ocr_status: 'pending', ocr_text: null, suggested: null, created_at: now })
+
 function seed() {
   return {
     households: [{ id: HID, name: 'Demo-Haushalt', invite_code: 'DEMO2345', created_by: UID, created_at: now }],
@@ -74,6 +83,23 @@ function seed() {
     activity_log: [],
     api_usage: [],
     user_integrations: [],
+    post_persons: [
+      { id: 'pp1', household_id: HID, name: 'Anna', insurance: 'pkv', sort_order: 0, created_at: now },
+      { id: 'pp2', household_id: HID, name: 'Ben', insurance: 'gkv', sort_order: 1, created_at: now },
+      { id: 'pp3', household_id: HID, name: 'Mia', insurance: 'pkv', sort_order: 2, created_at: now },
+    ],
+    post_items: [
+      postItem('po1', { sender: 'Stadtwerke', due_date: localDay(-3), amount_cents: 8420, received_on: localDay(-14) }),
+      postItem('po2', { kind: 'arztrechnung', sender: 'Dr. Meier Zahnarzt', person_id: 'pp1', amount_cents: 21250, due_date: localDay(-20), pay_status: 'bezahlt', paid_on: localDay(-18), reimb_status: 'einzureichen' }),
+      postItem('po3', { kind: 'arztrechnung', sender: 'Praxis Dr. Lang', person_id: 'pp3', amount_cents: 6318, due_date: localDay(4), reimb_status: 'einzureichen' }),
+      postItem('po4', { sender: 'Mobilfunk Nord', due_date: localDay(20), amount_cents: 2999 }),
+      postItem('po5', { kind: null, reviewed: false, received_on: localDay(0) }),
+      postItem('po6', { kind: 'arztrechnung', sender: 'Augenarzt Weber', person_id: 'pp1', amount_cents: 9800, due_date: localDay(-40), pay_status: 'bezahlt', paid_on: localDay(-38), reimb_status: 'eingereicht', submitted_on: localDay(-35) }),
+      postItem('po7', { sender: 'Hausrat Versicherung', amount_cents: 12500, due_date: localDay(-60), pay_status: 'bezahlt', paid_on: localDay(-58), received_on: localDay(-70) }),
+      postItem('po8', { kind: 'arztrechnung', sender: 'Zahnarzt Zuzahlung', person_id: 'pp2', amount_cents: 4500, due_date: localDay(10) }),
+      postItem('po9', { kind: 'arztrechnung', sender: 'Kinderärztin Dr. Roth', person_id: 'pp3', amount_cents: 3120, due_date: localDay(-50), pay_status: 'bezahlt', paid_on: localDay(-49), reimb_status: 'erstattet', submitted_on: localDay(-45), reimbursed_on: localDay(-20), reimbursed_cents: 3120 }),
+    ],
+    post_pages: [postPage('pg1', 'po1'), postPage('pg2', 'po2'), postPage('pg3', 'po2', 1), postPage('pg4', 'po5')],
     freezer_storages: [{ id: 'fs1', label: 'Gefrierschrank Keller', emoji: '🧊', sort_order: 0, household_id: HID,
       compartments: [{ id: 'fc1', label: 'Schublade 1' }, { id: 'fc2', label: 'Schublade 2' }] }],
     freezer_items: [
@@ -171,11 +197,26 @@ class Query {
   }
 }
 
+// Fotos der Post: Hochgeladenes bleibt im Arbeitsspeicher, sonst erscheint eine Platzhalter-Seite
+const files = new Map()
+const placeholderPage = path => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="#faf8f2"/><rect x="40" y="40" width="200" height="24" fill="#c9c4b5"/>${Array.from({ length: 14 }, (_, i) => `<rect x="40" y="${120 + i * 36}" width="${i % 5 === 4 ? 320 : 520}" height="12" fill="#e2ded1"/>`).join('')}<text x="40" y="760" font-family="sans-serif" font-size="22" fill="#8a8575">Demo-Brief ${path.split('/').pop()}</text></svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+const demoStorage = {
+  from: () => ({
+    async upload(path, blob) { files.set(path, blob); return { data: { path }, error: null } },
+    async createSignedUrl(path) { return { data: { signedUrl: files.has(path) ? URL.createObjectURL(files.get(path)) : placeholderPage(path) }, error: null } },
+    async remove(paths) { paths.forEach(p => files.delete(p)); return { data: [], error: null } },
+  }),
+}
+
 const listeners = new Set()
 const session = { user, access_token: 'demo' }
 
 export const demoSupabase = {
   from: table => new Query(table),
+  storage: demoStorage,
   async rpc(name, args) {
     if (name === 'create_household') return { data: { ...db.households[0], role: 'owner' }, error: null }
     if (name === 'join_household') return { data: null, error: { message: 'invalid_code' } }
