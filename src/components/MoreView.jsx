@@ -3,8 +3,13 @@ import Screen from '../ui/Screen'
 import { ListGroup, ListRow, IconTile } from '../ui/List'
 import { confirmAction } from '../ui/feedback'
 import { hasUnseenChangelog, APP_VERSION } from '../changelog'
+import { usePost } from '../modules/post/store'
+import { summarize } from '../modules/post/logic'
 
-export default function MoreView({ onSettings, onActivity, onDisposed, onHelp, onChangelog, onReview, onClose }) {
+export default function MoreView({ onSettings, onActivity, onDisposed, onHelp, onChangelog, onReview, onPost, onClose }) {
+  const postItems = usePost(s => s.items)
+  const postPersons = usePost(s => s.persons)
+  const postBadge = summarize(postItems, postPersons).badge
   const user = useStore(s => s.user)
   const household = useStore(s => s.household)
   const signOut = useStore(s => s.signOut)
@@ -25,6 +30,13 @@ export default function MoreView({ onSettings, onActivity, onDisposed, onHelp, o
             leading={<span className="w-11 h-11 rounded-full bg-primary-50 dark:bg-primary-900 text-primary-500 dark:text-primary-200 flex items-center justify-center text-[17px] font-bold flex-none">{name.slice(0, 1).toUpperCase()}</span>}
             title={name} subtitle={[user?.email, household?.name].filter(Boolean).join(' · ')} />
         </ListGroup>
+
+        {onPost && (
+          <ListGroup>
+            <ListRow onClick={onPost} chevron leading={<IconTile icon="inbox" tone="accent" />} title="Post" subtitle="Briefe und Rechnungen"
+              trailing={postBadge > 0 ? <span className="text-callout font-semibold text-expired dark:text-expired-dark">{postBadge}</span> : null} />
+          </ListGroup>
+        )}
 
         <ListGroup>
           <ListRow onClick={onSettings} chevron leading={<IconTile icon="settings" tone="gray" />} title="Einstellungen" subtitle="Haushalt, Bring!, Cookidoo, Darstellung" />

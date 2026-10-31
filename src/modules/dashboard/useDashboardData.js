@@ -3,6 +3,8 @@ import useStore from '../../store/useStore'
 import { useFreezer, FREEZER_SHELF_LIFE } from '../freezer/store'
 import { useCellar } from '../cellar/store'
 import { usePantry } from '../pantry/store'
+import { usePost } from '../post/store'
+import { actionsOf, dueText, summarize } from '../post/logic'
 import { getMhdStatus } from '../../utils/mhd'
 import { computeRecipeAvailability } from '../../utils/inventoryMatch'
 import { getPersonalizedFact } from './dailyFacts'
@@ -17,6 +19,8 @@ export default function useDashboardData() {
   const freezerItems = useFreezer(s => s.items)
   const bottles = useCellar(s => s.bottles)
   const pantryItems = usePantry(s => s.items)
+  const postItems = usePost(s => s.items)
+  const postPersons = usePost(s => s.persons)
   const mealPlan = useMealPlan(s => s.plan)
 
   return useMemo(() => {
@@ -71,6 +75,14 @@ export default function useDashboardData() {
       }
     })
 
+    // Post: überfällig oder bald fällig bzw. lange ungesichtet; Einreichen und Warten laufen in der Post-Ansicht
+    postItems.forEach(item => {
+      const primary = actionsOf(item, postPersons)[0]
+      if (!primary || primary.urgency === 'later' || !['sichten', 'bezahlen'].includes(primary.type)) return
+      attention.push({ type: 'post', id: item.id, name: item.sender || 'Neuer Brief', status: primary.urgency === 'overdue' ? 'expired' : 'critical', label: dueText(primary, item), days: primary.days ?? 0 })
+    })
+    const post = { total: postItems.length, ...summarize(postItems, postPersons) }
+
     attention.sort((a, b) => a.days - b.days)
     const topAttention = attention.slice(0, 10)
 
@@ -103,6 +115,6 @@ export default function useDashboardData() {
     }
     const dailyFact = getPersonalizedFact(dayOfYear, inventory)
 
-    return { counts, attention: topAttention, attentionAll: attention, suggestions, planned, recentActivity, dailyFact }
-  }, [spices, freezerItems, bottles, pantryItems, shoppingItems, recipes, activityLog, mealPlan])
+    return { counts, post, attention: topAttention, attentionAll: attention, suggestions, planned, recentActivity, dailyFact }
+  }, [spices, freezerItems, bottles, pantryItems, postItems, postPersons, shoppingItems, recipes, activityLog, mealPlan])
 }
