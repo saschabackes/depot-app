@@ -34,6 +34,9 @@ Git-Builds sind aber seit 31.10.2026 **abgeschaltet** („Stop builds“): Ein P
 deployt nur der Leitstand per CLI. Vorher scheiterten die Git-Builds ohnehin alle; ein zufällig grüner Build hätte
 ungewollt deployt.
 
+`haushalt-manager` und `main` sind auf GitHub gegen Force-Push und Löschen geschützt (auch für Admins). Normale
+Pushes des Leitstands (Fast-Forward, Doku-Commits) gehen weiter; Feature-Branches werden nach dem Merge gelöscht.
+
 Immer aus einem **eigenen Worktree** deployen, nie aus dem gemeinsamen Ordner `~/Code/depot`: Dort arbeitet die
 Entwicklungs-Sitzung und wechselt Branches – `netlify deploy --build` baut sonst den falschen Stand (passiert am 30.10.).
 

@@ -15,7 +15,6 @@ ab. Stand: 31.10.2026 – live v3.8.1.
 
 
 
-| Branch-Schutz für `haushalt-manager`/`main` (nur per PR), gemergte Feature-Branches auf GitHub löschen | Plattform | Leitstand nach Saschas Okay | offen |
 
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
@@ -33,6 +32,7 @@ ab. Stand: 31.10.2026 – live v3.8.1.
 |---|---|
 | – | `main` per Fast-Forward auf `haushalt-manager` gebracht (31.10.), README nennt den Produktionsbranch |
 | – | Netlify: automatische Git-Builds der Depot-Site abgeschaltet, Deploy nur noch per CLI (31.10.) |
+| – | GitHub: `haushalt-manager` und `main` gegen Force-Push und Löschen geschützt, sechs gemergte Feature-Branches gelöscht (31.10.) |
 | 3.8.1 | Prüfung: Bring!-Kennungen nur als UUID, 3-MB-Limit im Rezept-Import, Baseline-Migration 0014, Prüfbericht |
 | 3.8.0 | „Was wir wegwerfen“ im Tab Mehr: Entsorgtes nach Grund und Produkt, Zeitraum, Tipp |
 | 3.7.0 | Schnell erfassen: „neu anlegen“ aus dem Suchfeld der Startseite, mit Vorschlag des Ziels |
