@@ -4,6 +4,13 @@
 
 export const CHANGELOG = [
   {
+    version: '3.8.0',
+    date: '2026-10-31',
+    entries: [
+      { type: 'new', text: '„Was wir wegwerfen“ im Tab Mehr: zeigt, was du in den letzten Monaten entsorgt hast – nach Grund und Produkt, mit einem Tipp, wie du künftig weniger wegwirfst.' },
+    ],
+  },
+  {
     version: '3.7.0',
     date: '2026-10-31',
     entries: [
