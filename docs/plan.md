@@ -15,6 +15,8 @@ ab. Stand: 31.10.2026 – live v3.8.0.
 
 
 
+| Review-Befunde P-017/018/002/001 umgesetzt (Prüfung) – PR #9 offen, Checkliste in `docs/pruefung/2026-10-31-review-umsetzung.md` | Plattform | Leitstand | PR prüfen, mergen; Checkliste wartet auf Sascha |
+
 ## Als Nächstes (Vorschläge, Sascha entscheidet)
 
 | Idee | Bereich | Notiz |
